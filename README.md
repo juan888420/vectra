@@ -39,14 +39,14 @@ Planned for the MVP (see [vision.md](docs/product/vision.md) for full scope):
 
 ## Tech stack
 
-| Layer | Technologies |
-|---|---|
+| Layer    | Technologies                                                                                                                                                 |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, shadcn/ui, React Router v7, TanStack Query, React Hook Form, Zod, Framer Motion, Recharts, Lucide React, Sonner |
-| Backend | Fastify, TypeScript, Prisma, PostgreSQL, JWT + Refresh Tokens, bcrypt, Zod |
-| DevOps | Docker, Docker Compose, ESLint, Prettier, Husky, lint-staged |
-| Testing | Vitest, Testing Library, Supertest |
-| Deploy | Vercel (frontend), Railway (backend), Neon or Railway PostgreSQL (database) |
-| Extras | OpenAPI / Swagger |
+| Backend  | Fastify, TypeScript, Prisma, PostgreSQL, JWT + Refresh Tokens, bcrypt, Zod                                                                                   |
+| DevOps   | Docker, Docker Compose, ESLint, Prettier, Husky, lint-staged                                                                                                 |
+| Testing  | Vitest, Testing Library, Supertest                                                                                                                           |
+| Deploy   | Vercel (frontend), Railway (backend), Neon or Railway PostgreSQL (database)                                                                                  |
+| Extras   | OpenAPI / Swagger                                                                                                                                            |
 
 Full rationale and role of each technology in [ADR-0001](docs/decisions/0001-tech-stack.md).
 
