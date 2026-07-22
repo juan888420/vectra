@@ -11,7 +11,6 @@
     "lint": "eslint ."
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "@vectra/config": "workspace:*"
+    "typescript": "^5.7.0"
   }
 }

@@ -39,9 +39,6 @@ importers:
         specifier: workspace:*
         version: link:../../packages/utils
     devDependencies:
-      '@vectra/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -58,9 +55,6 @@ importers:
         specifier: workspace:*
         version: link:../../packages/utils
     devDependencies:
-      '@vectra/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -79,27 +73,18 @@ importers:
 
   packages/types:
     devDependencies:
-      '@vectra/config':
-        specifier: workspace:*
-        version: link:../config
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
 
   packages/ui:
     devDependencies:
-      '@vectra/config':
-        specifier: workspace:*
-        version: link:../config
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
 
   packages/utils:
     devDependencies:
-      '@vectra/config':
-        specifier: workspace:*
-        version: link:../config
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
