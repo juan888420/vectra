@@ -1,6 +1,7 @@
 node_modules/
 dist/
 build/
+.turbo/
 .env
 .env.local
 .env.*.local
@@ -9,3 +10,4 @@ build/
 Thumbs.db
 .vscode/
 .idea/
+.claude/settings.local.json

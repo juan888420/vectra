@@ -1,0 +1,20 @@
+{
+  "name": "@vectra/web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"apps/web: nothing to run yet, scaffolded in RFC-0004\"",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"no lint configured yet\""
+  },
+  "dependencies": {
+    "@vectra/types": "workspace:*",
+    "@vectra/ui": "workspace:*",
+    "@vectra/utils": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

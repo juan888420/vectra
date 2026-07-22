@@ -1,0 +1,16 @@
+{
+  "name": "@vectra/ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"no lint configured yet\""
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
