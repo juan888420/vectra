@@ -1,6 +1,6 @@
-# Documentación — Pulse Finance
+# Documentación — Vectra
 
-Índice de la documentación del proyecto. Esta carpeta es la base de conocimiento para el desarrollo de Pulse Finance; se mantiene actualizada a medida que el producto y la arquitectura evolucionan.
+Índice de la documentación del proyecto. Esta carpeta es la base de conocimiento para el desarrollo de Vectra; se mantiene actualizada a medida que el producto y la arquitectura evolucionan.
 
 ## Estructura
 
