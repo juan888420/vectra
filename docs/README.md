@@ -14,6 +14,7 @@
 
 - **`decisions/`** — Architecture Decision Records (ADRs). Cada decisión relevante (stack, providers, patrones) se documenta aquí con contexto, opciones y estado.
   - [`0001-tech-stack.md`](decisions/0001-tech-stack.md): decisión de stack técnico (`accepted`).
+  - [`0002-prisma-domain-mapping.md`](decisions/0002-prisma-domain-mapping.md): mapeo del dominio al schema de Prisma (`accepted`).
 
 - **`glossary.md`** — términos de dominio financiero usados de forma consistente en todo el proyecto.
 
