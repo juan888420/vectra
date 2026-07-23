@@ -16,7 +16,8 @@ Se instaló Prisma 7.9 (última major). Dos cambios de convención respecto a Pr
 
 - La URL de conexión ya no vive en el bloque `datasource` del schema; se configura en [`prisma.config.ts`](../../apps/api/prisma.config.ts) vía `env("DATABASE_URL")`.
 - Prisma ya no carga `.env` automáticamente: `prisma.config.ts` importa `dotenv/config` (se añadió `dotenv` como devDependency de `apps/api`). Hay un `.env.example` committeado; el `.env` real está gitignoreado.
-- El generator es el nuevo `prisma-client` (genera TypeScript en `src/generated/prisma`, gitignoreado). El client generado no se usa todavía.
+- El generator es el nuevo `prisma-client` (genera TypeScript en `src/generated/prisma`, gitignoreado).
+- El client de Prisma 7 es Rust-free y se conecta mediante un driver adapter: `@prisma/adapter-pg` (RFC-0008). El singleton vive en `apps/api/src/db.ts`.
 
 ### Value object `Money` → columnas `amount` + `currency`
 
@@ -34,9 +35,11 @@ El flag conceptual `archived` se materializa como timestamp nullable (`null` = a
 - `Account`/`Category` → `Transaction` y `RecurringTransaction`: `onDelete: Restrict`. Refuerza a nivel DB la regla "archivar, nunca borrar" (regla de negocio 3): la DB rechaza el hard delete si existen movimientos.
 - `RecurringTransaction` → `Transaction`: `onDelete: SetNull`. Las transacciones generadas son independientes de su plantilla (regla de negocio 5) y sobreviven si esta se elimina.
 
-### Restricciones no expresables en Prisma (se difieren)
+### Restricciones no expresables en Prisma
 
-Quedan documentadas en comentarios `///` del schema y se aplican en la capa de servicio hasta la fase de migraciones, donde se añadirán como SQL crudo:
+> **Actualización (RFC-0008)**: las restricciones 1 y 2 ya se aplicaron como SQL crudo en la migración inicial (`20260723015119_init`). La 3 (inter-tabla) permanece en la capa de servicio por diseño.
+
+Quedan documentadas en comentarios `///` del schema:
 
 1. **Unicidad de `Budget` activo** (`user` + `category` + `period`): requiere un índice único parcial (`WHERE archived_at IS NULL`), que Prisma no soporta declarativamente. Un `@@unique` normal impediría recrear un presupuesto tras archivar el anterior.
 2. **`CHECK` de montos**: `amount > 0` en `Transaction`, `>= 0` en `SavingGoal` (regla de negocio 10).
