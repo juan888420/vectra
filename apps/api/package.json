@@ -10,10 +10,13 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@prisma/client": "^7.9.0",
     "@vectra/types": "workspace:*",
     "@vectra/utils": "workspace:*"
   },
   "devDependencies": {
+    "dotenv": "^17.4.2",
+    "prisma": "^7.9.0",
     "typescript": "^5.7.0"
   }
 }
