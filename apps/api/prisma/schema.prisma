@@ -1,0 +1,210 @@
+// Prisma schema for Vectra — 1:1 mapping of the approved domain design.
+// Source of truth for the domain: docs/architecture/data-model.md (RFC-0006).
+// Technical mapping decisions: docs/decisions/0002-prisma-domain-mapping.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Connection URL lives in prisma.config.ts (Prisma 7 convention).
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum TransactionType {
+  EXPENSE
+  INCOME
+}
+
+enum AccountType {
+  CASH
+  BANK
+  CREDIT_CARD
+  OTHER
+}
+
+enum BudgetPeriod {
+  MONTHLY
+}
+
+enum RecurrenceFrequency {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model User {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  email           String   @unique
+  /// ISO 4217 code. MVP: single currency per user (business rule 9).
+  defaultCurrency String   @db.Char(3)
+  timezone        String   @default("UTC")
+  /// First day of week for reports: 0 = Sunday … 6 = Saturday.
+  weekStartsOn    Int      @default(1) @db.SmallInt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  accounts              Account[]
+  categories            Category[]
+  budgets               Budget[]
+  recurringTransactions RecurringTransaction[]
+  savingGoals           SavingGoal[]
+
+  @@map("users")
+}
+
+model Account {
+  id         String      @id @default(uuid(7)) @db.Uuid
+  userId     String      @db.Uuid
+  name       String
+  type       AccountType
+  /// ISO 4217 code. Present per account from day one (scalability note, RFC-0006 §8).
+  currency   String      @db.Char(3)
+  /// Accounts with transactions are archived, never deleted (business rule 3).
+  archivedAt DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions          Transaction[]
+  recurringTransactions RecurringTransaction[]
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Category {
+  id         String          @id @default(uuid(7)) @db.Uuid
+  userId     String          @db.Uuid
+  name       String
+  /// A category is either expense or income, never both (business rule 2).
+  type       TransactionType
+  /// Categories with transactions are archived, never deleted (business rule 3).
+  archivedAt DateTime?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions          Transaction[]
+  budgets               Budget[]
+  recurringTransactions RecurringTransaction[]
+
+  @@index([userId])
+  @@map("categories")
+}
+
+/// Immutable ledger entry (RFC-0006 §1). Balances and budget progress are
+/// always derived from this table, never stored (business rule 7).
+model Transaction {
+  id                     String          @id @default(uuid(7)) @db.Uuid
+  accountId              String          @db.Uuid
+  /// Required: uncategorized transactions land in a per-user default
+  /// "Uncategorized" category (open question 3, resolved 2026-07-22).
+  categoryId             String          @db.Uuid
+  /// Set when generated from a template; the transaction stays independent
+  /// of later template edits (business rule 5).
+  recurringTransactionId String?         @db.Uuid
+  /// Money VO: amount + currency. Always positive; direction comes from `type`.
+  amount                 Decimal         @db.Decimal(12, 2)
+  currency               String          @db.Char(3)
+  /// Must match the category's type (business rule 2) — enforced in the
+  /// service layer, not expressible as a DB constraint via Prisma.
+  type                   TransactionType
+  /// Calendar date of the movement; time of day is not part of the domain.
+  date                   DateTime        @db.Date
+  note                   String?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  account              Account               @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category             Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  recurringTransaction RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, date])
+  @@index([categoryId, date])
+  @@map("transactions")
+}
+
+/// Template that generates Transactions over time; not itself a money movement.
+model RecurringTransaction {
+  id         String              @id @default(uuid(7)) @db.Uuid
+  userId     String              @db.Uuid
+  accountId  String              @db.Uuid
+  categoryId String              @db.Uuid
+  /// Money VO. The transaction type derives from the category (business rule 2).
+  amount     Decimal             @db.Decimal(12, 2)
+  currency   String              @db.Char(3)
+  frequency  RecurrenceFrequency
+  startDate  DateTime            @db.Date
+  endDate    DateTime?           @db.Date
+  isActive   Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  transactions Transaction[]
+
+  @@index([userId])
+  @@map("recurring_transactions")
+}
+
+model Budget {
+  id         String       @id @default(uuid(7)) @db.Uuid
+  userId     String       @db.Uuid
+  categoryId String       @db.Uuid
+  /// Money VO: spending limit for the category within each period.
+  amount     Decimal      @db.Decimal(12, 2)
+  currency   String       @db.Char(3)
+  period     BudgetPeriod
+  /// Archived in cascade with its category (RFC-0006 §7). Uniqueness of the
+  /// ACTIVE budget per user+category+period requires a partial unique index
+  /// (WHERE archived_at IS NULL) added via raw SQL in the migrations phase;
+  /// until then it is enforced in the service layer. See ADR-0002.
+  archivedAt DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([userId, categoryId])
+  @@map("budgets")
+}
+
+/// Designed now, implemented in roadmap Phase 3 — not part of the MVP build.
+model SavingGoal {
+  id            String     @id @default(uuid(7)) @db.Uuid
+  userId        String     @db.Uuid
+  name          String
+  /// Money VO. Both amounts are non-negative (business rule 10) — enforced in
+  /// the service layer; CHECK constraints are not expressible in Prisma schema.
+  targetAmount  Decimal    @db.Decimal(12, 2)
+  currentAmount Decimal    @default(0) @db.Decimal(12, 2)
+  currency      String     @db.Char(3)
+  targetDate    DateTime?  @db.Date
+  status        GoalStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("saving_goals")
+}
