@@ -17,7 +17,7 @@ Se instaló Prisma 7.9 (última major). Dos cambios de convención respecto a Pr
 - La URL de conexión ya no vive en el bloque `datasource` del schema; se configura en [`prisma.config.ts`](../../apps/api/prisma.config.ts) vía `env("DATABASE_URL")`.
 - Prisma ya no carga `.env` automáticamente: `prisma.config.ts` importa `dotenv/config` (se añadió `dotenv` como devDependency de `apps/api`). Hay un `.env.example` committeado; el `.env` real está gitignoreado.
 - El generator es el nuevo `prisma-client` (genera TypeScript en `src/generated/prisma`, gitignoreado).
-- El client de Prisma 7 es Rust-free y se conecta mediante un driver adapter: `@prisma/adapter-pg` (RFC-0008). El singleton vive en `apps/api/src/db.ts`.
+- El client de Prisma 7 es Rust-free y se conecta mediante un driver adapter: `@prisma/adapter-pg` (RFC-0008). El client se expone como plugin de Fastify en `apps/api/src/plugins/prisma.ts` (RFC-0009).
 
 ### Value object `Money` → columnas `amount` + `currency`
 
