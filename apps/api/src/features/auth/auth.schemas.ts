@@ -26,11 +26,5 @@ export const authResponseSchema = z.object({
   accessToken: z.string(),
 });
 
-export const errorResponseSchema = z.object({
-  statusCode: z.number(),
-  error: z.string(),
-  message: z.string(),
-});
-
 export type RegisterBody = z.infer<typeof registerBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
