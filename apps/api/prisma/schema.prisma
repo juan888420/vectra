@@ -51,6 +51,8 @@ enum GoalStatus {
 model User {
   id              String   @id @default(uuid(7)) @db.Uuid
   email           String   @unique
+  /// bcrypt hash — the plain password never touches the database (RFC-0010).
+  passwordHash    String
   /// ISO 4217 code. MVP: single currency per user (business rule 9).
   defaultCurrency String   @db.Char(3)
   timezone        String   @default("UTC")
@@ -64,8 +66,27 @@ model User {
   budgets               Budget[]
   recurringTransactions RecurringTransaction[]
   savingGoals           SavingGoal[]
+  refreshTokens         RefreshToken[]
 
   @@map("users")
+}
+
+/// One row per active session. Stores a SHA-256 hash of an opaque random
+/// token — never the token itself — so a DB leak cannot be replayed as a
+/// session. Rotated on every refresh; `revokedAt` supports logout and
+/// reuse detection (RFC-0010).
+model RefreshToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
 model Account {

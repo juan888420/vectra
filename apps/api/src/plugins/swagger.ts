@@ -12,6 +12,15 @@ export const swaggerPlugin = fp(async (app) => {
         description: "Personal finance tracker API",
         version: "0.1.0",
       },
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT",
+          },
+        },
+      },
     },
     // Converts route Zod schemas into the OpenAPI document.
     transform: jsonSchemaTransform,
