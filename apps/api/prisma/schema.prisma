@@ -115,6 +115,10 @@ model Category {
   name       String
   /// A category is either expense or income, never both (business rule 2).
   type       TransactionType
+  /// Marks the per-user "Sin categorizar" categories created at registration.
+  /// System categories cannot be renamed, archived or deleted: future flows
+  /// (transactions RFC) rely on them as the re-categorization fallback.
+  isSystem   Boolean         @default(false)
   /// Categories with transactions are archived, never deleted (business rule 3).
   archivedAt DateTime?
   createdAt  DateTime        @default(now())
