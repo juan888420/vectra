@@ -11,3 +11,15 @@ export const errorResponseSchema = z.object({
   error: z.string(),
   message: z.string(),
 });
+
+// Decimal(12,2): 10 integer digits + 2 decimal digits — shared by every
+// Money-shaped field (Transaction.amount, Budget.amount, ...).
+const MAX_MONEY_AMOUNT = 9_999_999_999.99;
+
+export const moneyAmountSchema = z
+  .number()
+  .positive()
+  .max(MAX_MONEY_AMOUNT, "Amount exceeds the maximum allowed")
+  .refine((value) => Math.round(value * 100) / 100 === value, {
+    message: "Amount must have at most 2 decimal places",
+  });

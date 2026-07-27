@@ -11,6 +11,7 @@ import {
 import { env } from "./config/env.js";
 import { accountsRoutes } from "./features/accounts/accounts.routes.js";
 import { authRoutes } from "./features/auth/auth.routes.js";
+import { budgetsRoutes } from "./features/budgets/budgets.routes.js";
 import { categoriesRoutes } from "./features/categories/categories.routes.js";
 import { healthRoutes } from "./features/health/health.routes.js";
 import { transactionsRoutes } from "./features/transactions/transactions.routes.js";
@@ -53,6 +54,7 @@ export async function buildApp() {
   await app.register(accountsRoutes, { prefix: "/accounts" });
   await app.register(categoriesRoutes, { prefix: "/categories" });
   await app.register(transactionsRoutes, { prefix: "/transactions" });
+  await app.register(budgetsRoutes, { prefix: "/budgets" });
 
   return app;
 }

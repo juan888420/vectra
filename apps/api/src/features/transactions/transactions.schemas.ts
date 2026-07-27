@@ -5,22 +5,12 @@ import {
   paginationQuerySchema,
   sortQuerySchema,
 } from "../../lib/pagination.js";
+import { moneyAmountSchema } from "../../lib/schemas.js";
 
 // Same enum as Category.type (TransactionType in the Prisma schema); kept
 // local to this feature rather than imported from categories/, per the
 // feature-based architecture (features don't reach into each other).
 export const transactionTypeSchema = z.enum(["EXPENSE", "INCOME"]);
-
-// Decimal(12,2): 10 integer digits + 2 decimal digits.
-const MAX_AMOUNT = 9_999_999_999.99;
-
-const amountSchema = z
-  .number()
-  .positive()
-  .max(MAX_AMOUNT, "Amount exceeds the maximum allowed")
-  .refine((value) => Math.round(value * 100) / 100 === value, {
-    message: "Amount must have at most 2 decimal places",
-  });
 
 export const transactionPublicSchema = z.object({
   id: z.uuid(),
@@ -42,7 +32,7 @@ export const createTransactionBodySchema = z.object({
   accountId: z.uuid(),
   categoryId: z.uuid(),
   type: transactionTypeSchema,
-  amount: amountSchema,
+  amount: moneyAmountSchema,
   date: z.iso.date(),
   note: z.string().trim().max(280).optional(),
 });
@@ -52,7 +42,7 @@ export const updateTransactionBodySchema = z
     accountId: z.uuid(),
     categoryId: z.uuid(),
     type: transactionTypeSchema,
-    amount: amountSchema,
+    amount: moneyAmountSchema,
     date: z.iso.date(),
     note: z.string().trim().max(280).nullable(),
   })
