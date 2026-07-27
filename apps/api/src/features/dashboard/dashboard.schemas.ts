@@ -1,12 +1,7 @@
 import { z } from "zod";
 
+import { periodTotalsSchema } from "../../lib/schemas.js";
 import { budgetPublicSchema } from "../budgets/budgets.schemas.js";
-
-const periodTotalsSchema = z.object({
-  income: z.number(),
-  expenses: z.number(),
-  balance: z.number(),
-});
 
 const accountBalanceSchema = z.object({
   accountId: z.uuid(),
