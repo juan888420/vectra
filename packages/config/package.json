@@ -5,17 +5,22 @@
   "type": "module",
   "exports": {
     "./eslint": "./eslint/base.mjs",
+    "./eslint-react": "./eslint/react.mjs",
     "./prettier": "./prettier.config.mjs",
     "./tsconfig.base.json": "./tsconfig.base.json"
   },
   "files": [
     "tsconfig.base.json",
     "eslint/base.mjs",
+    "eslint/react.mjs",
     "prettier.config.mjs"
   ],
   "dependencies": {
     "@eslint/js": "^9.15.0",
     "typescript-eslint": "^8.15.0",
-    "eslint-config-prettier": "^9.1.0"
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "globals": "^15.13.0"
   }
 }
