@@ -12,6 +12,14 @@ export const errorResponseSchema = z.object({
   message: z.string(),
 });
 
+// Income/expense/balance triple for a time window — shared by the dashboard
+// summary and every report endpoint.
+export const periodTotalsSchema = z.object({
+  income: z.number(),
+  expenses: z.number(),
+  balance: z.number(),
+});
+
 // Decimal(12,2): 10 integer digits + 2 decimal digits — shared by every
 // Money-shaped field (Transaction.amount, Budget.amount, ...).
 const MAX_MONEY_AMOUNT = 9_999_999_999.99;

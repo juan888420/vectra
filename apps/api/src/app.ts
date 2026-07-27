@@ -16,6 +16,7 @@ import { categoriesRoutes } from "./features/categories/categories.routes.js";
 import { dashboardRoutes } from "./features/dashboard/dashboard.routes.js";
 import { healthRoutes } from "./features/health/health.routes.js";
 import { recurringTransactionsRoutes } from "./features/recurring-transactions/recurring-transactions.routes.js";
+import { reportsRoutes } from "./features/reports/reports.routes.js";
 import { transactionsRoutes } from "./features/transactions/transactions.routes.js";
 import { usersRoutes } from "./features/users/users.routes.js";
 import { authPlugin } from "./plugins/auth.js";
@@ -59,6 +60,7 @@ export async function buildApp() {
   await app.register(budgetsRoutes, { prefix: "/budgets" });
   await app.register(dashboardRoutes, { prefix: "/dashboard" });
   await app.register(recurringTransactionsRoutes, { prefix: "/recurring-transactions" });
+  await app.register(reportsRoutes, { prefix: "/reports" });
 
   return app;
 }

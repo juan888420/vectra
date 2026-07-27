@@ -1,5 +1,7 @@
 import { getActiveBudgetsSummary } from "../budgets/budgets.service.js";
+import { chartColor } from "../../lib/chart-color.js";
 import { getMonthRange } from "../../lib/date-range.js";
+import { clamp, percentChange, round2 } from "../../lib/finance-math.js";
 import type { PrismaClient, TransactionType } from "../../generated/prisma/client.js";
 
 interface PeriodTotals {
@@ -9,14 +11,6 @@ interface PeriodTotals {
 }
 
 type BudgetStatus = "ON_TRACK" | "WARNING" | "EXCEEDED";
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
 
 function toTotals(sums: { income: number; expenses: number }): PeriodTotals {
   return {
@@ -77,23 +71,6 @@ async function getAccountBalances(prisma: PrismaClient, userId: string) {
   }));
 }
 
-// Deterministic per-category color (stable across requests and page
-// reloads), so a Recharts legend/pie doesn't reshuffle colors on refetch.
-// No design system input was given for this RFC, so this is a placeholder
-// generator, not a brand palette.
-function hashString(value: string): number {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash * 31 + value.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
-}
-
-function categoryColor(categoryId: string): string {
-  const hue = hashString(categoryId) % 360;
-  return `hsl(${hue}, 65%, 50%)`;
-}
-
 async function getSpendingByCategory(
   prisma: PrismaClient,
   userId: string,
@@ -122,7 +99,7 @@ async function getSpendingByCategory(
         categoryName: categoryById.get(sum.categoryId)?.name ?? "Unknown",
         amount,
         percentage: totalExpenses > 0 ? Math.round((amount / totalExpenses) * 1000) / 10 : 0,
-        color: categoryColor(sum.categoryId),
+        color: chartColor(sum.categoryId),
       };
     })
     .sort((a, b) => b.amount - a.amount);
@@ -147,13 +124,6 @@ async function getTopExpenses(
     date: transaction.date,
     note: transaction.note,
   }));
-}
-
-function percentChange(current: number, previous: number): number | null {
-  if (previous === 0) {
-    return current === 0 ? 0 : null;
-  }
-  return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
 // financialHealth is a heuristic, not a specified formula (the RFC only
