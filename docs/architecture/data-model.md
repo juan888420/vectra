@@ -45,8 +45,9 @@ Principio rector: el dominio modela un **libro de movimientos inmutable** (ledge
 
 - **Propósito**: plantilla que genera `Transaction` automáticamente cada cierto intervalo (salario mensual, suscripción).
 - **Responsabilidades**: producir transacciones concretas en su fecha correspondiente; no es en sí misma un movimiento de dinero.
-- **Información**: `Money`, `Category`, `Account`, `RecurrenceFrequency`, fecha de inicio, fecha de fin opcional, flag `active`.
+- **Información**: `Money`, `Category`, `Account`, `RecurrenceFrequency`, fecha de inicio, fecha de fin opcional, `nextExecutionDate` (próxima ocurrencia pendiente; administrada por el sistema, no editable por el usuario — ver [ADR-0003](../decisions/0003-recurring-transaction-scheduling.md)), flag `active`.
 - **Relaciones**: pertenece a `User`; genera muchas `Transaction` a lo largo del tiempo.
+- **Motor de ejecución** (RFC-0015): un processor interno, desacoplado de cualquier scheduler concreto (Cron, Railway, etc.), recorre las plantillas activas con `nextExecutionDate` vencida y genera las `Transaction` correspondientes de forma idempotente — nunca duplica una ocurrencia, incluso si corre dos veces o en paralelo. Ver [ADR-0003](../decisions/0003-recurring-transaction-scheduling.md) para la estrategia de cálculo de fechas.
 
 ### Budget
 
@@ -105,13 +106,13 @@ Un Value Object se identifica por sus atributos, no por un identificador propio;
 
 ## 6. Enums
 
-| Enum                  | Valores MVP                            | Reservado a futuro                                           |
-| --------------------- | -------------------------------------- | ------------------------------------------------------------ |
-| `TransactionType`     | `EXPENSE`, `INCOME`                    | `TRANSFER` (movimiento entre cuentas propias, no existe aún) |
-| `AccountType`         | `CASH`, `BANK`, `CREDIT_CARD`, `OTHER` | —                                                            |
-| `BudgetPeriod`        | `MONTHLY`                              | `WEEKLY`, `CUSTOM` (rango libre vía `DateRange`)             |
-| `RecurrenceFrequency` | `WEEKLY`, `MONTHLY`, `YEARLY`          | intervalos custom (ej. "cada 2 meses")                       |
-| `GoalStatus`          | `ACTIVE`, `COMPLETED`, `ABANDONED`     | —                                                            |
+| Enum                  | Valores MVP                                        | Reservado a futuro                                           |
+| --------------------- | -------------------------------------------------- | ------------------------------------------------------------ |
+| `TransactionType`     | `EXPENSE`, `INCOME`                                | `TRANSFER` (movimiento entre cuentas propias, no existe aún) |
+| `AccountType`         | `CASH`, `BANK`, `CREDIT_CARD`, `OTHER`             | —                                                            |
+| `BudgetPeriod`        | `MONTHLY`                                          | `WEEKLY`, `CUSTOM` (rango libre vía `DateRange`)             |
+| `RecurrenceFrequency` | `DAILY`, `WEEKLY`, `BIWEEKLY`, `MONTHLY`, `YEARLY` | intervalos custom (ej. "cada 2 meses")                       |
+| `GoalStatus`          | `ACTIVE`, `COMPLETED`, `ABANDONED`                 | —                                                            |
 
 `NotificationType` (mencionado como ejemplo en el RFC) no se define todavía: no hay entidad `Notification` en este modelo (ver sección 2).
 
