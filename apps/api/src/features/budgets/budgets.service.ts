@@ -1,3 +1,4 @@
+import { getMonthRange } from "../../lib/date-range.js";
 import { badRequest, conflict } from "../../lib/http-errors.js";
 import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
@@ -39,12 +40,8 @@ function withProgress(budget: Budget, spentRaw: number): PublicBudget {
 // adding WEEKLY/CUSTOM later (RFC-0006 §6) fails to compile here until handled.
 function getCurrentPeriodRange(period: BudgetPeriod): { start: Date; end: Date } {
   switch (period) {
-    case "MONTHLY": {
-      const now = new Date();
-      const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-      const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-      return { start, end };
-    }
+    case "MONTHLY":
+      return getMonthRange(0);
   }
 }
 
@@ -110,6 +107,35 @@ async function assertNoActiveBudget(
   }
 }
 
+// All budgets share BudgetPeriod.MONTHLY today, so one range covers a whole
+// batch; a single groupBy avoids an N+1 aggregate query per budget. Shared by
+// `listBudgets` (paginated) and `getActiveBudgetsSummary` (dashboard, unpaginated).
+async function withBatchProgress(
+  prisma: PrismaClient,
+  userId: string,
+  budgets: Budget[],
+): Promise<PublicBudget[]> {
+  const spentByCategory = new Map<string, number>();
+  if (budgets.length > 0) {
+    const { start, end } = getCurrentPeriodRange(budgets[0]!.period);
+    const sums = await prisma.transaction.groupBy({
+      by: ["categoryId"],
+      where: {
+        categoryId: { in: budgets.map((budget) => budget.categoryId) },
+        type: "EXPENSE",
+        date: { gte: start, lt: end },
+        account: { userId },
+      },
+      _sum: { amount: true },
+    });
+    for (const sum of sums) {
+      spentByCategory.set(sum.categoryId, Number(sum._sum.amount ?? 0));
+    }
+  }
+
+  return budgets.map((budget) => withProgress(budget, spentByCategory.get(budget.categoryId) ?? 0));
+}
+
 export async function listBudgets(
   prisma: PrismaClient,
   userId: string,
@@ -130,31 +156,18 @@ export async function listBudgets(
     }),
   ]);
 
-  // All budgets share BudgetPeriod.MONTHLY today, so one range covers the
-  // whole page; a single groupBy avoids N+1 aggregate queries.
-  const spentByCategory = new Map<string, number>();
-  if (budgets.length > 0) {
-    const { start, end } = getCurrentPeriodRange(budgets[0]!.period);
-    const sums = await prisma.transaction.groupBy({
-      by: ["categoryId"],
-      where: {
-        categoryId: { in: budgets.map((budget) => budget.categoryId) },
-        type: "EXPENSE",
-        date: { gte: start, lt: end },
-        account: { userId },
-      },
-      _sum: { amount: true },
-    });
-    for (const sum of sums) {
-      spentByCategory.set(sum.categoryId, Number(sum._sum.amount ?? 0));
-    }
-  }
-
-  const data = budgets.map((budget) =>
-    withProgress(budget, spentByCategory.get(budget.categoryId) ?? 0),
-  );
-
+  const data = await withBatchProgress(prisma, userId, budgets);
   return { data, meta: buildMeta(query, totalItems) };
+}
+
+// Unpaginated variant for the Dashboard (RFC-0014): it needs every active
+// budget's status, not one page of them.
+export async function getActiveBudgetsSummary(
+  prisma: PrismaClient,
+  userId: string,
+): Promise<PublicBudget[]> {
+  const budgets = await prisma.budget.findMany({ where: { userId, archivedAt: null } });
+  return withBatchProgress(prisma, userId, budgets);
 }
 
 export async function getBudget(
