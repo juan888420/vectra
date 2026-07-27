@@ -33,7 +33,9 @@ enum BudgetPeriod {
 }
 
 enum RecurrenceFrequency {
+  DAILY
   WEEKLY
+  BIWEEKLY
   MONTHLY
   YEARLY
 }
@@ -142,7 +144,10 @@ model Transaction {
   /// "Uncategorized" category (open question 3, resolved 2026-07-22).
   categoryId             String          @db.Uuid
   /// Set when generated from a template; the transaction stays independent
-  /// of later template edits (business rule 5).
+  /// of later template edits (business rule 5). Together with `date` it forms
+  /// a unique key: the processor can never generate the same occurrence twice
+  /// (RFC-0015 idempotency), while manual transactions (NULL here) are
+  /// unconstrained — Postgres treats NULLs as distinct in unique indexes.
   recurringTransactionId String?         @db.Uuid
   /// Money VO: amount + currency. Always positive; direction comes from `type`.
   amount                 Decimal         @db.Decimal(12, 2)
@@ -160,6 +165,7 @@ model Transaction {
   category             Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   recurringTransaction RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id], onDelete: SetNull)
 
+  @@unique([recurringTransactionId, date])
   @@index([accountId, date])
   @@index([categoryId, date])
   @@map("transactions")
@@ -177,6 +183,12 @@ model RecurringTransaction {
   frequency  RecurrenceFrequency
   startDate  DateTime            @db.Date
   endDate    DateTime?           @db.Date
+  /// System-managed schedule pointer: the next occurrence the processor
+  /// should generate. Seeded to `startDate` on create and advanced by the
+  /// processor — never set directly by the client (RFC-0015).
+  nextExecutionDate DateTime     @db.Date
+  /// Pause/resume switch. A paused template keeps its `nextExecutionDate`,
+  /// so resuming catches up rather than losing the schedule.
   isActive   Boolean             @default(true)
   createdAt  DateTime            @default(now())
   updatedAt  DateTime            @updatedAt
@@ -187,6 +199,7 @@ model RecurringTransaction {
   transactions Transaction[]
 
   @@index([userId])
+  @@index([isActive, nextExecutionDate])
   @@map("recurring_transactions")
 }
 

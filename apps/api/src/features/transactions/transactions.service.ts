@@ -1,7 +1,7 @@
 import { badRequest, notFound } from "../../lib/http-errors.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
+import { resolveActiveAccount, resolveActiveCategory } from "../../lib/resource-guards.js";
 import type {
-  Account,
   Category,
   Prisma,
   PrismaClient,
@@ -34,36 +34,6 @@ async function findOwnedTransactionOrFail(
     throw notFound("Transaction not found");
   }
   return transaction;
-}
-
-async function resolveAccount(
-  prisma: PrismaClient,
-  userId: string,
-  accountId: string,
-): Promise<Account> {
-  const account = await prisma.account.findFirst({ where: { id: accountId, userId } });
-  if (!account) {
-    throw notFound("Account not found");
-  }
-  if (account.archivedAt) {
-    throw badRequest("Cannot use an archived account");
-  }
-  return account;
-}
-
-async function resolveCategory(
-  prisma: PrismaClient,
-  userId: string,
-  categoryId: string,
-): Promise<Category> {
-  const category = await prisma.category.findFirst({ where: { id: categoryId, userId } });
-  if (!category) {
-    throw notFound("Category not found");
-  }
-  if (category.archivedAt) {
-    throw badRequest("Cannot use an archived category");
-  }
-  return category;
 }
 
 function assertTypeMatchesCategory(type: TransactionType, category: Category): void {
@@ -116,8 +86,8 @@ export async function createTransaction(
   userId: string,
   input: CreateTransactionBody,
 ): Promise<PublicTransaction> {
-  const account = await resolveAccount(prisma, userId, input.accountId);
-  const category = await resolveCategory(prisma, userId, input.categoryId);
+  const account = await resolveActiveAccount(prisma, userId, input.accountId);
+  const category = await resolveActiveCategory(prisma, userId, input.categoryId);
   assertTypeMatchesCategory(input.type, category);
 
   const transaction = await prisma.transaction.create({
@@ -149,13 +119,13 @@ export async function updateTransaction(
   // "selecting" a new archived resource, so it stays editable.
   const account =
     input.accountId && input.accountId !== existing.accountId
-      ? await resolveAccount(prisma, userId, input.accountId)
+      ? await resolveActiveAccount(prisma, userId, input.accountId)
       : null;
 
   const typeOrCategoryChanged =
     (input.categoryId && input.categoryId !== existing.categoryId) || input.type !== undefined;
   const category = typeOrCategoryChanged
-    ? await resolveCategory(prisma, userId, input.categoryId ?? existing.categoryId)
+    ? await resolveActiveCategory(prisma, userId, input.categoryId ?? existing.categoryId)
     : null;
 
   if (category) {

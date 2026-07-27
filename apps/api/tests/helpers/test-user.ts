@@ -55,9 +55,10 @@ export async function registerTestUser(app: FastifyInstance): Promise<TestUser> 
 }
 
 export async function cleanupTestUser(app: FastifyInstance, userId: string): Promise<void> {
-  // Transactions reference Account/Category with onDelete: Restrict, so the
-  // User's cascade delete (RefreshToken/Account/Category/...) fails unless
-  // they're removed first.
+  // Transactions and recurring templates reference Account/Category with
+  // onDelete: Restrict, so the User's cascade delete
+  // (RefreshToken/Account/Category/...) fails unless they're removed first.
   await app.prisma.transaction.deleteMany({ where: { account: { userId } } });
+  await app.prisma.recurringTransaction.deleteMany({ where: { userId } });
   await app.prisma.user.delete({ where: { id: userId } });
 }
