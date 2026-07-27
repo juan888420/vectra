@@ -1,6 +1,6 @@
-# Documentación — Pulse Finance
+# Documentación — Vectra
 
-Índice de la documentación del proyecto. Esta carpeta es la base de conocimiento para el desarrollo de Pulse Finance; se mantiene actualizada a medida que el producto y la arquitectura evolucionan.
+Índice de la documentación del proyecto. Esta carpeta es la base de conocimiento para el desarrollo de Vectra; se mantiene actualizada a medida que el producto y la arquitectura evolucionan.
 
 ## Estructura
 
@@ -14,6 +14,7 @@
 
 - **`decisions/`** — Architecture Decision Records (ADRs). Cada decisión relevante (stack, providers, patrones) se documenta aquí con contexto, opciones y estado.
   - [`0001-tech-stack.md`](decisions/0001-tech-stack.md): decisión de stack técnico (`accepted`).
+  - [`0002-prisma-domain-mapping.md`](decisions/0002-prisma-domain-mapping.md): mapeo del dominio al schema de Prisma (`accepted`).
 
 - **`glossary.md`** — términos de dominio financiero usados de forma consistente en todo el proyecto.
 
