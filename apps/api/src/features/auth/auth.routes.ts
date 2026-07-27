@@ -4,13 +4,9 @@ import { z } from "zod";
 
 import { env } from "../../config/env.js";
 import { unauthorized } from "../../lib/http-errors.js";
+import { errorResponseSchema } from "../../lib/schemas.js";
 import { toUserPublic } from "../users/users.schemas.js";
-import {
-  authResponseSchema,
-  errorResponseSchema,
-  loginBodySchema,
-  registerBodySchema,
-} from "./auth.schemas.js";
+import { authResponseSchema, loginBodySchema, registerBodySchema } from "./auth.schemas.js";
 import { loginUser, registerUser, revokeRefreshToken, rotateRefreshToken } from "./auth.service.js";
 
 export const REFRESH_COOKIE = "vectra_refresh";

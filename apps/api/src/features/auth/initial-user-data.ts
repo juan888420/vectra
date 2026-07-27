@@ -6,10 +6,12 @@ import type { Prisma, TransactionType } from "../../generated/prisma/client.js";
 
 // "Sin categorizar" exists once per TransactionType: a category is either
 // expense or income, never both (business rule 2), and transactions always
-// require a category (resolved open question 3).
-export const DEFAULT_CATEGORIES: { name: string; type: TransactionType }[] = [
-  { name: "Sin categorizar", type: "EXPENSE" },
-  { name: "Sin categorizar", type: "INCOME" },
+// require a category (resolved open question 3). They are system categories:
+// protected from rename/archive/delete because future flows use them as the
+// re-categorization fallback.
+export const DEFAULT_CATEGORIES: { name: string; type: TransactionType; isSystem?: boolean }[] = [
+  { name: "Sin categorizar", type: "EXPENSE", isSystem: true },
+  { name: "Sin categorizar", type: "INCOME", isSystem: true },
   { name: "Comida", type: "EXPENSE" },
   { name: "Transporte", type: "EXPENSE" },
   { name: "Vivienda", type: "EXPENSE" },

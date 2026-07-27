@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 
-import { errorResponseSchema } from "../auth/auth.schemas.js";
+import { errorResponseSchema } from "../../lib/schemas.js";
 import { getUserById } from "../auth/auth.service.js";
 import { toUserPublic, userPublicSchema } from "./users.schemas.js";
 
