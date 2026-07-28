@@ -1,43 +1,51 @@
-# Visión de producto — Pulse Finance
+# Visión de producto — Vectra
+
+> Actualizada tras el giro de producto registrado en [ADR-0004](../decisions/0004-expense-plans-pivot.md): los planes de gasto pasan a ser la feature central; el ledger de transacciones reales queda como feature secundaria.
 
 ## Problema
 
-La mayoría de las personas no tiene una vista clara y continua de en qué gasta su dinero. Las apps bancarias muestran movimientos aislados por cuenta, las hojas de cálculo requieren disciplina manual constante, y las soluciones existentes suelen ser o demasiado simples (solo registro) o demasiado complejas (planificación financiera completa). El resultado: la gente descubre que se salió del presupuesto cuando ya es tarde para corregirlo.
+La mayoría de las personas no sabe cuánto le cuesta realmente su estilo de vida, ni puede responder preguntas del tipo "¿qué pasa si además pago este servicio?" o "¿cuánto me cuesta esto de aquí a un año?". Las apps de finanzas personales típicas exigen registrar cada transacción manualmente (demasiada fricción para mantenerlo), y las hojas de cálculo requieren armar las fórmulas a mano cada vez que se quiere comparar una opción nueva. El resultado: la gente decide gastos recurrentes (suscripciones, servicios, hábitos) sin ver el costo acumulado ni comparar alternativas.
 
 ## Usuario objetivo
 
-Personas que gestionan sus finanzas personales por su cuenta (no equipos, no empresas) y quieren:
+Personas que gestionan sus finanzas por su cuenta y quieren:
 
-- Registrar sus gastos e ingresos de forma rápida y sin fricción.
-- Organizarlos por categorías con sentido para su vida (no categorías genéricas impuestas).
-- Ver si están dentro o fuera de presupuesto en tiempo real, no a fin de mes.
+- Armar listas nombradas de sus gastos recurrentes (suscripciones, servicios, hábitos) con precio y categoría, sin fricción.
+- Ver cuánto suma ese estilo de vida al mes, y cuánto costaría en 6 o 12 meses.
+- Comparar escenarios: "mi gasto actual" vs. "mi gasto actual + estas cosas nuevas", sin borrar ni rehacer nada.
+- Opcionalmente, contrastar un plan contra sus ingresos ("¿qué % de mi sueldo se va en esto?").
 
-No es el público objetivo (al menos no en el MVP): equipos, empresas, contadores gestionando múltiples clientes, ni usuarios que buscan asesoría de inversión.
+No es el público objetivo: equipos, empresas, contadores, ni usuarios que buscan asesoría de inversión.
 
 ## Propuesta de valor
 
-Pulse Finance da una fotografía honesta y actualizada de la salud financiera personal: cuánto entra, cuánto sale, en qué categorías, y qué tan cerca se está del presupuesto definido. Prioriza velocidad de registro y claridad visual sobre reportes exhaustivos.
+Vectra es un **simulador de planes de gasto**: en vez de registrar el pasado, el usuario modela su gasto recurrente y compara opciones de futuro. Crear un plan toma segundos, los totales y proyecciones se calculan solos, y los planes se componen entre sí para explorar "suposiciones" sin destruir las anteriores.
 
-## Alcance del MVP
+## Alcance del nuevo foco (MVP de planes)
 
 **Dentro de alcance:**
 
-- Registro manual de transacciones (gasto / ingreso) con monto, fecha, categoría y cuenta.
-- Categorías personalizables por el usuario (con un set inicial sugerido).
-- Cuentas múltiples (ej. efectivo, cuenta bancaria, tarjeta) para agrupar transacciones.
-- Presupuestos por categoría y por período (ej. mensual).
-- Vista de resumen: balance actual, gasto del período vs. presupuesto, desglose por categoría.
-- Transacciones recurrentes (ej. suscripciones, salario) que se registran automáticamente cada período.
+- Planes de gasto con nombre libre; cada plan agrupa ítems (nombre, precio, frecuencia mensual o anual, categoría).
+- Total mensual por plan (con prorrateo de ítems anuales) y proyección a 6 y 12 meses.
+- Total por categoría dentro de un plan (ej. "Tecnología: Claude + ChatGPT + Cursor = $X/mes").
+- Varios planes por usuario, con estados activo/inactivo y archivado.
+- Composición: un plan puede incluir otros planes por referencia viva (editar el plan base actualiza a quienes lo incluyen).
+- Categorías reutilizadas del dominio existente, con creación inline al añadir un ítem.
+- Fuentes de ingreso con nombre y vínculo opcional plan → fuente (cobertura: % consumido, restante).
+- Dashboard comparativo de planes (totales, proyecciones, escenarios lado a lado).
 
-**Fuera de alcance del MVP** (no significa nunca, ver [roadmap.md](roadmap.md)):
+**Fuera de alcance por ahora:**
 
-- Conexión automática con bancos (agregación vía Plaid o similar).
-- Multi-usuario / cuentas compartidas (ej. pareja, familia).
-- Proyecciones financieras, metas de ahorro avanzadas, o recomendaciones automáticas.
-- Exportación/reportes fiscales.
-- Soporte multi-moneda simultáneo.
+- Picos reales de cobros anuales en la proyección (mes exacto de cobro) — mejora futura sobre el prorrateo.
+- Conexión automática con bancos, multi-moneda simultáneo, multi-usuario.
+- Convertir un plan en transacciones reales del ledger automáticamente.
 
-## Métricas de éxito (cualitativas por ahora)
+## Feature secundaria: ledger de transacciones
 
-- Un usuario puede registrar una transacción en menos de 10 segundos.
-- Un usuario puede responder "¿cómo voy este mes respecto a mi presupuesto?" de un vistazo, sin cálculos manuales.
+El registro manual de transacciones reales (cuentas, categorías, transacciones, presupuestos, recurrencias) ya está construido y se conserva funcional, pero deja de dirigir el roadmap. A futuro puede alimentar los planes (ej. sugerir un plan a partir del gasto real registrado).
+
+## Métricas de éxito (cualitativas)
+
+- Un usuario puede crear su primer plan con 5 ítems en menos de 2 minutos.
+- Un usuario puede responder "¿cuánto me costaría este estilo de vida en un año?" de un vistazo.
+- Un usuario puede comparar dos escenarios de gasto sin duplicar ni borrar datos.
