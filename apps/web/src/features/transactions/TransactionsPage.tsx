@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@vectra/ui";
+import { formatDateOnly, formatMoney } from "@vectra/utils";
 import { MoreHorizontal, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -42,20 +43,6 @@ const PAGE_SIZE = 20;
 const ALL = "ALL";
 
 type FormDialogState = { mode: "create" } | { mode: "edit"; transaction: TransactionPublic } | null;
-
-function formatDateOnly(isoDate: string): string {
-  // The backend serializes `date` as a full ISO datetime ("2026-07-20T00:00:00.000Z"),
-  // not a bare date string — take just the date part before appending our own
-  // time-of-day, or the concatenation produces an unparseable string.
-  const datePart = isoDate.slice(0, 10);
-  return new Intl.DateTimeFormat(undefined, { timeZone: "UTC", dateStyle: "medium" }).format(
-    new Date(`${datePart}T00:00:00Z`),
-  );
-}
-
-function formatAmount(amount: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amount);
-}
 
 export function TransactionsPage() {
   const [page, setPage] = useState(1);
@@ -249,7 +236,7 @@ export function TransactionsPage() {
                 }
               >
                 {transaction.type === "INCOME" ? "+" : "-"}
-                {formatAmount(transaction.amount, transaction.currency)}
+                {formatMoney(transaction.amount, transaction.currency)}
               </span>
             ),
           },

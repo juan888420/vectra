@@ -14,7 +14,7 @@ import { NavLink, Outlet } from "react-router";
 import { useAuth } from "../features/auth/useAuth.js";
 
 const NAV_LINKS = [
-  { to: "/", label: "Inicio", end: true },
+  { to: "/", label: "Dashboard", end: true },
   { to: "/accounts", label: "Cuentas", end: false },
   { to: "/categories", label: "Categorías", end: false },
   { to: "/transactions", label: "Transacciones", end: false },

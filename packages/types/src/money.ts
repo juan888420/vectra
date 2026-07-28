@@ -13,3 +13,14 @@ export const moneyAmountSchema = z
   .refine((value) => Math.round(value * 100) / 100 === value, {
     message: "Amount must have at most 2 decimal places",
   });
+
+// Mirrors apps/api/src/lib/schemas.ts's periodTotalsSchema: shared shape for
+// any income/expenses/balance breakdown over a period (dashboard totals,
+// month comparisons), same reasoning as moneyAmountSchema above.
+export const periodTotalsSchema = z.object({
+  income: z.number(),
+  expenses: z.number(),
+  balance: z.number(),
+});
+
+export type PeriodTotals = z.infer<typeof periodTotalsSchema>;

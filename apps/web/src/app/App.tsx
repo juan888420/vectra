@@ -1,4 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider, Toaster } from "@vectra/ui";
 import { BrowserRouter } from "react-router";
 
@@ -17,6 +18,7 @@ export function App() {
         </BrowserRouter>
         <Toaster />
       </ThemeProvider>
+      {import.meta.env.DEV ? <ReactQueryDevtools initialIsOpen={false} /> : null}
     </QueryClientProvider>
   );
 }
