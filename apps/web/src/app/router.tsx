@@ -5,6 +5,7 @@ import { LoginPage } from "../features/auth/LoginPage.js";
 import { ProtectedRoute } from "../features/auth/ProtectedRoute.js";
 import { RegisterPage } from "../features/auth/RegisterPage.js";
 import { CategoriesPage } from "../features/categories/CategoriesPage.js";
+import { TransactionsPage } from "../features/transactions/TransactionsPage.js";
 import { Home } from "./Home.js";
 import { Layout } from "./Layout.js";
 
@@ -21,6 +22,7 @@ export function AppRoutes() {
           <Route path="/" element={<Home />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/transactions" element={<TransactionsPage />} />
         </Route>
       </Route>
     </Routes>

@@ -1,15 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createCategoryBodySchema, type CategoryPublic, type CategoryType } from "@vectra/types";
 import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Form,
   FormControl,
+  FormDialog,
   FormField,
   FormItem,
   FormLabel,
@@ -25,7 +18,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { ApiError } from "../../lib/api-client.js";
+import { applyConflictError } from "../../lib/form-errors.js";
 import { useCreateCategory, useUpdateCategory } from "./use-categories.js";
 
 const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
@@ -70,9 +63,7 @@ export function CategoryFormDialog({ open, onOpenChange, category }: CategoryFor
       }
       onOpenChange(false);
     } catch (error) {
-      if (error instanceof ApiError && error.statusCode === 409) {
-        form.setError("name", { message: error.message });
-      } else {
+      if (!applyConflictError(error, form, "name")) {
         toast.error("Something went wrong. Please try again.");
       }
     }
@@ -81,63 +72,56 @@ export function CategoryFormDialog({ open, onOpenChange, category }: CategoryFor
   const isSubmitting = createCategory.isPending || updateCategory.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit category" : "New category"}</DialogTitle>
-          <DialogDescription>
-            {isEditing
-              ? "The type of a category can't change once it's created."
-              : "Categories group your transactions for budgets and reports."}
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input autoComplete="off" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Type</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange} disabled={isEditing}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.entries(CATEGORY_TYPE_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving…" : "Save"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEditing ? "Edit category" : "New category"}
+      description={
+        isEditing
+          ? "The type of a category can't change once it's created."
+          : "Categories group your transactions for budgets and reports."
+      }
+      form={form}
+      onSubmit={onSubmit}
+      isSubmitting={isSubmitting}
+    >
+      <FormField
+        control={form.control}
+        name="name"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Name</FormLabel>
+            <FormControl>
+              <Input autoComplete="off" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="type"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Type</FormLabel>
+            <Select value={field.value} onValueChange={field.onChange} disabled={isEditing}>
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {Object.entries(CATEGORY_TYPE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </FormDialog>
   );
 }
