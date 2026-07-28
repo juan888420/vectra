@@ -1,8 +1,10 @@
 import { Route, Routes } from "react-router";
 
+import { AccountsPage } from "../features/accounts/AccountsPage.js";
 import { LoginPage } from "../features/auth/LoginPage.js";
 import { ProtectedRoute } from "../features/auth/ProtectedRoute.js";
 import { RegisterPage } from "../features/auth/RegisterPage.js";
+import { CategoriesPage } from "../features/categories/CategoriesPage.js";
 import { Home } from "./Home.js";
 import { Layout } from "./Layout.js";
 
@@ -17,6 +19,8 @@ export function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
+          <Route path="/accounts" element={<AccountsPage />} />
+          <Route path="/categories" element={<CategoriesPage />} />
         </Route>
       </Route>
     </Routes>

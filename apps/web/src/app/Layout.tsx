@@ -1,4 +1,5 @@
 import {
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -8,9 +9,15 @@ import {
   ThemeToggle,
 } from "@vectra/ui";
 import { LogOut, User } from "lucide-react";
-import { Outlet } from "react-router";
+import { NavLink, Outlet } from "react-router";
 
 import { useAuth } from "../features/auth/useAuth.js";
+
+const NAV_LINKS = [
+  { to: "/", label: "Home", end: true },
+  { to: "/accounts", label: "Accounts", end: false },
+  { to: "/categories", label: "Categories", end: false },
+];
 
 export function Layout() {
   const { user, logout } = useAuth();
@@ -18,7 +25,26 @@ export function Layout() {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="flex items-center justify-between border-b px-6 py-3">
-        <span className="text-sm font-semibold tracking-tight">Vectra</span>
+        <div className="flex items-center gap-6">
+          <span className="text-sm font-semibold tracking-tight">Vectra</span>
+          <nav className="flex items-center gap-4">
+            {NAV_LINKS.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.end}
+                className={({ isActive }) =>
+                  cn(
+                    "text-sm text-muted-foreground transition-colors hover:text-foreground",
+                    isActive && "font-medium text-foreground",
+                  )
+                }
+              >
+                {link.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <DropdownMenu>
