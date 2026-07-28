@@ -19,16 +19,23 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
+import type { z } from "zod";
 
 import { ApiError } from "../../lib/api-client.js";
 import { useAuth } from "./useAuth.js";
+
+// `defaultCurrency`/`timezone` carry schema defaults, so the form's *input*
+// type (before the resolver fills them in) leaves them optional — only the
+// resolver's *output* (RegisterBody) has them always present. RHF needs both
+// generics to type `onSubmit`'s `values` as the fully-resolved output.
+type RegisterFormValues = z.input<typeof registerBodySchema>;
 
 export function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<RegisterBody>({
+  const form = useForm<RegisterFormValues, unknown, RegisterBody>({
     resolver: zodResolver(registerBodySchema),
     defaultValues: { email: "", password: "" },
   });
