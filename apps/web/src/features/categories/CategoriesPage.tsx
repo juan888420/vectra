@@ -31,8 +31,8 @@ import {
 } from "./use-categories.js";
 
 const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
-  EXPENSE: "Expense",
-  INCOME: "Income",
+  EXPENSE: "Gasto",
+  INCOME: "Ingreso",
 };
 
 const PAGE_SIZE = 20;
@@ -58,7 +58,7 @@ export function CategoriesPage() {
         await archiveCategory.mutateAsync(category.id);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
     }
   }
 
@@ -67,7 +67,7 @@ export function CategoriesPage() {
     try {
       await deleteCategory.mutateAsync(pendingDelete.id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
     }
   }
 
@@ -77,13 +77,13 @@ export function CategoriesPage() {
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Categories</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Categorías</h1>
           <p className="text-sm text-muted-foreground">
-            Group your transactions for budgets and reports.
+            Agrupa tus transacciones para presupuestos y reportes.
           </p>
         </div>
         <Button onClick={() => setFormDialog({ mode: "create" })}>
-          <Plus /> New category
+          <Plus /> Nueva categoría
         </Button>
       </div>
 
@@ -96,21 +96,21 @@ export function CategoriesPage() {
             setPage(1);
           }}
         >
-          {includeArchived ? "Hide archived" : "Show archived"}
+          {includeArchived ? "Ocultar archivadas" : "Mostrar archivadas"}
         </Button>
       </div>
 
       <DataTable
         columns={[
-          { id: "name", header: "Name", cell: (category) => category.name },
-          { id: "type", header: "Type", cell: (category) => CATEGORY_TYPE_LABELS[category.type] },
+          { id: "name", header: "Nombre", cell: (category) => category.name },
+          { id: "type", header: "Tipo", cell: (category) => CATEGORY_TYPE_LABELS[category.type] },
           {
             id: "status",
-            header: "Status",
+            header: "Estado",
             cell: (category) => (
               <div className="flex gap-1.5">
-                {category.isSystem ? <Badge variant="outline">System</Badge> : null}
-                {category.archivedAt ? <Badge variant="secondary">Archived</Badge> : null}
+                {category.isSystem ? <Badge variant="outline">Sistema</Badge> : null}
+                {category.archivedAt ? <Badge variant="secondary">Archivada</Badge> : null}
               </div>
             ),
           },
@@ -121,7 +121,7 @@ export function CategoriesPage() {
             cell: (category) => (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label={`Actions for ${category.name}`}>
+                  <Button variant="ghost" size="icon" aria-label={`Acciones para ${category.name}`}>
                     <MoreHorizontal />
                   </Button>
                 </DropdownMenuTrigger>
@@ -130,21 +130,21 @@ export function CategoriesPage() {
                     disabled={category.isSystem}
                     onSelect={() => setFormDialog({ mode: "edit", category })}
                   >
-                    <Pencil /> Edit
+                    <Pencil /> Editar
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={category.isSystem}
                     onSelect={() => void handleToggleArchive(category)}
                   >
                     {category.archivedAt ? <ArchiveRestore /> : <Archive />}
-                    {category.archivedAt ? "Unarchive" : "Archive"}
+                    {category.archivedAt ? "Desarchivar" : "Archivar"}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={category.isSystem}
                     className="text-destructive focus:text-destructive"
                     onSelect={() => setPendingDelete(category)}
                   >
-                    <Trash2 /> Delete
+                    <Trash2 /> Eliminar
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -157,11 +157,11 @@ export function CategoriesPage() {
         emptyState={
           <EmptyState
             icon={Tags}
-            title="No categories yet"
-            description="Create your first category to start organizing transactions."
+            title="Todavía no hay categorías"
+            description="Crea tu primera categoría para empezar a organizar transacciones."
             action={
               <Button onClick={() => setFormDialog({ mode: "create" })}>
-                <Plus /> New category
+                <Plus /> Nueva categoría
               </Button>
             }
           />
@@ -171,7 +171,7 @@ export function CategoriesPage() {
       {data && data.meta.totalPages > 1 ? (
         <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Page {data.meta.page} of {data.meta.totalPages}
+            Página {data.meta.page} de {data.meta.totalPages}
           </span>
           <div className="flex gap-2">
             <Button
@@ -180,7 +180,7 @@ export function CategoriesPage() {
               disabled={page <= 1}
               onClick={() => setPage((value) => value - 1)}
             >
-              Previous
+              Anterior
             </Button>
             <Button
               variant="outline"
@@ -188,7 +188,7 @@ export function CategoriesPage() {
               disabled={page >= data.meta.totalPages}
               onClick={() => setPage((value) => value + 1)}
             >
-              Next
+              Siguiente
             </Button>
           </div>
         </div>
@@ -210,15 +210,15 @@ export function CategoriesPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete &quot;{pendingDelete?.name}&quot;?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar &quot;{pendingDelete?.name}&quot;?</AlertDialogTitle>
             <AlertDialogDescription>
-              This can&apos;t be undone. Categories with transactions or budgets can&apos;t be
-              deleted, archive them instead.
+              Esta acción no se puede deshacer. Las categorías con transacciones o presupuestos no
+              se pueden eliminar, archívalas en su lugar.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>Delete</AlertDialogAction>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

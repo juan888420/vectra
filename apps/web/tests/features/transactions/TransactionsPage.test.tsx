@@ -89,26 +89,26 @@ describe("TransactionsPage", () => {
     const client = createTestQueryClient();
     render(<TransactionsPage />, { wrapper: withProviders(client) });
 
-    expect(await screen.findByText("No transactions yet")).toBeInTheDocument();
+    expect(await screen.findByText("Todavía no hay transacciones")).toBeInTheDocument();
 
-    const [newTransactionButton] = screen.getAllByRole("button", { name: "New transaction" });
+    const [newTransactionButton] = screen.getAllByRole("button", { name: "Nueva transacción" });
     await user.click(newTransactionButton as HTMLElement);
     const dialog = await screen.findByRole("dialog");
 
     // Default type is Expense: the category select must only offer
     // "Groceries", never "Salary" (transactions.service.ts's
     // assertTypeMatchesCategory rule, enforced client-side too).
-    await user.click(within(dialog).getByRole("combobox", { name: "Category" }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Categoría" }));
     expect(screen.getByRole("option", { name: "Groceries" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Salary" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("option", { name: "Groceries" }));
 
-    await user.click(within(dialog).getByRole("combobox", { name: "Account" }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Cuenta" }));
     await user.click(screen.getByRole("option", { name: "Checking" }));
 
-    await user.type(within(dialog).getByLabelText("Amount"), "42.50");
+    await user.type(within(dialog).getByLabelText("Monto"), "42.50");
 
-    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(await screen.findByText("Groceries")).toBeInTheDocument();

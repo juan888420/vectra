@@ -39,10 +39,10 @@ import {
 } from "./use-accounts.js";
 
 const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
-  CASH: "Cash",
-  BANK: "Bank",
-  CREDIT_CARD: "Credit card",
-  OTHER: "Other",
+  CASH: "Efectivo",
+  BANK: "Banco",
+  CREDIT_CARD: "Tarjeta de crédito",
+  OTHER: "Otro",
 };
 
 const PAGE_SIZE = 20;
@@ -68,7 +68,7 @@ export function AccountsPage() {
         await archiveAccount.mutateAsync(account.id);
       }
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
     }
   }
 
@@ -77,7 +77,7 @@ export function AccountsPage() {
     try {
       await deleteAccount.mutateAsync(pendingDelete.id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
     }
   }
 
@@ -87,11 +87,11 @@ export function AccountsPage() {
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Accounts</h1>
-          <p className="text-sm text-muted-foreground">Where your money lives.</p>
+          <h1 className="text-xl font-semibold tracking-tight">Cuentas</h1>
+          <p className="text-sm text-muted-foreground">Dónde vive tu dinero.</p>
         </div>
         <Button onClick={() => setFormDialog({ mode: "create" })}>
-          <Plus /> New account
+          <Plus /> Nueva cuenta
         </Button>
       </div>
 
@@ -104,20 +104,20 @@ export function AccountsPage() {
             setPage(1);
           }}
         >
-          {includeArchived ? "Hide archived" : "Show archived"}
+          {includeArchived ? "Ocultar archivadas" : "Mostrar archivadas"}
         </Button>
       </div>
 
       <DataTable
         columns={[
-          { id: "name", header: "Name", cell: (account) => account.name },
-          { id: "type", header: "Type", cell: (account) => ACCOUNT_TYPE_LABELS[account.type] },
-          { id: "currency", header: "Currency", cell: (account) => account.currency },
+          { id: "name", header: "Nombre", cell: (account) => account.name },
+          { id: "type", header: "Tipo", cell: (account) => ACCOUNT_TYPE_LABELS[account.type] },
+          { id: "currency", header: "Moneda", cell: (account) => account.currency },
           {
             id: "status",
-            header: "Status",
+            header: "Estado",
             cell: (account) =>
-              account.archivedAt ? <Badge variant="secondary">Archived</Badge> : null,
+              account.archivedAt ? <Badge variant="secondary">Archivada</Badge> : null,
           },
           {
             id: "actions",
@@ -126,23 +126,23 @@ export function AccountsPage() {
             cell: (account) => (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label={`Actions for ${account.name}`}>
+                  <Button variant="ghost" size="icon" aria-label={`Acciones para ${account.name}`}>
                     <MoreHorizontal />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onSelect={() => setFormDialog({ mode: "edit", account })}>
-                    <Pencil /> Edit
+                    <Pencil /> Editar
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void handleToggleArchive(account)}>
                     {account.archivedAt ? <ArchiveRestore /> : <Archive />}
-                    {account.archivedAt ? "Unarchive" : "Archive"}
+                    {account.archivedAt ? "Desarchivar" : "Archivar"}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
                     onSelect={() => setPendingDelete(account)}
                   >
-                    <Trash2 /> Delete
+                    <Trash2 /> Eliminar
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -155,11 +155,11 @@ export function AccountsPage() {
         emptyState={
           <EmptyState
             icon={Wallet}
-            title="No accounts yet"
-            description="Create your first account to start tracking transactions."
+            title="Todavía no hay cuentas"
+            description="Crea tu primera cuenta para empezar a registrar transacciones."
             action={
               <Button onClick={() => setFormDialog({ mode: "create" })}>
-                <Plus /> New account
+                <Plus /> Nueva cuenta
               </Button>
             }
           />
@@ -169,7 +169,7 @@ export function AccountsPage() {
       {data && data.meta.totalPages > 1 ? (
         <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Page {data.meta.page} of {data.meta.totalPages}
+            Página {data.meta.page} de {data.meta.totalPages}
           </span>
           <div className="flex gap-2">
             <Button
@@ -178,7 +178,7 @@ export function AccountsPage() {
               disabled={page <= 1}
               onClick={() => setPage((value) => value - 1)}
             >
-              Previous
+              Anterior
             </Button>
             <Button
               variant="outline"
@@ -186,7 +186,7 @@ export function AccountsPage() {
               disabled={page >= data.meta.totalPages}
               onClick={() => setPage((value) => value + 1)}
             >
-              Next
+              Siguiente
             </Button>
           </div>
         </div>
@@ -208,15 +208,15 @@ export function AccountsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete &quot;{pendingDelete?.name}&quot;?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar &quot;{pendingDelete?.name}&quot;?</AlertDialogTitle>
             <AlertDialogDescription>
-              This can&apos;t be undone. Accounts with transactions can&apos;t be deleted, archive
-              them instead.
+              Esta acción no se puede deshacer. Las cuentas con transacciones no se pueden eliminar,
+              archívalas en su lugar.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>Delete</AlertDialogAction>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

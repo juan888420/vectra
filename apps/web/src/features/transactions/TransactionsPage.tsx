@@ -34,8 +34,8 @@ import { TransactionFormDialog } from "./TransactionFormDialog.js";
 import { useDeleteTransaction, useTransactions } from "./use-transactions.js";
 
 const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
-  EXPENSE: "Expense",
-  INCOME: "Income",
+  EXPENSE: "Gasto",
+  INCOME: "Ingreso",
 };
 
 const PAGE_SIZE = 20;
@@ -117,7 +117,7 @@ export function TransactionsPage() {
     try {
       await deleteTransaction.mutateAsync(pendingDelete.id);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Something went wrong.");
+      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
     }
   }
 
@@ -129,11 +129,11 @@ export function TransactionsPage() {
     <div className="mx-auto max-w-5xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Transactions</h1>
-          <p className="text-sm text-muted-foreground">Every expense and income, in one place.</p>
+          <h1 className="text-xl font-semibold tracking-tight">Transacciones</h1>
+          <p className="text-sm text-muted-foreground">Cada gasto e ingreso, en un solo lugar.</p>
         </div>
         <Button onClick={() => setFormDialog({ mode: "create" })}>
-          <Plus /> New transaction
+          <Plus /> Nueva transacción
         </Button>
       </div>
 
@@ -150,7 +150,7 @@ export function TransactionsPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All types</SelectItem>
+            <SelectItem value={ALL}>Todos los tipos</SelectItem>
             {Object.entries(TRANSACTION_TYPE_LABELS).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
@@ -170,7 +170,7 @@ export function TransactionsPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All accounts</SelectItem>
+            <SelectItem value={ALL}>Todas las cuentas</SelectItem>
             {(accountsData?.data ?? []).map((account) => (
               <SelectItem key={account.id} value={account.id}>
                 {account.name}
@@ -190,7 +190,7 @@ export function TransactionsPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All categories</SelectItem>
+            <SelectItem value={ALL}>Todas las categorías</SelectItem>
             {categoryFilterOptions.map((category) => (
               <SelectItem key={category.id} value={category.id}>
                 {category.name}
@@ -200,7 +200,7 @@ export function TransactionsPage() {
         </Select>
 
         <Input
-          placeholder="Search notes…"
+          placeholder="Buscar notas…"
           className="w-48"
           value={searchInput}
           onChange={(event) => {
@@ -214,22 +214,22 @@ export function TransactionsPage() {
         columns={[
           {
             id: "date",
-            header: "Date",
+            header: "Fecha",
             cell: (transaction) => formatDateOnly(transaction.date),
           },
           {
             id: "account",
-            header: "Account",
+            header: "Cuenta",
             cell: (transaction) => accountsById.get(transaction.accountId)?.name ?? "—",
           },
           {
             id: "category",
-            header: "Category",
+            header: "Categoría",
             cell: (transaction) => categoriesById.get(transaction.categoryId)?.name ?? "—",
           },
           {
             id: "type",
-            header: "Type",
+            header: "Tipo",
             cell: (transaction) => (
               <Badge variant={transaction.type === "INCOME" ? "default" : "outline"}>
                 {TRANSACTION_TYPE_LABELS[transaction.type]}
@@ -238,7 +238,7 @@ export function TransactionsPage() {
           },
           {
             id: "amount",
-            header: "Amount",
+            header: "Monto",
             className: "text-right",
             cell: (transaction) => (
               <span
@@ -255,7 +255,7 @@ export function TransactionsPage() {
           },
           {
             id: "note",
-            header: "Note",
+            header: "Nota",
             cell: (transaction) => (
               <span
                 className="block max-w-48 truncate text-muted-foreground"
@@ -272,19 +272,19 @@ export function TransactionsPage() {
             cell: (transaction) => (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Actions">
+                  <Button variant="ghost" size="icon" aria-label="Acciones">
                     <MoreHorizontal />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onSelect={() => setFormDialog({ mode: "edit", transaction })}>
-                    <Pencil /> Edit
+                    <Pencil /> Editar
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
                     onSelect={() => setPendingDelete(transaction)}
                   >
-                    <Trash2 /> Delete
+                    <Trash2 /> Eliminar
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -297,16 +297,20 @@ export function TransactionsPage() {
         emptyState={
           <EmptyState
             icon={Receipt}
-            title={hasActiveFilters ? "No transactions match these filters" : "No transactions yet"}
+            title={
+              hasActiveFilters
+                ? "Ninguna transacción coincide con estos filtros"
+                : "Todavía no hay transacciones"
+            }
             description={
               hasActiveFilters
-                ? "Try a different filter or clear them to see everything."
-                : "Record your first transaction to start tracking your money."
+                ? "Prueba otro filtro o quítalos para ver todo."
+                : "Registra tu primera transacción para empezar a controlar tu dinero."
             }
             action={
               hasActiveFilters ? undefined : (
                 <Button onClick={() => setFormDialog({ mode: "create" })}>
-                  <Plus /> New transaction
+                  <Plus /> Nueva transacción
                 </Button>
               )
             }
@@ -317,7 +321,7 @@ export function TransactionsPage() {
       {data && data.meta.totalPages > 1 ? (
         <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Page {data.meta.page} of {data.meta.totalPages}
+            Página {data.meta.page} de {data.meta.totalPages}
           </span>
           <div className="flex gap-2">
             <Button
@@ -326,7 +330,7 @@ export function TransactionsPage() {
               disabled={page <= 1}
               onClick={() => setPage((value) => value - 1)}
             >
-              Previous
+              Anterior
             </Button>
             <Button
               variant="outline"
@@ -334,7 +338,7 @@ export function TransactionsPage() {
               disabled={page >= data.meta.totalPages}
               onClick={() => setPage((value) => value + 1)}
             >
-              Next
+              Siguiente
             </Button>
           </div>
         </div>
@@ -356,12 +360,12 @@ export function TransactionsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this transaction?</AlertDialogTitle>
-            <AlertDialogDescription>This can&apos;t be undone.</AlertDialogDescription>
+            <AlertDialogTitle>¿Eliminar esta transacción?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>Delete</AlertDialogAction>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -30,8 +30,8 @@ import { ApiError } from "../../lib/api-client.js";
 import { useCreateTransaction, useUpdateTransaction } from "./use-transactions.js";
 
 const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
-  EXPENSE: "Expense",
-  INCOME: "Income",
+  EXPENSE: "Gasto",
+  INCOME: "Ingreso",
 };
 
 // `amount` stays a string end-to-end in the form (a controlled numeric input
@@ -40,7 +40,7 @@ const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
 // at submit time instead of duplicating its rules here.
 const transactionFormSchema = createTransactionBodySchema
   .omit({ amount: true })
-  .extend({ amount: z.string().min(1, "Amount is required") });
+  .extend({ amount: z.string().min(1, "El monto es obligatorio") });
 
 type TransactionFormValues = z.infer<typeof transactionFormSchema>;
 
@@ -123,7 +123,7 @@ export function TransactionFormDialog({
     const parsedAmount = moneyAmountSchema.safeParse(Number(values.amount));
     if (!parsedAmount.success) {
       form.setError("amount", {
-        message: parsedAmount.error.issues[0]?.message ?? "Invalid amount",
+        message: parsedAmount.error.issues[0]?.message ?? "Monto inválido",
       });
       return;
     }
@@ -144,9 +144,7 @@ export function TransactionFormDialog({
       }
       onOpenChange(false);
     } catch (error) {
-      toast.error(
-        error instanceof ApiError ? error.message : "Something went wrong. Please try again.",
-      );
+      toast.error(error instanceof ApiError ? error.message : "Algo salió mal. Intenta de nuevo.");
     }
   }
 
@@ -156,17 +154,19 @@ export function TransactionFormDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEditing ? "Edit transaction" : "New transaction"}
+      title={isEditing ? "Editar transacción" : "Nueva transacción"}
       form={form}
       onSubmit={onSubmit}
       isSubmitting={isSubmitting}
+      submitLabel="Guardar"
+      submittingLabel="Guardando…"
     >
       <FormField
         control={form.control}
         name="type"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Type</FormLabel>
+            <FormLabel>Tipo</FormLabel>
             <Select
               value={field.value}
               onValueChange={(value) => {
@@ -198,18 +198,18 @@ export function TransactionFormDialog({
         name="accountId"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Account</FormLabel>
+            <FormLabel>Cuenta</FormLabel>
             <Select value={field.value} onValueChange={field.onChange} disabled={isLoadingAccounts}>
               <FormControl>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select an account" />
+                  <SelectValue placeholder="Selecciona una cuenta" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
                 {accountOptions.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
                     {account.name}
-                    {account.archivedAt ? " (archived)" : ""}
+                    {account.archivedAt ? " (archivada)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -223,7 +223,7 @@ export function TransactionFormDialog({
         name="categoryId"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Category</FormLabel>
+            <FormLabel>Categoría</FormLabel>
             <Select
               value={field.value}
               onValueChange={field.onChange}
@@ -231,14 +231,14 @@ export function TransactionFormDialog({
             >
               <FormControl>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
+                  <SelectValue placeholder="Selecciona una categoría" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
                 {categoryOptions.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
-                    {category.archivedAt ? " (archived)" : ""}
+                    {category.archivedAt ? " (archivada)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -252,7 +252,7 @@ export function TransactionFormDialog({
         name="amount"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Amount</FormLabel>
+            <FormLabel>Monto</FormLabel>
             <FormControl>
               <Input type="number" step="0.01" min="0.01" inputMode="decimal" {...field} />
             </FormControl>
@@ -265,7 +265,7 @@ export function TransactionFormDialog({
         name="date"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Date</FormLabel>
+            <FormLabel>Fecha</FormLabel>
             <FormControl>
               <Input type="date" {...field} />
             </FormControl>
@@ -278,7 +278,7 @@ export function TransactionFormDialog({
         name="note"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Note (optional)</FormLabel>
+            <FormLabel>Nota (opcional)</FormLabel>
             <FormControl>
               <Input maxLength={280} {...field} />
             </FormControl>

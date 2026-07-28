@@ -40,19 +40,19 @@ describe("AccountsPage", () => {
     const client = createTestQueryClient();
     render(<AccountsPage />, { wrapper: withProviders(client) });
 
-    expect(await screen.findByText("No accounts yet")).toBeInTheDocument();
+    expect(await screen.findByText("Todavía no hay cuentas")).toBeInTheDocument();
 
-    // Both the header and the empty state render a "New account" button.
-    const newAccountButtons = screen.getAllByRole("button", { name: "New account" });
+    // Both the header and the empty state render a "Nueva cuenta" button.
+    const newAccountButtons = screen.getAllByRole("button", { name: "Nueva cuenta" });
     expect(newAccountButtons.length).toBeGreaterThan(0);
     await user.click(newAccountButtons[0] as HTMLElement);
 
     const dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText("Name"), "Checking");
-    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.type(within(dialog).getByLabelText("Nombre"), "Checking");
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(await screen.findByText("Checking")).toBeInTheDocument();
-    expect(screen.queryByText("No accounts yet")).not.toBeInTheDocument();
+    expect(screen.queryByText("Todavía no hay cuentas")).not.toBeInTheDocument();
   });
 });

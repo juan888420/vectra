@@ -47,9 +47,9 @@ export function RegisterPage() {
       navigate("/", { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.statusCode === 409) {
-        form.setError("email", { message: "This email is already registered" });
+        form.setError("email", { message: "Este correo ya está registrado" });
       } else {
-        toast.error("Something went wrong. Please try again.");
+        toast.error("Algo salió mal. Intenta de nuevo.");
       }
     } finally {
       setIsSubmitting(false);
@@ -60,8 +60,8 @@ export function RegisterPage() {
     <div className="flex min-h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Create your account</CardTitle>
-          <CardDescription>Start tracking your finances with Vectra.</CardDescription>
+          <CardTitle>Crea tu cuenta</CardTitle>
+          <CardDescription>Empieza a controlar tus finanzas con Vectra.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -71,7 +71,7 @@ export function RegisterPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Correo electrónico</FormLabel>
                     <FormControl>
                       <Input type="email" autoComplete="email" {...field} />
                     </FormControl>
@@ -84,7 +84,7 @@ export function RegisterPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Contraseña</FormLabel>
                     <FormControl>
                       <Input type="password" autoComplete="new-password" {...field} />
                     </FormControl>
@@ -93,14 +93,14 @@ export function RegisterPage() {
                 )}
               />
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creating account…" : "Create account"}
+                {isSubmitting ? "Creando cuenta…" : "Crear cuenta"}
               </Button>
             </form>
           </Form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
+            ¿Ya tienes una cuenta?{" "}
             <Link to="/login" className="text-primary underline-offset-4 hover:underline">
-              Log in
+              Inicia sesión
             </Link>
           </p>
         </CardContent>

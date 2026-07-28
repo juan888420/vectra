@@ -4,10 +4,10 @@
 export function Home() {
   return (
     <div className="mx-auto max-w-2xl text-center">
-      <h1 className="text-2xl font-semibold tracking-tight">You&apos;re in.</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Ya estás dentro.</h1>
       <p className="mt-2 text-muted-foreground">
-        The frontend foundation is wired up — auth, routing, theme and the API client all work.
-        Business features land in their own RFCs.
+        La base del frontend está lista: auth, routing, tema y cliente de API funcionan. Las
+        funcionalidades de negocio llegan en sus propios RFCs.
       </p>
     </div>
   );

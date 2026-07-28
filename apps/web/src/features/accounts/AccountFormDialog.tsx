@@ -23,10 +23,10 @@ import { useAuth } from "../auth/useAuth.js";
 import { useCreateAccount, useUpdateAccount } from "./use-accounts.js";
 
 const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
-  CASH: "Cash",
-  BANK: "Bank",
-  CREDIT_CARD: "Credit card",
-  OTHER: "Other",
+  CASH: "Efectivo",
+  BANK: "Banco",
+  CREDIT_CARD: "Tarjeta de crédito",
+  OTHER: "Otro",
 };
 
 interface AccountFormValues {
@@ -71,7 +71,7 @@ export function AccountFormDialog({ open, onOpenChange, account }: AccountFormDi
       onOpenChange(false);
     } catch (error) {
       if (!applyConflictError(error, form, "name")) {
-        toast.error("Something went wrong. Please try again.");
+        toast.error("Algo salió mal. Intenta de nuevo.");
       }
     }
   }
@@ -82,22 +82,24 @@ export function AccountFormDialog({ open, onOpenChange, account }: AccountFormDi
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEditing ? "Edit account" : "New account"}
+      title={isEditing ? "Editar cuenta" : "Nueva cuenta"}
       description={
         isEditing
-          ? `Currency is fixed at ${account.currency}.`
-          : `New accounts use your default currency (${user?.defaultCurrency ?? ""}).`
+          ? `La moneda está fija en ${account.currency}.`
+          : `Las cuentas nuevas usan tu moneda predeterminada (${user?.defaultCurrency ?? ""}).`
       }
       form={form}
       onSubmit={onSubmit}
       isSubmitting={isSubmitting}
+      submitLabel="Guardar"
+      submittingLabel="Guardando…"
     >
       <FormField
         control={form.control}
         name="name"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Name</FormLabel>
+            <FormLabel>Nombre</FormLabel>
             <FormControl>
               <Input autoComplete="off" {...field} />
             </FormControl>
@@ -110,7 +112,7 @@ export function AccountFormDialog({ open, onOpenChange, account }: AccountFormDi
         name="type"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Type</FormLabel>
+            <FormLabel>Tipo</FormLabel>
             <Select value={field.value} onValueChange={field.onChange}>
               <FormControl>
                 <SelectTrigger>

@@ -14,10 +14,10 @@ import { NavLink, Outlet } from "react-router";
 import { useAuth } from "../features/auth/useAuth.js";
 
 const NAV_LINKS = [
-  { to: "/", label: "Home", end: true },
-  { to: "/accounts", label: "Accounts", end: false },
-  { to: "/categories", label: "Categories", end: false },
-  { to: "/transactions", label: "Transactions", end: false },
+  { to: "/", label: "Inicio", end: true },
+  { to: "/accounts", label: "Cuentas", end: false },
+  { to: "/categories", label: "Categorías", end: false },
+  { to: "/transactions", label: "Transacciones", end: false },
 ];
 
 export function Layout() {
@@ -53,7 +53,7 @@ export function Layout() {
               <button
                 type="button"
                 className="flex size-8 items-center justify-center rounded-full border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                aria-label="User menu"
+                aria-label="Menú de usuario"
               >
                 <User className="size-4" />
               </button>
@@ -63,7 +63,7 @@ export function Layout() {
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => void logout()}>
                 <LogOut />
-                Log out
+                Cerrar sesión
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

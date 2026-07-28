@@ -22,8 +22,8 @@ import { applyConflictError } from "../../lib/form-errors.js";
 import { useCreateCategory, useUpdateCategory } from "./use-categories.js";
 
 const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
-  EXPENSE: "Expense",
-  INCOME: "Income",
+  EXPENSE: "Gasto",
+  INCOME: "Ingreso",
 };
 
 interface CategoryFormValues {
@@ -64,7 +64,7 @@ export function CategoryFormDialog({ open, onOpenChange, category }: CategoryFor
       onOpenChange(false);
     } catch (error) {
       if (!applyConflictError(error, form, "name")) {
-        toast.error("Something went wrong. Please try again.");
+        toast.error("Algo salió mal. Intenta de nuevo.");
       }
     }
   }
@@ -75,22 +75,24 @@ export function CategoryFormDialog({ open, onOpenChange, category }: CategoryFor
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={isEditing ? "Edit category" : "New category"}
+      title={isEditing ? "Editar categoría" : "Nueva categoría"}
       description={
         isEditing
-          ? "The type of a category can't change once it's created."
-          : "Categories group your transactions for budgets and reports."
+          ? "El tipo de una categoría no puede cambiar una vez creada."
+          : "Las categorías agrupan tus transacciones para presupuestos y reportes."
       }
       form={form}
       onSubmit={onSubmit}
       isSubmitting={isSubmitting}
+      submitLabel="Guardar"
+      submittingLabel="Guardando…"
     >
       <FormField
         control={form.control}
         name="name"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Name</FormLabel>
+            <FormLabel>Nombre</FormLabel>
             <FormControl>
               <Input autoComplete="off" {...field} />
             </FormControl>
@@ -103,7 +105,7 @@ export function CategoryFormDialog({ open, onOpenChange, category }: CategoryFor
         name="type"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Type</FormLabel>
+            <FormLabel>Tipo</FormLabel>
             <Select value={field.value} onValueChange={field.onChange} disabled={isEditing}>
               <FormControl>
                 <SelectTrigger>

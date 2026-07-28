@@ -38,16 +38,19 @@ describe("CategoriesPage", () => {
     render(<CategoriesPage />, { wrapper: withProviders(client) });
 
     expect(await screen.findByText("Uncategorized")).toBeInTheDocument();
-    expect(screen.getByText("System")).toBeInTheDocument();
+    expect(screen.getByText("Sistema")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Actions for Uncategorized" }));
+    await user.click(screen.getByRole("button", { name: "Acciones para Uncategorized" }));
 
-    expect(screen.getByRole("menuitem", { name: /Edit/ })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByRole("menuitem", { name: /Archive/ })).toHaveAttribute(
+    expect(screen.getByRole("menuitem", { name: /Editar/ })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
-    expect(screen.getByRole("menuitem", { name: /Delete/ })).toHaveAttribute(
+    expect(screen.getByRole("menuitem", { name: /Archivar/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("menuitem", { name: /Eliminar/ })).toHaveAttribute(
       "aria-disabled",
       "true",
     );

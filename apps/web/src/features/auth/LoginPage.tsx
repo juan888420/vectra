@@ -40,9 +40,9 @@ export function LoginPage() {
       navigate("/", { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.statusCode === 401) {
-        toast.error("Invalid email or password");
+        toast.error("Email o contraseña incorrectos");
       } else {
-        toast.error("Something went wrong. Please try again.");
+        toast.error("Algo salió mal. Intenta de nuevo.");
       }
     } finally {
       setIsSubmitting(false);
@@ -53,8 +53,8 @@ export function LoginPage() {
     <div className="flex min-h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Log in to Vectra</CardTitle>
-          <CardDescription>Track your money, your way.</CardDescription>
+          <CardTitle>Inicia sesión en Vectra</CardTitle>
+          <CardDescription>Controla tu dinero, a tu manera.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -64,7 +64,7 @@ export function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Correo electrónico</FormLabel>
                     <FormControl>
                       <Input type="email" autoComplete="email" {...field} />
                     </FormControl>
@@ -77,7 +77,7 @@ export function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Contraseña</FormLabel>
                     <FormControl>
                       <Input type="password" autoComplete="current-password" {...field} />
                     </FormControl>
@@ -86,14 +86,14 @@ export function LoginPage() {
                 )}
               />
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Logging in…" : "Log in"}
+                {isSubmitting ? "Iniciando sesión…" : "Iniciar sesión"}
               </Button>
             </form>
           </Form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
+            ¿No tienes una cuenta?{" "}
             <Link to="/register" className="text-primary underline-offset-4 hover:underline">
-              Register
+              Regístrate
             </Link>
           </p>
         </CardContent>
