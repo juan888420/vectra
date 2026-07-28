@@ -110,7 +110,10 @@ export function TransactionFormDialog({
         categoryId: transaction?.categoryId ?? "",
         type: transaction?.type ?? "EXPENSE",
         amount: transaction ? String(transaction.amount) : "",
-        date: transaction?.date ?? todayIsoDate(),
+        // `transaction.date` is a full ISO datetime ("2026-07-20T00:00:00.000Z"),
+        // but `<Input type="date">` and the create/update schema both expect
+        // a bare "yyyy-MM-dd" — slice it down instead of passing it through.
+        date: transaction ? transaction.date.slice(0, 10) : todayIsoDate(),
         note: transaction?.note ?? "",
       });
     }

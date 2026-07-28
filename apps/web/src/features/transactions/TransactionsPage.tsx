@@ -44,8 +44,12 @@ const ALL = "ALL";
 type FormDialogState = { mode: "create" } | { mode: "edit"; transaction: TransactionPublic } | null;
 
 function formatDateOnly(isoDate: string): string {
+  // The backend serializes `date` as a full ISO datetime ("2026-07-20T00:00:00.000Z"),
+  // not a bare date string — take just the date part before appending our own
+  // time-of-day, or the concatenation produces an unparseable string.
+  const datePart = isoDate.slice(0, 10);
   return new Intl.DateTimeFormat(undefined, { timeZone: "UTC", dateStyle: "medium" }).format(
-    new Date(`${isoDate}T00:00:00Z`),
+    new Date(`${datePart}T00:00:00Z`),
   );
 }
 
