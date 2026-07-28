@@ -39,7 +39,7 @@ describe("Transactions", () => {
 
     expect(res.status).toBe(201);
     expect(res.body.amount).toBe(42.5);
-    expect(res.body.currency).toBe("USD");
+    expect(res.body.currency).toBe("COP");
     expect(res.body.accountId).toBe(user.accountId);
   });
 

@@ -78,7 +78,7 @@ describe("Recurring transaction processor", () => {
     expect(generated).toHaveLength(1);
     expect(generated[0]!.date.toISOString().slice(0, 10)).toBe("2026-01-15");
     expect(Number(generated[0]!.amount)).toBe(10);
-    expect(generated[0]!.currency).toBe("USD");
+    expect(generated[0]!.currency).toBe("COP");
 
     const template = await templateById(templateId);
     expect(template.nextExecutionDate.toISOString().slice(0, 10)).toBe("2026-02-15");

@@ -39,7 +39,7 @@ describe("Recurring transactions", () => {
 
     expect(res.status).toBe(201);
     expect(res.body.amount).toBe(25.5);
-    expect(res.body.currency).toBe("USD");
+    expect(res.body.currency).toBe("COP");
     expect(res.body.isActive).toBe(true);
     expect(res.body.startDate.slice(0, 10)).toBe("2026-01-15");
     expect(res.body.nextExecutionDate.slice(0, 10)).toBe("2026-01-15");

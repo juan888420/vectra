@@ -28,7 +28,7 @@ export const registerBodySchema = z.object({
     .length(3)
     .toUpperCase()
     .regex(/^[A-Z]{3}$/, "Must be an ISO 4217 code")
-    .default("USD"),
+    .default("COP"),
   timezone: z.string().default("UTC"),
 });
 
