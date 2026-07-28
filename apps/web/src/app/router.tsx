@@ -5,8 +5,8 @@ import { LoginPage } from "../features/auth/LoginPage.js";
 import { ProtectedRoute } from "../features/auth/ProtectedRoute.js";
 import { RegisterPage } from "../features/auth/RegisterPage.js";
 import { CategoriesPage } from "../features/categories/CategoriesPage.js";
+import { DashboardPage } from "../features/dashboard/DashboardPage.js";
 import { TransactionsPage } from "../features/transactions/TransactionsPage.js";
-import { Home } from "./Home.js";
 import { Layout } from "./Layout.js";
 
 // Declarative <Routes>, not RRv7's data-router/loader mode: TanStack Query
@@ -19,7 +19,7 @@ export function AppRoutes() {
       <Route path="/register" element={<RegisterPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<DashboardPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />

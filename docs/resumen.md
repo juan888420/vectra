@@ -2,12 +2,12 @@
 
 > Se actualiza al final de cada sesión. Léelo primero para saber dónde retomar.
 
-**Última actualización**: 2026-07-27 (RFC-0019)
+**Última actualización**: 2026-07-28 (RFC-0020)
 
 **Backend**: completo — auth (JWT + refresh), accounts, categories, transactions, budgets, recurring-transactions (con processor idempotente), dashboard y reports. Todo en `apps/api`, con tests de integración.
 
-**Frontend**: infraestructura (RFC-0017) + UI de negocio para Accounts/Categories (RFC-0018) + Transactions (RFC-0019). Vite + React 19 + Tailwind v4, `packages/ui` (shadcn/ui: `Table`/`Dialog`/`Select`/`Badge`/`AlertDialog`/`Skeleton` + `DataTable`/`EmptyState`/`FormDialog` reutilizables — `DataTable` ya renderiza skeleton rows en `isLoading`) y `packages/types` (schemas Zod compartidos: `accounts`/`categories`/`transactions`/`money`). Auth flow completo verificado end-to-end. CRUD completo de Accounts, Categories y Transactions (esta última con selects de cuenta/categoría dependientes del tipo, filtros de lista y regla `type === category.type` reflejada en el UI). Query hooks TanStack Query con key factories en las 3 features; `FormDialog` y `applyConflictError` extraídos como piezas compartidas entre los 3 diálogos de creación/edición. **Sin Dashboard ni Budgets/Reports todavía.**
+**Frontend**: infraestructura (RFC-0017) + UI de negocio para Accounts/Categories (RFC-0018) + Transactions (RFC-0019) + Dashboard (RFC-0020). Vite + React 19 + Tailwind v4, `packages/ui` (shadcn/ui: `Table`/`Dialog`/`Select`/`Badge`/`AlertDialog`/`Skeleton` + `DataTable`/`EmptyState`/`FormDialog` reutilizables — `DataTable` ya renderiza skeleton rows en `isLoading`), `packages/types` (schemas Zod compartidos: `accounts`/`categories`/`transactions`/`budgets` (parcial, solo lectura)/`dashboard`/`money`) y `packages/utils` (helpers compartidos `formatMoney`/`formatDateOnly`, usados por Transactions y Dashboard). Auth flow completo verificado end-to-end. CRUD completo de Accounts, Categories y Transactions. Dashboard (`/`, reemplaza el placeholder `Home`) consume `GET /dashboard/summary`: stat cards (balance total, mes actual, salud financiera), gráfico de gasto por categoría y comparación mensual (Recharts, lazy-loaded vía `React.lazy`/`Suspense`), lista de presupuestos con progreso, top expenses y tabla de balances por cuenta. React Query Devtools activo solo en desarrollo. Tests de Dashboard cubren loading/success/empty/error (sin testear internals de Recharts). **Sin Budgets/Reports UI todavía** (el backend ya expone budgets vía dashboard, pero no hay CRUD UI propio).
 
-**Estado de rama**: trabajo en `feat/rfc-0019-transactions-ui`, no mergeado a `main` (cada RFC vive en su propia rama, se abre PR y se mergea manualmente por el usuario).
+**Estado de rama**: trabajo en curso sobre `main` (RFC-0020 implementado directamente, pendiente de revisión final antes de commit/PR).
 
-**Sigue**: Dashboard (RFC-0020), que ya tiene el endpoint backend listo (RFC-0014) — requiere introducir Recharts en el frontend por primera vez. Después: Budgets/Reports UI.
+**Sigue**: Budgets CRUD UI (RFC-0021), que debe extender `packages/types/src/budgets.ts` (hoy deliberadamente parcial, solo lectura) con schemas de create/update/list. Después: Reports UI.

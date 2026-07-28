@@ -2,6 +2,8 @@
 
 Índice de la documentación del proyecto. Esta carpeta es la base de conocimiento para el desarrollo de Vectra; se mantiene actualizada a medida que el producto y la arquitectura evolucionan.
 
+- **[`resumen.md`](resumen.md)** — estado actual del proyecto y qué sigue. Se actualiza al final de cada sesión; es el primer archivo a leer al retomar el trabajo.
+
 ## Estructura
 
 - **`product/`** — qué estamos construyendo y para quién.
