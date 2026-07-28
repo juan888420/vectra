@@ -30,6 +30,45 @@ export {
   FormMessage,
 } from "./components/ui/form.js";
 export { Toaster } from "./components/ui/sonner.js";
+export { Badge, badgeVariants, type BadgeProps } from "./components/ui/badge.js";
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "./components/ui/table.js";
+export {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "./components/ui/dialog.js";
+export {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "./components/ui/alert-dialog.js";
+export {
+  Select,
+  SelectValue,
+  SelectGroup,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+} from "./components/ui/select.js";
+export { DataTable, type DataTableColumn, type DataTableProps } from "./components/data-table.js";
+export { EmptyState, type EmptyStateProps } from "./components/empty-state.js";
 
 export { ThemeProvider, THEME_STORAGE_KEY } from "./theme/ThemeProvider.js";
 export { ThemeToggle } from "./theme/ThemeToggle.js";
