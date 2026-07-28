@@ -1,15 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createAccountBodySchema, type AccountPublic, type AccountType } from "@vectra/types";
 import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Form,
   FormControl,
+  FormDialog,
   FormField,
   FormItem,
   FormLabel,
@@ -25,7 +18,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { ApiError } from "../../lib/api-client.js";
+import { applyConflictError } from "../../lib/form-errors.js";
 import { useAuth } from "../auth/useAuth.js";
 import { useCreateAccount, useUpdateAccount } from "./use-accounts.js";
 
@@ -77,9 +70,7 @@ export function AccountFormDialog({ open, onOpenChange, account }: AccountFormDi
       }
       onOpenChange(false);
     } catch (error) {
-      if (error instanceof ApiError && error.statusCode === 409) {
-        form.setError("name", { message: error.message });
-      } else {
+      if (!applyConflictError(error, form, "name")) {
         toast.error("Something went wrong. Please try again.");
       }
     }
@@ -88,63 +79,56 @@ export function AccountFormDialog({ open, onOpenChange, account }: AccountFormDi
   const isSubmitting = createAccount.isPending || updateAccount.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit account" : "New account"}</DialogTitle>
-          <DialogDescription>
-            {isEditing
-              ? `Currency is fixed at ${account.currency}.`
-              : `New accounts use your default currency (${user?.defaultCurrency ?? ""}).`}
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input autoComplete="off" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Type</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.entries(ACCOUNT_TYPE_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving…" : "Save"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEditing ? "Edit account" : "New account"}
+      description={
+        isEditing
+          ? `Currency is fixed at ${account.currency}.`
+          : `New accounts use your default currency (${user?.defaultCurrency ?? ""}).`
+      }
+      form={form}
+      onSubmit={onSubmit}
+      isSubmitting={isSubmitting}
+    >
+      <FormField
+        control={form.control}
+        name="name"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Name</FormLabel>
+            <FormControl>
+              <Input autoComplete="off" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="type"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Type</FormLabel>
+            <Select value={field.value} onValueChange={field.onChange}>
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {Object.entries(ACCOUNT_TYPE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </FormDialog>
   );
 }

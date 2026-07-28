@@ -17,6 +17,7 @@ const NAV_LINKS = [
   { to: "/", label: "Home", end: true },
   { to: "/accounts", label: "Accounts", end: false },
   { to: "/categories", label: "Categories", end: false },
+  { to: "/transactions", label: "Transactions", end: false },
 ];
 
 export function Layout() {
