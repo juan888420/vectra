@@ -159,14 +159,23 @@ export async function unarchiveExpenseItem(
   return toPublic(await prisma.expenseItem.update({ where: { id }, data: { archivedAt: null } }));
 }
 
-// Nothing references an ExpenseItem yet, so deletion is unconditional. The
-// Scenario RFC must add the "archive instead" guard here once scenarios can
-// hold items (business rule 3), mirroring deleteCategory.
+// Items referenced by a scenario are archived, never deleted (business rule
+// 3, mirroring deleteCategory) — a ScenarioItem snapshot still points at
+// this row, and deleting it out from under a simulation would break history.
 export async function deleteExpenseItem(
   prisma: PrismaClient,
   userId: string,
   id: string,
 ): Promise<void> {
   await findOwnedOrFail(prisma.expenseItem, id, userId, "Expense item");
+
+  const counts = await prisma.expenseItem.findUniqueOrThrow({
+    where: { id },
+    select: { _count: { select: { scenarioItems: true } } },
+  });
+  if (counts._count.scenarioItems > 0) {
+    throw conflict("Expense item is referenced by a scenario; archive it instead");
+  }
+
   await prisma.expenseItem.delete({ where: { id } });
 }

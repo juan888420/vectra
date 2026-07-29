@@ -14,12 +14,12 @@ Secuencia lógica de fases, sin fechas comprometidas. Reorientado tras [ADR-0005
 
 ## Fase 2 — Escenarios financieros (foco actual)
 
-1. **Backend de productos e ingresos**: `Product` (nombre, precio, frecuencia mensual/anual/esporádico, categoría) e `Income` (nombre, frecuencia mensual/semanal/anual/esporádico). Productos únicos en el sistema, organizados por categorías.
-2. **Backend de escenarios**: `Scenario` con selección explícita de productos, composición con otros escenarios (sin ciclos), estados activo/inactivo/archivado, totales y proyecciones derivadas (mensual/6m/anual, prorrateo de anuales, esporádicos aparte).
+1. **Backend de productos e ingresos** ✅ (RFC-0021): `ExpenseItem` (nombre, precio, frecuencia mensual/anual/esporádico, categoría obligatoria) e `Income` (nombre, frecuencia mensual/semanal/anual/esporádico). Únicos entre activos por usuario, organizados por categorías.
+2. **Backend de escenarios** ✅ (RFC-0022): `Scenario` (estados activo/inactivo/archivado) con `ScenarioItem`/`ScenarioIncome` como snapshots explícitos de productos e ingresos (nunca referencia viva — un cambio en el producto original nunca modifica el escenario en silencio), `ScenarioComposition` para escenario-en-escenario con detección de ciclos (BFS en service layer), y `GET /scenarios/:id/summary` con totales, proyecciones (mensual/6m/12m, prorrateo de anuales, esporádicos aparte), cobertura de ingresos y el flag `hasUpdates` (comparando `lastSyncedAt` contra el `updatedAt` del recurso original). El endpoint de sincronización (`POST /sync`) queda pospuesto para el RFC de composer/frontend, que es quien lo consume.
 3. **CRUD UI de productos, categorías e ingresos**: pantalla de categoría con su total, creación de productos desde categoría o escenario (categoría inline), sección de ingresos con proyecciones para recurrentes.
-4. **Composer de escenarios**: construir escenarios combinando productos, categorías completas y otros escenarios, con total en vivo; propagación con confirmación cuando cambia contenido compartido.
+4. **Composer de escenarios**: construir escenarios combinando productos, categorías completas y otros escenarios, con total en vivo; UI para aplicar la sincronización cuando `hasUpdates` señala que un producto/ingreso/escenario incluido cambió.
 5. **Comparador y proyecciones**: escenarios lado a lado, deltas contra el escenario activo, proyecciones a 6/12 meses (introduce Recharts).
-6. **Cobertura de ingresos**: vínculo opcional escenario ↔ ingreso (% consumido, restante).
+6. **Cobertura de ingresos**: ya expuesta por el backend (`GET /scenarios/:id/summary`); falta su representación en la UI.
 7. **Reorganización del nav**: escenarios como punto de entrada; ledger agrupado como sección de registro histórico.
 
 ## Fase 3 — Consolidación
