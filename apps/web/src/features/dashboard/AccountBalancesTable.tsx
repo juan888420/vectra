@@ -12,22 +12,22 @@ export function AccountBalancesTable({ accounts, isLoading }: AccountBalancesTab
   return (
     <DataTable
       columns={[
-        { id: "name", header: "Account", cell: (account) => account.name },
+        { id: "name", header: "Cuenta", cell: (account) => account.name },
         {
           id: "income",
-          header: "Income",
+          header: "Ingresos",
           className: "text-right",
           cell: (account) => formatMoney(account.income, account.currency),
         },
         {
           id: "expenses",
-          header: "Expenses",
+          header: "Gastos",
           className: "text-right",
           cell: (account) => formatMoney(account.expenses, account.currency),
         },
         {
           id: "balance",
-          header: "Balance",
+          header: "Saldo",
           className: "text-right font-medium",
           cell: (account) => formatMoney(account.balance, account.currency),
         },
@@ -38,8 +38,8 @@ export function AccountBalancesTable({ accounts, isLoading }: AccountBalancesTab
       emptyState={
         <EmptyState
           icon={Wallet}
-          title="No accounts yet"
-          description="Add an account to see its balance here."
+          title="Todavía no hay cuentas"
+          description="Agrega una cuenta para ver su saldo aquí."
         />
       }
     />

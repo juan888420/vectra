@@ -2,7 +2,7 @@
 
 ## Estado
 
-`accepted`
+`partially superseded` por [ADR-0005](0005-financial-scenarios.md): la dirección general (simular el futuro, no registrar el pasado) se mantiene, pero el modelo conceptual cambia — "expense plan" pasa a "escenario", los productos existen una vez en el sistema (no pertenecen al plan) y la referencia viva se reemplaza por selección explícita con propagación confirmada.
 
 ## Contexto
 

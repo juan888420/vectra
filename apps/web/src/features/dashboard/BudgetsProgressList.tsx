@@ -34,8 +34,8 @@ export function BudgetsProgressList({
     return (
       <EmptyState
         icon={Target}
-        title="No budgets set up yet"
-        description="Set a monthly budget per category to track progress here."
+        title="Todavía no hay presupuestos"
+        description="Define un presupuesto mensual por categoría para ver el progreso aquí."
       />
     );
   }

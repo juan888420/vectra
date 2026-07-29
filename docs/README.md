@@ -18,7 +18,8 @@
   - [`0001-tech-stack.md`](decisions/0001-tech-stack.md): decisión de stack técnico (`accepted`).
   - [`0002-prisma-domain-mapping.md`](decisions/0002-prisma-domain-mapping.md): mapeo del dominio al schema de Prisma (`accepted`).
   - [`0003-recurring-transaction-scheduling.md`](decisions/0003-recurring-transaction-scheduling.md): estrategia de recurrencia anchored vs. drifting (`accepted`).
-  - [`0004-expense-plans-pivot.md`](decisions/0004-expense-plans-pivot.md): giro de producto — planes de gasto como feature central (`accepted`).
+  - [`0004-expense-plans-pivot.md`](decisions/0004-expense-plans-pivot.md): giro de producto — planes de gasto como feature central (`partially superseded` por ADR-0005).
+  - [`0005-financial-scenarios.md`](decisions/0005-financial-scenarios.md): escenarios financieros como eje del producto (`accepted`).
 
 - **`glossary.md`** — términos de dominio financiero usados de forma consistente en todo el proyecto.
 

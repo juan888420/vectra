@@ -25,9 +25,9 @@ const HEALTH_TONE: Record<FinancialHealthStatus, StatTone> = {
 };
 
 const HEALTH_LABEL: Record<FinancialHealthStatus, string> = {
-  GOOD: "Good",
-  WARNING: "Warning",
-  CRITICAL: "Critical",
+  GOOD: "Buena",
+  WARNING: "Alerta",
+  CRITICAL: "Crítica",
 };
 
 function ChartSkeleton() {
@@ -68,9 +68,9 @@ export function DashboardPage() {
     return (
       <EmptyState
         icon={AlertTriangle}
-        title="Something went wrong loading your dashboard"
-        description="Please try again."
-        action={<Button onClick={() => void refetch()}>Retry</Button>}
+        title="Ocurrió un error al cargar el dashboard"
+        description="Intenta de nuevo."
+        action={<Button onClick={() => void refetch()}>Reintentar</Button>}
       />
     );
   }
@@ -79,24 +79,24 @@ export function DashboardPage() {
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Your finances, at a glance.</p>
+        <p className="text-sm text-muted-foreground">Tus finanzas, de un vistazo.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          label="Total balance"
+          label="Saldo total"
           icon={Wallet}
           isLoading={isPageLoading}
           value={data ? formatMoney(data.totalBalance.balance, currency) : null}
         />
         <StatCard
-          label="This month"
+          label="Este mes"
           icon={PiggyBank}
           isLoading={isPageLoading}
           value={data ? formatMoney(data.currentMonthSummary.balance, currency) : null}
         />
         <StatCard
-          label="Financial health"
+          label="Salud financiera"
           icon={HeartPulse}
           isLoading={isPageLoading}
           value={data ? data.financialHealth.score : null}
@@ -113,7 +113,7 @@ export function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border p-6">
-          <h2 className="mb-4 text-sm font-medium">Spending by category</h2>
+          <h2 className="mb-4 text-sm font-medium">Gasto por categoría</h2>
           {isPageLoading ? (
             <ChartSkeleton />
           ) : (
@@ -123,7 +123,7 @@ export function DashboardPage() {
           )}
         </div>
         <div className="rounded-xl border p-6">
-          <h2 className="mb-4 text-sm font-medium">Month over month</h2>
+          <h2 className="mb-4 text-sm font-medium">Comparación mensual</h2>
           {isPageLoading || !data ? (
             <ChartSkeleton />
           ) : (
@@ -136,7 +136,7 @@ export function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border p-6">
-          <h2 className="mb-4 text-sm font-medium">Budgets</h2>
+          <h2 className="mb-4 text-sm font-medium">Presupuestos</h2>
           <BudgetsProgressList
             budgets={data?.budgets ?? []}
             categoryNameById={categoryNameById}
@@ -144,7 +144,7 @@ export function DashboardPage() {
           />
         </div>
         <div className="rounded-xl border p-6">
-          <h2 className="mb-4 text-sm font-medium">Top expenses this month</h2>
+          <h2 className="mb-4 text-sm font-medium">Mayores gastos este mes</h2>
           <TopExpensesList
             expenses={data?.topExpenses ?? []}
             currency={currency}
@@ -156,7 +156,7 @@ export function DashboardPage() {
       </div>
 
       <div className="rounded-xl border p-6">
-        <h2 className="mb-4 text-sm font-medium">Accounts</h2>
+        <h2 className="mb-4 text-sm font-medium">Cuentas</h2>
         <AccountBalancesTable accounts={data?.accountBalances ?? []} isLoading={isPageLoading} />
       </div>
     </div>

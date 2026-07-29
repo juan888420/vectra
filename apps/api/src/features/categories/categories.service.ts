@@ -97,12 +97,16 @@ export async function archiveCategory(
     return category;
   }
 
-  // Budgets archive in cascade with their category (RFC-0006 §7).
+  // Budgets archive in cascade with their category (RFC-0006 §7), and so do
+  // its expense items: retiring an area of spending retires what it holds
+  // (RFC-0021). Neither cascades back on unarchive — see below.
+  const archivedAt = new Date();
   const [archived] = await prisma.$transaction([
-    prisma.category.update({ where: { id }, data: { archivedAt: new Date() } }),
-    prisma.budget.updateMany({
+    prisma.category.update({ where: { id }, data: { archivedAt } }),
+    prisma.budget.updateMany({ where: { categoryId: id, archivedAt: null }, data: { archivedAt } }),
+    prisma.expenseItem.updateMany({
       where: { categoryId: id, archivedAt: null },
-      data: { archivedAt: new Date() },
+      data: { archivedAt },
     }),
   ]);
 
@@ -123,8 +127,8 @@ export async function unarchiveCategory(
   // Restoring the name must not collide with an active category created since.
   await assertNameAvailable(prisma, userId, category.name, category.type, id);
 
-  // Budgets stay archived: cascade-unarchive could silently reactivate
-  // spending limits the user forgot about.
+  // Budgets and expense items stay archived: cascade-unarchive could silently
+  // reactivate spending limits — or scenario costs — the user forgot about.
   return prisma.category.update({ where: { id }, data: { archivedAt: null } });
 }
 
@@ -140,12 +144,19 @@ export async function deleteCategory(
   const counts = await prisma.category.findUniqueOrThrow({
     where: { id },
     select: {
-      _count: { select: { transactions: true, budgets: true, recurringTransactions: true } },
+      _count: {
+        select: {
+          transactions: true,
+          budgets: true,
+          recurringTransactions: true,
+          expenseItems: true,
+        },
+      },
     },
   });
 
-  const { transactions, budgets, recurringTransactions } = counts._count;
-  if (transactions > 0 || budgets > 0 || recurringTransactions > 0) {
+  const { transactions, budgets, recurringTransactions, expenseItems } = counts._count;
+  if (transactions > 0 || budgets > 0 || recurringTransactions > 0 || expenseItems > 0) {
     throw conflict("Category has associated records; archive it instead");
   }
 
