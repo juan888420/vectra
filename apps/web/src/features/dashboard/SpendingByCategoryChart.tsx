@@ -17,8 +17,8 @@ export default function SpendingByCategoryChart({ data, currency }: SpendingByCa
     return (
       <EmptyState
         icon={PieChartIcon}
-        title="No expenses yet this month"
-        description="Spending by category shows up here once you record an expense."
+        title="Todavía no hay gastos este mes"
+        description="El gasto por categoría aparecerá aquí cuando registres un gasto."
       />
     );
   }

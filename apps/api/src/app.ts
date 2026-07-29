@@ -14,7 +14,9 @@ import { authRoutes } from "./features/auth/auth.routes.js";
 import { budgetsRoutes } from "./features/budgets/budgets.routes.js";
 import { categoriesRoutes } from "./features/categories/categories.routes.js";
 import { dashboardRoutes } from "./features/dashboard/dashboard.routes.js";
+import { expenseItemsRoutes } from "./features/expense-items/expense-items.routes.js";
 import { healthRoutes } from "./features/health/health.routes.js";
+import { incomesRoutes } from "./features/incomes/incomes.routes.js";
 import { recurringTransactionsRoutes } from "./features/recurring-transactions/recurring-transactions.routes.js";
 import { reportsRoutes } from "./features/reports/reports.routes.js";
 import { transactionsRoutes } from "./features/transactions/transactions.routes.js";
@@ -61,6 +63,8 @@ export async function buildApp() {
   await app.register(dashboardRoutes, { prefix: "/dashboard" });
   await app.register(recurringTransactionsRoutes, { prefix: "/recurring-transactions" });
   await app.register(reportsRoutes, { prefix: "/reports" });
+  await app.register(expenseItemsRoutes, { prefix: "/expense-items" });
+  await app.register(incomesRoutes, { prefix: "/incomes" });
 
   return app;
 }

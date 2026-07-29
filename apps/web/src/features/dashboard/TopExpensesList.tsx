@@ -32,8 +32,8 @@ export function TopExpensesList({
     return (
       <EmptyState
         icon={Receipt}
-        title="No expenses yet this month"
-        description="Your biggest expenses this month will show up here."
+        title="Todavía no hay gastos este mes"
+        description="Tus mayores gastos de este mes aparecerán aquí."
       />
     );
   }

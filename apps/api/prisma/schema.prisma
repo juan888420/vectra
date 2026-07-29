@@ -46,6 +46,25 @@ enum GoalStatus {
   ABANDONED
 }
 
+/// Frequency of a reusable expense item (ADR-0005). ONE_TIME items are real
+/// costs but never feed the recurring projections — they are surfaced apart
+/// so a single purchase does not inflate a monthly total.
+enum ExpenseItemFrequency {
+  MONTHLY
+  YEARLY
+  ONE_TIME
+}
+
+/// Frequency of an income (ADR-0005). Wider than ExpenseItemFrequency —
+/// weekly pay is common, weekly subscriptions are not. Kept as its own enum
+/// so both domains can evolve without dragging the other along.
+enum IncomeFrequency {
+  WEEKLY
+  MONTHLY
+  YEARLY
+  ONE_TIME
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -69,6 +88,8 @@ model User {
   recurringTransactions RecurringTransaction[]
   savingGoals           SavingGoal[]
   refreshTokens         RefreshToken[]
+  expenseItems          ExpenseItem[]
+  incomes               Income[]
 
   @@map("users")
 }
@@ -130,6 +151,7 @@ model Category {
   transactions          Transaction[]
   budgets               Budget[]
   recurringTransactions RecurringTransaction[]
+  expenseItems          ExpenseItem[]
 
   @@index([userId])
   @@map("categories")
@@ -224,6 +246,62 @@ model Budget {
 
   @@index([userId, categoryId])
   @@map("budgets")
+}
+
+/// A reusable expense the user can drop into any scenario (Netflix, Claude,
+/// gym...). Exists exactly once per user: categories organize items and
+/// scenarios reference them, so a price change is a single edit (ADR-0005).
+/// Never produces a Transaction — an item is a hypothetical cost, not a
+/// ledger movement.
+model ExpenseItem {
+  id         String               @id @default(uuid(7)) @db.Uuid
+  userId     String               @db.Uuid
+  /// Required: every item belongs to exactly one category. When the user adds
+  /// an item from a scenario, the UI creates the category inline rather than
+  /// letting the item exist uncategorized (ADR-0005).
+  categoryId String               @db.Uuid
+  name       String
+  /// Money VO. Always positive — an item is a cost by definition; direction
+  /// is implied, unlike Transaction where it comes from `type`.
+  amount     Decimal              @db.Decimal(12, 2)
+  currency   String               @db.Char(3)
+  frequency  ExpenseItemFrequency
+  /// Items referenced by a scenario are archived, never deleted — business
+  /// rule 3 carried over to the scenario domain. Uniqueness of the ACTIVE
+  /// name per user is enforced in the service layer (same partial-index
+  /// caveat as Budget, see ADR-0002).
+  archivedAt DateTime?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([categoryId])
+  @@map("expense_items")
+}
+
+/// Money coming in: salary, freelance, dividends, bonuses (ADR-0005).
+/// Independent of scenarios — the optional scenario ↔ income link lands with
+/// the Scenario RFC, and an income is perfectly usable without one.
+model Income {
+  id         String          @id @default(uuid(7)) @db.Uuid
+  userId     String          @db.Uuid
+  name       String
+  /// Money VO. Always positive; ONE_TIME incomes are excluded from the
+  /// recurring projections for the same reason as ONE_TIME expense items.
+  amount     Decimal         @db.Decimal(12, 2)
+  currency   String          @db.Char(3)
+  frequency  IncomeFrequency
+  archivedAt DateTime?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("incomes")
 }
 
 /// Designed now, implemented in roadmap Phase 3 — not part of the MVP build.

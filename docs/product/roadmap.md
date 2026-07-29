@@ -1,6 +1,6 @@
 # Roadmap — Vectra
 
-Secuencia lógica de fases, sin fechas comprometidas. Reorientado tras [ADR-0004](../decisions/0004-expense-plans-pivot.md): los planes de gasto son el foco; el ledger construido en las fases 0–1 se conserva como base y feature secundaria.
+Secuencia lógica de fases, sin fechas comprometidas. Reorientado tras [ADR-0005](../decisions/0005-financial-scenarios.md): los escenarios financieros son el eje del producto; el ledger construido en las fases 0–1 se conserva como vista de registro histórico.
 
 ## Fase 0 — Definición ✅
 
@@ -12,27 +12,29 @@ Secuencia lógica de fases, sin fechas comprometidas. Reorientado tras [ADR-0004
 - CRUD de cuentas, categorías y transacciones (backend y frontend).
 - Presupuestos, transacciones recurrentes, endpoints de dashboard y reports (backend).
 
-## Fase 2 — Planes de gasto (foco actual)
+## Fase 2 — Escenarios financieros (foco actual)
 
-1. **Entidad y CRUD backend**: `ExpensePlan` + `ExpensePlanItem` (precio, frecuencia mensual/anual, categoría), estados activo/inactivo y archivado.
-2. **CRUD UI de planes**: crear/editar planes e ítems, creación inline de categorías, totales por plan y por categoría.
-3. **Composición**: incluir planes dentro de planes por referencia viva, con prohibición de ciclos.
-4. **Proyecciones y dashboard comparativo**: total mensual prorrateado, proyección a 6/12 meses, comparación de escenarios lado a lado (introduce Recharts).
-5. **Fuentes de ingreso y cobertura**: ingresos recurrentes con nombre, vínculo opcional plan → fuente (% consumido, restante).
+1. **Backend de productos e ingresos**: `Product` (nombre, precio, frecuencia mensual/anual/esporádico, categoría) e `Income` (nombre, frecuencia mensual/semanal/anual/esporádico). Productos únicos en el sistema, organizados por categorías.
+2. **Backend de escenarios**: `Scenario` con selección explícita de productos, composición con otros escenarios (sin ciclos), estados activo/inactivo/archivado, totales y proyecciones derivadas (mensual/6m/anual, prorrateo de anuales, esporádicos aparte).
+3. **CRUD UI de productos, categorías e ingresos**: pantalla de categoría con su total, creación de productos desde categoría o escenario (categoría inline), sección de ingresos con proyecciones para recurrentes.
+4. **Composer de escenarios**: construir escenarios combinando productos, categorías completas y otros escenarios, con total en vivo; propagación con confirmación cuando cambia contenido compartido.
+5. **Comparador y proyecciones**: escenarios lado a lado, deltas contra el escenario activo, proyecciones a 6/12 meses (introduce Recharts).
+6. **Cobertura de ingresos**: vínculo opcional escenario ↔ ingreso (% consumido, restante).
+7. **Reorganización del nav**: escenarios como punto de entrada; ledger agrupado como sección de registro histórico.
 
 ## Fase 3 — Consolidación
 
-- Picos reales de cobros anuales en la proyección (mes de cobro por ítem).
-- Puente ledger → planes: sugerir un plan a partir del gasto real registrado.
+- Picos reales de cobros anuales en la proyección (mes de cobro por producto).
+- Puente ledger → escenarios: sugerir un escenario a partir del gasto real registrado.
 - Exportación de datos propios (CSV).
-- Mejoras de UX en creación rápida de ítems (plantillas, precios sugeridos).
+- Mejoras de UX en creación rápida de productos (plantillas, precios sugeridos).
 
 ## Fase 4 — Expansión (ideas aparcadas, no comprometidas)
 
 - Conexión automática con bancos.
 - Metas de ahorro y proyecciones sobre ingresos.
 - Soporte multi-moneda.
-- Planes compartidos (pareja/familia).
+- Escenarios compartidos (pareja/familia).
 
 ## Fuera de roadmap por ahora
 

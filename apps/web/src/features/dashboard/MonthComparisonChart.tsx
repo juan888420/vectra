@@ -19,7 +19,7 @@ function DeltaIndicator({ changePercent }: { changePercent: number | null }) {
   if (changePercent === null) {
     return (
       <span className="inline-flex items-center gap-1 text-muted-foreground">
-        <Minus className="size-3" /> n/a
+        <Minus className="size-3" /> n/d
       </span>
     );
   }
@@ -44,19 +44,19 @@ function DeltaIndicator({ changePercent }: { changePercent: number | null }) {
 export default function MonthComparisonChart({ data, currency }: MonthComparisonChartProps) {
   const rows: MetricRow[] = [
     {
-      metric: "Income",
+      metric: "Ingresos",
       current: data.current.income,
       previous: data.previous.income,
       changePercent: data.changePercent.income,
     },
     {
-      metric: "Expenses",
+      metric: "Gastos",
       current: data.current.expenses,
       previous: data.previous.expenses,
       changePercent: data.changePercent.expenses,
     },
     {
-      metric: "Balance",
+      metric: "Saldo",
       current: data.current.balance,
       previous: data.previous.balance,
       changePercent: data.changePercent.balance,
@@ -72,13 +72,8 @@ export default function MonthComparisonChart({ data, currency }: MonthComparison
             <XAxis dataKey="metric" tickLine={false} axisLine={false} />
             <YAxis tickLine={false} axisLine={false} width={0} />
             <Tooltip formatter={(value) => formatMoney(Number(value), currency)} />
-            <Bar
-              dataKey="previous"
-              name="Previous month"
-              fill="var(--muted-foreground)"
-              radius={4}
-            />
-            <Bar dataKey="current" name="This month" fill="var(--primary)" radius={4} />
+            <Bar dataKey="previous" name="Mes anterior" fill="var(--muted-foreground)" radius={4} />
+            <Bar dataKey="current" name="Este mes" fill="var(--primary)" radius={4} />
           </BarChart>
         </ResponsiveContainer>
       </div>
