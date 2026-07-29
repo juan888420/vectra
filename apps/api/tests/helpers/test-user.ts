@@ -58,8 +58,16 @@ export async function cleanupTestUser(app: FastifyInstance, userId: string): Pro
   // Transactions, recurring templates and expense items reference
   // Account/Category with onDelete: Restrict, so the User's cascade delete
   // (RefreshToken/Account/Category/...) fails unless they're removed first.
+  // Same reasoning for scenario join rows against ExpenseItem/Income/Scenario
+  // (onDelete: Restrict on the referenced side, ADR-0006 business rule 3).
   await app.prisma.transaction.deleteMany({ where: { account: { userId } } });
   await app.prisma.recurringTransaction.deleteMany({ where: { userId } });
+  await app.prisma.scenarioComposition.deleteMany({
+    where: { OR: [{ parentScenario: { userId } }, { includedScenario: { userId } }] },
+  });
+  await app.prisma.scenarioItem.deleteMany({ where: { scenario: { userId } } });
+  await app.prisma.scenarioIncome.deleteMany({ where: { scenario: { userId } } });
+  await app.prisma.scenario.deleteMany({ where: { userId } });
   await app.prisma.expenseItem.deleteMany({ where: { userId } });
   await app.prisma.user.delete({ where: { id: userId } });
 }

@@ -65,6 +65,15 @@ enum IncomeFrequency {
   ONE_TIME
 }
 
+/// Lifecycle/visibility state of a Scenario (ADR-0006). Purely a visibility
+/// flag, not a baseline: several scenarios can be ACTIVE at once, since
+/// "active" means "candidate for comparison", not "my one true situation".
+enum ScenarioStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -90,6 +99,7 @@ model User {
   refreshTokens         RefreshToken[]
   expenseItems          ExpenseItem[]
   incomes               Income[]
+  scenarios             Scenario[]
 
   @@map("users")
 }
@@ -277,6 +287,8 @@ model ExpenseItem {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
+  scenarioItems ScenarioItem[]
+
   @@index([userId])
   @@index([categoryId])
   @@map("expense_items")
@@ -300,8 +312,99 @@ model Income {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  scenarioIncomes ScenarioIncome[]
+
   @@index([userId])
   @@map("incomes")
+}
+
+/// A named simulation: an explicit selection of expense items, optionally
+/// composed with other scenarios and linked to incomes for coverage (ADR-0005,
+/// ADR-0006). Never stores totals or projections — always derived from its
+/// selection at read time (business rule 6, inherited from ADR-0004/0005).
+model Scenario {
+  id     String         @id @default(uuid(7)) @db.Uuid
+  userId String         @db.Uuid
+  name   String
+  /// Visibility state, not a baseline — see ScenarioStatus. Uniqueness of the
+  /// active name per user is enforced in the service layer (same partial-index
+  /// caveat as ExpenseItem/Income, see ADR-0002).
+  status ScenarioStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items              ScenarioItem[]
+  incomes            ScenarioIncome[]
+  /// Scenarios this one includes (this is the parent side).
+  includedScenarios  ScenarioComposition[] @relation("ParentScenario")
+  /// Scenarios that include this one (this is the included side) — needed to
+  /// block deleting a scenario that another scenario still references
+  /// (business rule 3) and to reject cycles (business rule 1).
+  includingScenarios ScenarioComposition[] @relation("IncludedScenario")
+
+  @@index([userId])
+  @@map("scenarios")
+}
+
+/// Join Scenario ↔ ExpenseItem: a "live" reference (ADR-0006 vivacity table) —
+/// the scenario stores no snapshot of price/name/frequency, so editing the
+/// item is reflected instantly everywhere it is selected.
+model ScenarioItem {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  scenarioId    String   @db.Uuid
+  expenseItemId String   @db.Uuid
+  /// Provenance only, not a live relation (ADR-0006): set when the item
+  /// entered via "add whole category", left untouched afterwards even if the
+  /// item later changes category. No FK on purpose — comparing it against the
+  /// item's *current* categoryId is exactly what powers the passive
+  /// category-change notice (business rule 8), and it must never cascade.
+  addedViaCategoryId String? @db.Uuid
+  addedAt            DateTime @default(now())
+
+  scenario    Scenario    @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  expenseItem ExpenseItem @relation(fields: [expenseItemId], references: [id], onDelete: Restrict)
+
+  @@unique([scenarioId, expenseItemId])
+  @@index([expenseItemId])
+  @@index([addedViaCategoryId])
+  @@map("scenario_items")
+}
+
+/// Self-join Scenario ↔ Scenario: composing a scenario into another is
+/// "live" (ADR-0006) — if the included scenario's selection changes, the
+/// parent's total recalculates on its own. Cycle prohibition (business rule 1)
+/// is enforced in the service layer, not expressible as a Prisma constraint.
+model ScenarioComposition {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  parentScenarioId   String   @db.Uuid
+  includedScenarioId String   @db.Uuid
+  addedAt            DateTime @default(now())
+
+  parentScenario   Scenario @relation("ParentScenario", fields: [parentScenarioId], references: [id], onDelete: Cascade)
+  includedScenario Scenario @relation("IncludedScenario", fields: [includedScenarioId], references: [id], onDelete: Restrict)
+
+  @@unique([parentScenarioId, includedScenarioId])
+  @@index([includedScenarioId])
+  @@map("scenario_compositions")
+}
+
+/// Join Scenario ↔ Income, many-to-many: a scenario's income coverage sums
+/// every linked income (ADR-0006) — most users have more than one source.
+model ScenarioIncome {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  scenarioId String   @db.Uuid
+  incomeId   String   @db.Uuid
+  addedAt    DateTime @default(now())
+
+  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  income   Income   @relation(fields: [incomeId], references: [id], onDelete: Restrict)
+
+  @@unique([scenarioId, incomeId])
+  @@index([incomeId])
+  @@map("scenario_incomes")
 }
 
 /// Designed now, implemented in roadmap Phase 3 — not part of the MVP build.

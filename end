@@ -1,0 +1,17 @@
+  chore/rfc-0005-tooling[m
+  docs/rfc-0006-domain-design[m
+  feat/rfc-0007-prisma-schema[m
+  feat/rfc-0008-persistence[m
+  feat/rfc-0009-api-foundation[m
+  feat/rfc-0010-authentication[m
+  feat/rfc-0011-accounts-categories[m
+  feat/rfc-0012-transactions[m
+  feat/rfc-0013-budgets[m
+  feat/rfc-0015-recurring-transactions[m
+  feat/rfc-0016-reports-analytics[m
+  feat/rfc-0018-accounts-categories-ui[m
+  feat/rfc-0018-deployment-and-devops[m
+  feat/rfc-0019-transactions-ui[m
+  feat/rfc-0020-dashboard-ui[m
+* [32mfeat/rfc-0021-expense-items[m
+  main[m

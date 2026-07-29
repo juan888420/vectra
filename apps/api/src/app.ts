@@ -19,6 +19,7 @@ import { healthRoutes } from "./features/health/health.routes.js";
 import { incomesRoutes } from "./features/incomes/incomes.routes.js";
 import { recurringTransactionsRoutes } from "./features/recurring-transactions/recurring-transactions.routes.js";
 import { reportsRoutes } from "./features/reports/reports.routes.js";
+import { scenariosRoutes } from "./features/scenarios/scenarios.routes.js";
 import { transactionsRoutes } from "./features/transactions/transactions.routes.js";
 import { usersRoutes } from "./features/users/users.routes.js";
 import { authPlugin } from "./plugins/auth.js";
@@ -48,7 +49,13 @@ export async function buildApp() {
 
   await app.register(helmet);
   await app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
-  await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
+  // Integration tests exercise many more requests per minute than any real
+  // client would (whole flows chained in a single test file), so the limit
+  // is relaxed only under NODE_ENV=test to avoid unrelated 429s in CI.
+  await app.register(rateLimit, {
+    max: env.NODE_ENV === "test" ? 1000 : 100,
+    timeWindow: "1 minute",
+  });
   await app.register(prismaPlugin);
   await app.register(authPlugin);
   await app.register(swaggerPlugin);
@@ -65,6 +72,7 @@ export async function buildApp() {
   await app.register(reportsRoutes, { prefix: "/reports" });
   await app.register(expenseItemsRoutes, { prefix: "/expense-items" });
   await app.register(incomesRoutes, { prefix: "/incomes" });
+  await app.register(scenariosRoutes, { prefix: "/scenarios" });
 
   return app;
 }

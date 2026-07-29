@@ -8,4 +8,5 @@ export * from "./expense-items.js";
 export * from "./incomes.js";
 export * from "./money.js";
 export * from "./pagination.js";
+export * from "./scenarios.js";
 export * from "./transactions.js";
