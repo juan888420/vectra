@@ -123,13 +123,23 @@ export async function unarchiveIncome(
   return toPublic(await prisma.income.update({ where: { id }, data: { archivedAt: null } }));
 }
 
-// Nothing references an Income yet. The Scenario RFC must add the "archive
-// instead" guard here once a scenario can be financed by an income.
+// Incomes referenced by a scenario are archived, never deleted (business
+// rule 3, mirroring deleteExpenseItem) — a ScenarioIncome snapshot still
+// points at this row.
 export async function deleteIncome(
   prisma: PrismaClient,
   userId: string,
   id: string,
 ): Promise<void> {
   await findOwnedOrFail(prisma.income, id, userId, "Income");
+
+  const counts = await prisma.income.findUniqueOrThrow({
+    where: { id },
+    select: { _count: { select: { scenarioIncomes: true } } },
+  });
+  if (counts._count.scenarioIncomes > 0) {
+    throw conflict("Income is referenced by a scenario; archive it instead");
+  }
+
   await prisma.income.delete({ where: { id } });
 }

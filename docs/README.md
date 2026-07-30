@@ -20,6 +20,7 @@
   - [`0003-recurring-transaction-scheduling.md`](decisions/0003-recurring-transaction-scheduling.md): estrategia de recurrencia anchored vs. drifting (`accepted`).
   - [`0004-expense-plans-pivot.md`](decisions/0004-expense-plans-pivot.md): giro de producto — planes de gasto como feature central (`partially superseded` por ADR-0005).
   - [`0005-financial-scenarios.md`](decisions/0005-financial-scenarios.md): escenarios financieros como eje del producto (`accepted`).
+  - [`0006-question-driven-interface.md`](decisions/0006-question-driven-interface.md): interfaz orientada a preguntas financieras, no a CRUD (`accepted`).
 
 - **`glossary.md`** — términos de dominio financiero usados de forma consistente en todo el proyecto.
 
