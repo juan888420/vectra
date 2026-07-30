@@ -5,6 +5,7 @@ import {
   archiveCategoryRequest,
   createCategoryRequest,
   deleteCategoryRequest,
+  getCategorySummaryRequest,
   listCategoriesRequest,
   unarchiveCategoryRequest,
   updateCategoryRequest,
@@ -15,6 +16,13 @@ export function useCategories(query: ListCategoriesQuery) {
   return useQuery({
     queryKey: categoriesKeys.list(query),
     queryFn: () => listCategoriesRequest(query),
+  });
+}
+
+export function useCategorySummary(id: string) {
+  return useQuery({
+    queryKey: categoriesKeys.summary(id),
+    queryFn: () => getCategorySummaryRequest(id),
   });
 }
 

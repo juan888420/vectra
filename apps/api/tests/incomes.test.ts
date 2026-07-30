@@ -129,6 +129,39 @@ describe("Incomes", () => {
     expect(unarchived.body.archivedAt).toBeNull();
   });
 
+  it("projects WEEKLY and YEARLY incomes to their monthly equivalent", async () => {
+    const weekly = await request(app.server)
+      .post("/incomes")
+      .set(auth)
+      .send({ name: uniqueName("Freelance semanal"), amount: 100000, frequency: "WEEKLY" });
+    const yearly = await request(app.server)
+      .post("/incomes")
+      .set(auth)
+      .send({ name: uniqueName("Dividendos anuales"), amount: 1200000, frequency: "YEARLY" });
+
+    const weeklySummary = await request(app.server)
+      .get(`/incomes/${weekly.body.id}/summary`)
+      .set(auth);
+    const yearlySummary = await request(app.server)
+      .get(`/incomes/${yearly.body.id}/summary`)
+      .set(auth);
+
+    // 100000 * 52 / 12 ≈ 433333.33
+    expect(weeklySummary.body.totals.monthly).toBeCloseTo(433333.33, 2);
+    expect(yearlySummary.body.totals.monthly).toBe(100000);
+    expect(yearlySummary.body.totals.twelveMonths).toBe(1200000);
+  });
+
+  it("returns null totals for a ONE_TIME income's summary", async () => {
+    const oneTime = await request(app.server)
+      .post("/incomes")
+      .set(auth)
+      .send({ name: uniqueName("Bono único"), amount: 500000, frequency: "ONE_TIME" });
+
+    const res = await request(app.server).get(`/incomes/${oneTime.body.id}/summary`).set(auth);
+    expect(res.body.totals).toBeNull();
+  });
+
   it("hides another user's income behind a 404", async () => {
     const stranger = await registerTestUser(app);
     const income = await request(app.server)

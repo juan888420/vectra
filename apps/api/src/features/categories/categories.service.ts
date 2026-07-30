@@ -1,7 +1,10 @@
+import { toMonthlyEquivalent, toProjection } from "@vectra/utils";
+
 import { conflict } from "../../lib/http-errors.js";
 import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
 import type { Category, PrismaClient } from "../../generated/prisma/client.js";
+import { toPublic as toPublicExpenseItem } from "../expense-items/expense-items.service.js";
 import type { ListCategoriesQuery } from "./categories.schemas.js";
 
 async function assertNameAvailable(
@@ -161,4 +164,34 @@ export async function deleteCategory(
   }
 
   await prisma.category.delete({ where: { id } });
+}
+
+// "¿Cuánto gasto en esta área?" (ADR-0006) — derived, never stored: sums the
+// category's active expense items the same way a Scenario sums its
+// ScenarioItems (prorate YEARLY, exclude ONE_TIME from the recurring total).
+export async function getCategorySummary(prisma: PrismaClient, userId: string, id: string) {
+  const category = await findOwnedOrFail(prisma.category, id, userId, "Category");
+
+  const expenseItems = await prisma.expenseItem.findMany({
+    where: { categoryId: id, userId, archivedAt: null },
+    orderBy: { name: "asc" },
+  });
+
+  let monthly = 0;
+  let oneTimeTotal = 0;
+  for (const item of expenseItems) {
+    const amount = Number(item.amount);
+    if (item.frequency === "ONE_TIME") {
+      oneTimeTotal += amount;
+    } else {
+      monthly += toMonthlyEquivalent(amount, item.frequency);
+    }
+  }
+
+  return {
+    category,
+    totals: toProjection(monthly),
+    oneTimeTotal,
+    items: expenseItems.map(toPublicExpenseItem),
+  };
 }

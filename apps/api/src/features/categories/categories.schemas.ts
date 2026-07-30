@@ -6,6 +6,7 @@ import {
   queryBooleanSchema,
   sortQuerySchema,
 } from "../../lib/pagination.js";
+import { expenseItemPublicSchema } from "../expense-items/expense-items.schemas.js";
 
 export const categoryTypeSchema = z.enum(["EXPENSE", "INCOME"]);
 
@@ -38,6 +39,21 @@ export const listCategoriesQuerySchema = paginationQuerySchema
   });
 
 export const categoryListResponseSchema = paginatedResponseSchema(categoryPublicSchema);
+
+// Derived, never stored (ADR-0006): "¿cuánto gasto en esta área?" — the
+// category's expense items, prorated and summed the same way a Scenario's
+// items are (mensual/6m/12m). ONE_TIME items are excluded from the total and
+// listed separately, same convention as the Scenario summary.
+export const categorySummarySchema = z.object({
+  category: categoryPublicSchema,
+  totals: z.object({
+    monthly: z.number(),
+    sixMonths: z.number(),
+    twelveMonths: z.number(),
+  }),
+  oneTimeTotal: z.number(),
+  items: z.array(expenseItemPublicSchema),
+});
 
 export type CreateCategoryBody = z.infer<typeof createCategoryBodySchema>;
 export type UpdateCategoryBody = z.infer<typeof updateCategoryBodySchema>;

@@ -59,3 +59,20 @@ export interface ListExpenseItemsQuery {
   frequency?: ExpenseItemFrequency;
   includeArchived?: boolean;
 }
+
+const scenarioUsageStatusSchema = z.enum(["ACTIVE", "INACTIVE", "ARCHIVED"]);
+
+// "¿Cuánto me cuesta mantener esto?" (ADR-0006) — derived, never stored.
+export const expenseItemSummarySchema = z.object({
+  item: expenseItemPublicSchema,
+  totals: z.object({
+    monthly: z.number(),
+    sixMonths: z.number(),
+    twelveMonths: z.number(),
+  }),
+  scenarios: z.array(
+    z.object({ id: z.uuid(), name: z.string(), status: scenarioUsageStatusSchema }),
+  ),
+});
+
+export type ExpenseItemSummary = z.infer<typeof expenseItemSummarySchema>;

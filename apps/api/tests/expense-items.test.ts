@@ -249,6 +249,45 @@ describe("Expense items", () => {
     await cleanupTestUser(app, stranger.userId);
   });
 
+  it("computes the summary's monthly total and lists scenarios that use the item", async () => {
+    const categoryId = await createExpenseCategory(app, auth);
+    const item = await request(app.server)
+      .post("/expense-items")
+      .set(auth)
+      .send({ categoryId, name: uniqueName("Cursor"), amount: 60000, frequency: "YEARLY" });
+
+    const before = await request(app.server)
+      .get(`/expense-items/${item.body.id}/summary`)
+      .set(auth);
+    expect(before.body.totals.monthly).toBe(5000);
+    expect(before.body.scenarios).toEqual([]);
+
+    const scenario = await request(app.server)
+      .post("/scenarios")
+      .set(auth)
+      .send({ name: uniqueName("Escenario") });
+    await request(app.server)
+      .post(`/scenarios/${scenario.body.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: item.body.id });
+
+    const after = await request(app.server).get(`/expense-items/${item.body.id}/summary`).set(auth);
+    expect(after.body.scenarios).toEqual([
+      { id: scenario.body.id, name: scenario.body.name, status: "ACTIVE" },
+    ]);
+  });
+
+  it("returns a zero total for a ONE_TIME item's summary", async () => {
+    const categoryId = await createExpenseCategory(app, auth);
+    const item = await request(app.server)
+      .post("/expense-items")
+      .set(auth)
+      .send({ categoryId, name: uniqueName("Laptop"), amount: 3000000, frequency: "ONE_TIME" });
+
+    const res = await request(app.server).get(`/expense-items/${item.body.id}/summary`).set(auth);
+    expect(res.body.totals.monthly).toBe(0);
+  });
+
   it("deletes an item that no scenario references", async () => {
     const categoryId = await createExpenseCategory(app, auth);
     const item = await request(app.server)

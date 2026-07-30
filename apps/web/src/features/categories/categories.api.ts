@@ -1,7 +1,9 @@
 import {
   categoryListResponseSchema,
   categoryPublicSchema,
+  categorySummarySchema,
   type CategoryPublic,
+  type CategorySummary,
   type CreateCategoryBody,
   type ListCategoriesQuery,
   type PaginatedResponse,
@@ -55,4 +57,9 @@ export async function unarchiveCategoryRequest(id: string): Promise<CategoryPubl
 
 export async function deleteCategoryRequest(id: string): Promise<void> {
   await apiRequest<void>(`/categories/${id}`, { method: "DELETE" });
+}
+
+export async function getCategorySummaryRequest(id: string): Promise<CategorySummary> {
+  const data = await apiRequest<unknown>(`/categories/${id}/summary`);
+  return categorySummarySchema.parse(data);
 }

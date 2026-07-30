@@ -1,3 +1,5 @@
+import { toMonthlyEquivalent, toProjection } from "@vectra/utils";
+
 import { conflict } from "../../lib/http-errors.js";
 import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
@@ -142,4 +144,16 @@ export async function deleteIncome(
   }
 
   await prisma.income.delete({ where: { id } });
+}
+
+// "¿Cuánto dinero genera este ingreso?" (ADR-0006) — derived, never stored.
+export async function getIncomeSummary(prisma: PrismaClient, userId: string, id: string) {
+  const income = await findOwnedOrFail(prisma.income, id, userId, "Income");
+
+  const totals =
+    income.frequency === "ONE_TIME"
+      ? null
+      : toProjection(toMonthlyEquivalent(Number(income.amount), income.frequency));
+
+  return { income: toPublic(income), totals };
 }
