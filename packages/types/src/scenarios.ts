@@ -33,7 +33,16 @@ export const updateScenarioBodySchema = z.object({
 
 export type UpdateScenarioBody = z.infer<typeof updateScenarioBodySchema>;
 
-export const scenarioListResponseSchema = paginatedResponseSchema(scenarioPublicSchema);
+// The list carries `monthly` per row (unlike the single-scenario
+// `scenarioPublicSchema`) — computed backend-side so a persistently visible
+// list of scenarios can show "¿cuánto cuesta?" from one request (ADR-0006).
+export const scenarioListItemSchema = scenarioPublicSchema.extend({
+  monthly: z.number(),
+});
+
+export type ScenarioListItem = z.infer<typeof scenarioListItemSchema>;
+
+export const scenarioListResponseSchema = paginatedResponseSchema(scenarioListItemSchema);
 
 export interface ListScenariosQuery {
   page?: number;

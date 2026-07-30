@@ -6,6 +6,7 @@ import {
   createExpenseItemBodySchema,
   expenseItemListResponseSchema,
   expenseItemPublicSchema,
+  expenseItemSummarySchema,
   listExpenseItemsQuerySchema,
   updateExpenseItemBodySchema,
 } from "./expense-items.schemas.js";
@@ -14,6 +15,7 @@ import {
   createExpenseItem,
   deleteExpenseItem,
   getExpenseItem,
+  getExpenseItemSummary,
   listExpenseItems,
   unarchiveExpenseItem,
   updateExpenseItem,
@@ -51,6 +53,20 @@ export const expenseItemsRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => getExpenseItem(app.prisma, request.user.sub, request.params.id),
+  );
+
+  app.get(
+    "/:id/summary",
+    {
+      schema: {
+        tags: TAGS,
+        summary: "Get an expense item's derived totals and the scenarios that use it",
+        security: SECURITY,
+        params: idParamsSchema,
+        response: { 200: expenseItemSummarySchema, 404: errorResponseSchema },
+      },
+    },
+    async (request) => getExpenseItemSummary(app.prisma, request.user.sub, request.params.id),
   );
 
   app.post(

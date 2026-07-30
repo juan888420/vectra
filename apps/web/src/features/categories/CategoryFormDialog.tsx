@@ -35,23 +35,36 @@ interface CategoryFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   category?: CategoryPublic;
+  /** Locks `type` to this value when creating — used by the inline "crear
+   * categoría" flow from ExpenseItemFormDialog, where only EXPENSE makes
+   * sense (ADR-0005 §3). Ignored when editing. */
+  forcedType?: CategoryType;
+  /** Called after a successful create, so a caller embedding this dialog
+   * inline (e.g. product creation) can auto-select the new category. */
+  onCreated?: (category: CategoryPublic) => void;
 }
 
-export function CategoryFormDialog({ open, onOpenChange, category }: CategoryFormDialogProps) {
+export function CategoryFormDialog({
+  open,
+  onOpenChange,
+  category,
+  forcedType,
+  onCreated,
+}: CategoryFormDialogProps) {
   const isEditing = category !== undefined;
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(createCategoryBodySchema),
-    defaultValues: { name: "", type: "EXPENSE" },
+    defaultValues: { name: "", type: forcedType ?? "EXPENSE" },
   });
 
   useEffect(() => {
     if (open) {
-      form.reset({ name: category?.name ?? "", type: category?.type ?? "EXPENSE" });
+      form.reset({ name: category?.name ?? "", type: category?.type ?? forcedType ?? "EXPENSE" });
     }
-  }, [open, category, form]);
+  }, [open, category, forcedType, form]);
 
   async function onSubmit(values: CategoryFormValues) {
     try {
@@ -59,7 +72,8 @@ export function CategoryFormDialog({ open, onOpenChange, category }: CategoryFor
         // `type` is immutable server-side, so only `name` is ever sent.
         await updateCategory.mutateAsync({ id: category.id, body: { name: values.name } });
       } else {
-        await createCategory.mutateAsync(values);
+        const created = await createCategory.mutateAsync(values);
+        onCreated?.(created);
       }
       onOpenChange(false);
     } catch (error) {
@@ -106,7 +120,11 @@ export function CategoryFormDialog({ open, onOpenChange, category }: CategoryFor
         render={({ field }) => (
           <FormItem>
             <FormLabel>Tipo</FormLabel>
-            <Select value={field.value} onValueChange={field.onChange} disabled={isEditing}>
+            <Select
+              value={field.value}
+              onValueChange={field.onChange}
+              disabled={isEditing || forcedType !== undefined}
+            >
               <FormControl>
                 <SelectTrigger>
                   <SelectValue />

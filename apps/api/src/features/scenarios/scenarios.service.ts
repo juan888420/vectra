@@ -1,3 +1,5 @@
+import { toMonthlyEquivalent, toProjection } from "@vectra/utils";
+
 import { badRequest, conflict, notFound } from "../../lib/http-errors.js";
 import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
@@ -11,7 +13,6 @@ import type {
   ScenarioIncome,
   ScenarioItem,
 } from "../../generated/prisma/client.js";
-import { toMonthlyEquivalent } from "./scenarios.projections.js";
 import type {
   CreateScenarioBody,
   ListScenariosQuery,
@@ -51,7 +52,7 @@ export async function listScenarios(
   prisma: PrismaClient,
   userId: string,
   query: ListScenariosQuery,
-): Promise<{ data: Scenario[]; meta: PageMeta }> {
+): Promise<{ data: (Scenario & { monthly: number })[]; meta: PageMeta }> {
   const where = {
     userId,
     ...(query.status
@@ -61,7 +62,7 @@ export async function listScenarios(
         : { status: { not: "ARCHIVED" as const } }),
   };
 
-  const [totalItems, data] = await prisma.$transaction([
+  const [totalItems, scenarios] = await prisma.$transaction([
     prisma.scenario.count({ where }),
     prisma.scenario.findMany({
       where,
@@ -69,6 +70,16 @@ export async function listScenarios(
       ...toSkipTake(query),
     }),
   ]);
+
+  // "¿Cuánto cuesta?" per row (ADR-0006: Escenarios is the main, persistently
+  // visible screen) — computed here, once per page, instead of one /summary
+  // call per scenario from the client.
+  const data = await Promise.all(
+    scenarios.map(async (scenario) => ({
+      ...scenario,
+      monthly: await getScenarioMonthlyTotal(prisma, scenario.id),
+    })),
+  );
 
   return { data, meta: buildMeta(query, totalItems) };
 }
@@ -458,6 +469,21 @@ async function collectReachableScenarioIds(
   return [...visited];
 }
 
+// Just the recurring monthly total (no coverage/hasUpdates/oneTime detail) —
+// cheap enough to compute per row in `listScenarios` (see above), unlike the
+// full `getScenarioSummary`.
+async function getScenarioMonthlyTotal(prisma: PrismaClient, scenarioId: string): Promise<number> {
+  const scenarioIds = await collectReachableScenarioIds(prisma, scenarioId);
+  const items = await prisma.scenarioItem.findMany({
+    where: { scenarioId: { in: scenarioIds }, frequency: { not: "ONE_TIME" } },
+    select: { amount: true, frequency: true },
+  });
+  return items.reduce(
+    (sum, item) => sum + toMonthlyEquivalent(Number(item.amount), item.frequency),
+    0,
+  );
+}
+
 export async function getScenarioSummary(prisma: PrismaClient, userId: string, id: string) {
   const scenario = await findOwnedOrFail(prisma.scenario, id, userId, "Scenario");
   const scenarioIds = await collectReachableScenarioIds(prisma, id);
@@ -513,7 +539,7 @@ export async function getScenarioSummary(prisma: PrismaClient, userId: string, i
 
   return {
     scenario,
-    totals: { monthly, sixMonths: monthly * 6, twelveMonths: monthly * 12 },
+    totals: toProjection(monthly),
     oneTime: { items: oneTimeItems, total: oneTimeTotal },
     incomeCoverage,
     hasUpdates,

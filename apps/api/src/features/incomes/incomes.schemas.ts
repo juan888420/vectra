@@ -50,6 +50,20 @@ export const listIncomesQuerySchema = paginationQuerySchema
 
 export const incomeListResponseSchema = paginatedResponseSchema(incomePublicSchema);
 
+// "¿Cuánto dinero genera este ingreso?" (ADR-0006) — derived, never stored.
+// `ONE_TIME` incomes have no period to project (business rule from ADR-0005
+// §14), so `totals` is null rather than a misleading zeroed-out projection.
+export const incomeSummarySchema = z.object({
+  income: incomePublicSchema,
+  totals: z
+    .object({
+      monthly: z.number(),
+      sixMonths: z.number(),
+      twelveMonths: z.number(),
+    })
+    .nullable(),
+});
+
 export type CreateIncomeBody = z.infer<typeof createIncomeBodySchema>;
 export type UpdateIncomeBody = z.infer<typeof updateIncomeBodySchema>;
 export type ListIncomesQuery = z.infer<typeof listIncomesQuerySchema>;

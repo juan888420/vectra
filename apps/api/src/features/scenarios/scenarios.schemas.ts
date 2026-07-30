@@ -34,7 +34,15 @@ export const listScenariosQuerySchema = paginationQuerySchema
     includeArchived: queryBooleanSchema,
   });
 
-export const scenarioListResponseSchema = paginatedResponseSchema(scenarioPublicSchema);
+// The list carries `monthly` (unlike the single-scenario `scenarioPublicSchema`)
+// so a persistently-visible list of scenarios (ADR-0006: Escenarios as the
+// main screen) can show "¿cuánto cuesta?" per row from one request, instead
+// of one /summary call per scenario.
+export const scenarioListItemSchema = scenarioPublicSchema.extend({
+  monthly: z.number(),
+});
+
+export const scenarioListResponseSchema = paginatedResponseSchema(scenarioListItemSchema);
 
 // A ScenarioItem is a frozen snapshot (name/amount/currency/frequency/
 // categoryName) plus `outdated`, computed at read time by comparing

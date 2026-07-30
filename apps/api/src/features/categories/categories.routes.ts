@@ -5,6 +5,7 @@ import { errorResponseSchema, idParamsSchema } from "../../lib/schemas.js";
 import {
   categoryListResponseSchema,
   categoryPublicSchema,
+  categorySummarySchema,
   createCategoryBodySchema,
   listCategoriesQuerySchema,
   updateCategoryBodySchema,
@@ -14,6 +15,7 @@ import {
   createCategory,
   deleteCategory,
   getCategory,
+  getCategorySummary,
   listCategories,
   unarchiveCategory,
   updateCategory,
@@ -51,6 +53,20 @@ export const categoriesRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => getCategory(app.prisma, request.user.sub, request.params.id),
+  );
+
+  app.get(
+    "/:id/summary",
+    {
+      schema: {
+        tags: TAGS,
+        summary: "Get a category's derived totals and its expense items",
+        security: SECURITY,
+        params: idParamsSchema,
+        response: { 200: categorySummarySchema, 404: errorResponseSchema },
+      },
+    },
+    async (request) => getCategorySummary(app.prisma, request.user.sub, request.params.id),
   );
 
   app.post(

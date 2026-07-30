@@ -8,20 +8,31 @@ import {
   DropdownMenuTrigger,
   ThemeToggle,
 } from "@vectra/ui";
-import { LogOut, User } from "lucide-react";
-import { NavLink, Outlet } from "react-router";
+import { ChevronDown, LogOut, User } from "lucide-react";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
 
 import { useAuth } from "../features/auth/useAuth.js";
 
-const NAV_LINKS = [
-  { to: "/", label: "Dashboard", end: true },
-  { to: "/accounts", label: "Cuentas", end: false },
-  { to: "/categories", label: "Categorías", end: false },
-  { to: "/transactions", label: "Transacciones", end: false },
+// Primary nav answers a financial question each (ADR-0006); the ledger
+// (registro histórico, ADR-0005) is secondary and grouped under "Historial"
+// instead of competing for the same visual weight.
+const PRIMARY_NAV_LINKS = [
+  { to: "/scenarios", label: "Escenarios" },
+  { to: "/categories", label: "Categorías" },
+  { to: "/expense-items", label: "Productos" },
+  { to: "/incomes", label: "Ingresos" },
+];
+
+const HISTORIAL_LINKS = [
+  { to: "/dashboard", label: "Dashboard" },
+  { to: "/accounts", label: "Cuentas" },
+  { to: "/transactions", label: "Transacciones" },
 ];
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const isHistorialActive = HISTORIAL_LINKS.some((link) => location.pathname.startsWith(link.to));
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -29,11 +40,10 @@ export function Layout() {
         <div className="flex items-center gap-6">
           <span className="text-sm font-semibold tracking-tight">Vectra</span>
           <nav className="flex items-center gap-4">
-            {NAV_LINKS.map((link) => (
+            {PRIMARY_NAV_LINKS.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
-                end={link.end}
                 className={({ isActive }) =>
                   cn(
                     "text-sm text-muted-foreground transition-colors hover:text-foreground",
@@ -44,6 +54,28 @@ export function Layout() {
                 {link.label}
               </NavLink>
             ))}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground",
+                    isHistorialActive && "font-medium text-foreground",
+                  )}
+                >
+                  Historial
+                  <ChevronDown className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {HISTORIAL_LINKS.map((link) => (
+                  <DropdownMenuItem key={link.to} asChild>
+                    <Link to={link.to}>{link.label}</Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
         </div>
         <div className="flex items-center gap-2">

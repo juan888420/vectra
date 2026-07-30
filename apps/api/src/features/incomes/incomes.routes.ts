@@ -6,6 +6,7 @@ import {
   createIncomeBodySchema,
   incomeListResponseSchema,
   incomePublicSchema,
+  incomeSummarySchema,
   listIncomesQuerySchema,
   updateIncomeBodySchema,
 } from "./incomes.schemas.js";
@@ -14,6 +15,7 @@ import {
   createIncome,
   deleteIncome,
   getIncome,
+  getIncomeSummary,
   listIncomes,
   unarchiveIncome,
   updateIncome,
@@ -51,6 +53,20 @@ export const incomesRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => getIncome(app.prisma, request.user.sub, request.params.id),
+  );
+
+  app.get(
+    "/:id/summary",
+    {
+      schema: {
+        tags: TAGS,
+        summary: "Get an income's derived monthly/6m/12m projection",
+        security: SECURITY,
+        params: idParamsSchema,
+        response: { 200: incomeSummarySchema, 404: errorResponseSchema },
+      },
+    },
+    async (request) => getIncomeSummary(app.prisma, request.user.sub, request.params.id),
   );
 
   app.post(

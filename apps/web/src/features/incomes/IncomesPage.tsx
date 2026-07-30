@@ -1,4 +1,4 @@
-import type { CategoryPublic, CategoryType } from "@vectra/types";
+import type { IncomeFrequency, IncomePublic } from "@vectra/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,46 +17,57 @@ import {
   DropdownMenuTrigger,
   EmptyState,
 } from "@vectra/ui";
-import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Plus, Tags, Trash2 } from "lucide-react";
+import { formatMoney } from "@vectra/utils";
+import {
+  Archive,
+  ArchiveRestore,
+  Banknote,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
-import { CategoryFormDialog } from "./CategoryFormDialog.js";
+import { IncomeFormDialog } from "./IncomeFormDialog.js";
 import {
-  useArchiveCategory,
-  useCategories,
-  useDeleteCategory,
-  useUnarchiveCategory,
-} from "./use-categories.js";
+  useArchiveIncome,
+  useDeleteIncome,
+  useIncomes,
+  useUnarchiveIncome,
+} from "./use-incomes.js";
 
-const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
-  EXPENSE: "Gasto",
-  INCOME: "Ingreso",
+const FREQUENCY_LABELS: Record<IncomeFrequency, string> = {
+  WEEKLY: "Semanal",
+  MONTHLY: "Mensual",
+  YEARLY: "Anual",
+  ONE_TIME: "Esporádico",
 };
 
 const PAGE_SIZE = 20;
 
-type FormDialogState = { mode: "create" } | { mode: "edit"; category: CategoryPublic } | null;
+type FormDialogState = { mode: "create" } | { mode: "edit"; income: IncomePublic } | null;
 
-export function CategoriesPage() {
+export function IncomesPage() {
   const [page, setPage] = useState(1);
   const [includeArchived, setIncludeArchived] = useState(false);
   const [formDialog, setFormDialog] = useState<FormDialogState>(null);
-  const [pendingDelete, setPendingDelete] = useState<CategoryPublic | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<IncomePublic | null>(null);
 
-  const { data, isLoading } = useCategories({ page, pageSize: PAGE_SIZE, includeArchived });
-  const archiveCategory = useArchiveCategory();
-  const unarchiveCategory = useUnarchiveCategory();
-  const deleteCategory = useDeleteCategory();
+  const { data, isLoading } = useIncomes({ page, pageSize: PAGE_SIZE, includeArchived });
+  const archiveIncome = useArchiveIncome();
+  const unarchiveIncome = useUnarchiveIncome();
+  const deleteIncome = useDeleteIncome();
 
-  async function handleToggleArchive(category: CategoryPublic) {
+  async function handleToggleArchive(income: IncomePublic) {
     try {
-      if (category.archivedAt) {
-        await unarchiveCategory.mutateAsync(category.id);
+      if (income.archivedAt) {
+        await unarchiveIncome.mutateAsync(income.id);
       } else {
-        await archiveCategory.mutateAsync(category.id);
+        await archiveIncome.mutateAsync(income.id);
       }
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
@@ -66,25 +77,25 @@ export function CategoriesPage() {
   async function handleDelete() {
     if (!pendingDelete) return;
     try {
-      await deleteCategory.mutateAsync(pendingDelete.id);
+      await deleteIncome.mutateAsync(pendingDelete.id);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
     }
   }
 
-  const categories = data?.data ?? [];
+  const incomes = data?.data ?? [];
 
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Categorías</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Ingresos</h1>
           <p className="text-sm text-muted-foreground">
-            Agrupa tus transacciones para presupuestos y reportes.
+            Sueldo, freelance, dividendos... y su cobertura frente a tus escenarios.
           </p>
         </div>
         <Button onClick={() => setFormDialog({ mode: "create" })}>
-          <Plus /> Nueva categoría
+          <Plus /> Nuevo ingreso
         </Button>
       </div>
 
@@ -97,7 +108,7 @@ export function CategoriesPage() {
             setPage(1);
           }}
         >
-          {includeArchived ? "Ocultar archivadas" : "Mostrar archivadas"}
+          {includeArchived ? "Ocultar archivados" : "Mostrar archivados"}
         </Button>
       </div>
 
@@ -106,52 +117,55 @@ export function CategoriesPage() {
           {
             id: "name",
             header: "Nombre",
-            cell: (category) => (
-              <Link to={`/categories/${category.id}`} className="font-medium hover:underline">
-                {category.name}
+            cell: (income) => (
+              <Link to={`/incomes/${income.id}`} className="font-medium hover:underline">
+                {income.name}
               </Link>
             ),
           },
-          { id: "type", header: "Tipo", cell: (category) => CATEGORY_TYPE_LABELS[category.type] },
+          {
+            id: "frequency",
+            header: "Frecuencia",
+            cell: (income) => <Badge variant="outline">{FREQUENCY_LABELS[income.frequency]}</Badge>,
+          },
+          {
+            id: "amount",
+            header: "Monto",
+            className: "text-right",
+            cell: (income) => (
+              <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                {formatMoney(income.amount, income.currency)}
+              </span>
+            ),
+          },
           {
             id: "status",
             header: "Estado",
-            cell: (category) => (
-              <div className="flex gap-1.5">
-                {category.isSystem ? <Badge variant="outline">Sistema</Badge> : null}
-                {category.archivedAt ? <Badge variant="secondary">Archivada</Badge> : null}
-              </div>
-            ),
+            cell: (income) =>
+              income.archivedAt ? <Badge variant="secondary">Archivado</Badge> : null,
           },
           {
             id: "actions",
             header: "",
             className: "text-right",
-            cell: (category) => (
+            cell: (income) => (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label={`Acciones para ${category.name}`}>
+                  <Button variant="ghost" size="icon" aria-label={`Acciones para ${income.name}`}>
                     <MoreHorizontal />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    disabled={category.isSystem}
-                    onSelect={() => setFormDialog({ mode: "edit", category })}
-                  >
+                  <DropdownMenuItem onSelect={() => setFormDialog({ mode: "edit", income })}>
                     <Pencil /> Editar
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={category.isSystem}
-                    onSelect={() => void handleToggleArchive(category)}
-                  >
-                    {category.archivedAt ? <ArchiveRestore /> : <Archive />}
-                    {category.archivedAt ? "Desarchivar" : "Archivar"}
+                  <DropdownMenuItem onSelect={() => void handleToggleArchive(income)}>
+                    {income.archivedAt ? <ArchiveRestore /> : <Archive />}
+                    {income.archivedAt ? "Desarchivar" : "Archivar"}
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    disabled={category.isSystem}
                     className="text-destructive focus:text-destructive"
-                    onSelect={() => setPendingDelete(category)}
+                    onSelect={() => setPendingDelete(income)}
                   >
                     <Trash2 /> Eliminar
                   </DropdownMenuItem>
@@ -160,17 +174,17 @@ export function CategoriesPage() {
             ),
           },
         ]}
-        data={categories}
-        rowKey={(category) => category.id}
+        data={incomes}
+        rowKey={(income) => income.id}
         isLoading={isLoading}
         emptyState={
           <EmptyState
-            icon={Tags}
-            title="Todavía no hay categorías"
-            description="Crea tu primera categoría para empezar a organizar transacciones."
+            icon={Banknote}
+            title="Todavía no hay ingresos"
+            description="Registra tu primer ingreso para calcular la cobertura de tus escenarios."
             action={
               <Button onClick={() => setFormDialog({ mode: "create" })}>
-                <Plus /> Nueva categoría
+                <Plus /> Nuevo ingreso
               </Button>
             }
           />
@@ -203,12 +217,12 @@ export function CategoriesPage() {
         </div>
       ) : null}
 
-      <CategoryFormDialog
+      <IncomeFormDialog
         open={formDialog !== null}
         onOpenChange={(open) => {
           if (!open) setFormDialog(null);
         }}
-        category={formDialog?.mode === "edit" ? formDialog.category : undefined}
+        income={formDialog?.mode === "edit" ? formDialog.income : undefined}
       />
 
       <AlertDialog
@@ -221,8 +235,8 @@ export function CategoriesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar &quot;{pendingDelete?.name}&quot;?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. Las categorías con transacciones o presupuestos no
-              se pueden eliminar, archívalas en su lugar.
+              Esta acción no se puede deshacer. Los ingresos vinculados a algún escenario no se
+              pueden eliminar, archívalos en su lugar.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

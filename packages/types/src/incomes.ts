@@ -52,3 +52,18 @@ export interface ListIncomesQuery {
   frequency?: IncomeFrequency;
   includeArchived?: boolean;
 }
+
+// "¿Cuánto dinero genera este ingreso?" (ADR-0006) — derived, never stored.
+// `totals` is null for ONE_TIME incomes (no period to project).
+export const incomeSummarySchema = z.object({
+  income: incomePublicSchema,
+  totals: z
+    .object({
+      monthly: z.number(),
+      sixMonths: z.number(),
+      twelveMonths: z.number(),
+    })
+    .nullable(),
+});
+
+export type IncomeSummary = z.infer<typeof incomeSummarySchema>;

@@ -57,6 +57,27 @@ export const listExpenseItemsQuerySchema = paginationQuerySchema
 
 export const expenseItemListResponseSchema = paginatedResponseSchema(expenseItemPublicSchema);
 
+// Duplicated literal rather than importing from scenarios.schemas.ts: that
+// module already imports from this one (expenseItemFrequencySchema), so
+// importing back would create a cycle over a 3-value enum that never changes.
+const scenarioUsageStatusSchema = z.enum(["ACTIVE", "INACTIVE", "ARCHIVED"]);
+
+// "¿Cuánto me cuesta mantener esto?" (ADR-0006) — derived, never stored:
+// the item's own mensual/6m/12m plus the scenarios that reference it
+// (business question "en qué escenarios se usa"), computed server-side since
+// ScenarioItem isn't queryable from the client.
+export const expenseItemSummarySchema = z.object({
+  item: expenseItemPublicSchema,
+  totals: z.object({
+    monthly: z.number(),
+    sixMonths: z.number(),
+    twelveMonths: z.number(),
+  }),
+  scenarios: z.array(
+    z.object({ id: z.uuid(), name: z.string(), status: scenarioUsageStatusSchema }),
+  ),
+});
+
 export type CreateExpenseItemBody = z.infer<typeof createExpenseItemBodySchema>;
 export type UpdateExpenseItemBody = z.infer<typeof updateExpenseItemBodySchema>;
 export type ListExpenseItemsQuery = z.infer<typeof listExpenseItemsQuerySchema>;

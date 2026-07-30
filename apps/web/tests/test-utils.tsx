@@ -1,6 +1,7 @@
 import type { UserPublic } from "@vectra/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router";
 
 import { AuthContext, type AuthContextValue } from "../src/features/auth/auth-context.js";
 
@@ -44,7 +45,9 @@ export function withProviders(client: QueryClient) {
     };
     return (
       <QueryClientProvider client={client}>
-        <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>
+        <AuthContext.Provider value={authValue}>
+          <MemoryRouter>{children}</MemoryRouter>
+        </AuthContext.Provider>
       </QueryClientProvider>
     );
   };

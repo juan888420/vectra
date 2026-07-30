@@ -1,3 +1,5 @@
+import { toMonthlyEquivalent, toProjection } from "@vectra/utils";
+
 import { badRequest, conflict } from "../../lib/http-errors.js";
 import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
@@ -8,9 +10,9 @@ import type {
   UpdateExpenseItemBody,
 } from "./expense-items.schemas.js";
 
-type PublicExpenseItem = Omit<ExpenseItem, "amount"> & { amount: number };
+export type PublicExpenseItem = Omit<ExpenseItem, "amount"> & { amount: number };
 
-function toPublic(item: ExpenseItem): PublicExpenseItem {
+export function toPublic(item: ExpenseItem): PublicExpenseItem {
   return { ...item, amount: Number(item.amount) };
 }
 
@@ -178,4 +180,30 @@ export async function deleteExpenseItem(
   }
 
   await prisma.expenseItem.delete({ where: { id } });
+}
+
+// "¿Cuánto me cuesta mantener esto?" (ADR-0006) — derived, never stored. The
+// scenario list answers "en qué escenarios se usa": ScenarioItem isn't
+// queryable client-side, so this is the one new endpoint this domain needs.
+export async function getExpenseItemSummary(prisma: PrismaClient, userId: string, id: string) {
+  const item = await findOwnedOrFail(prisma.expenseItem, id, userId, "Expense item");
+
+  const scenarioItems = await prisma.scenarioItem.findMany({
+    where: { expenseItemId: id, scenario: { userId } },
+    include: { scenario: true },
+    orderBy: { scenario: { name: "asc" } },
+  });
+
+  const monthly =
+    item.frequency === "ONE_TIME" ? 0 : toMonthlyEquivalent(Number(item.amount), item.frequency);
+
+  return {
+    item: toPublic(item),
+    totals: toProjection(monthly),
+    scenarios: scenarioItems.map((scenarioItem) => ({
+      id: scenarioItem.scenario.id,
+      name: scenarioItem.scenario.name,
+      status: scenarioItem.scenario.status,
+    })),
+  };
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { expenseItemPublicSchema } from "./expense-items.js";
 import { paginatedResponseSchema } from "./pagination.js";
 
 // Hand-mirrored from apps/api/src/features/categories/categories.schemas.ts.
@@ -47,3 +48,17 @@ export interface ListCategoriesQuery {
   type?: CategoryType;
   includeArchived?: boolean;
 }
+
+// "¿Cuánto gasto en esta área?" (ADR-0006) — derived, never stored.
+export const categorySummarySchema = z.object({
+  category: categoryPublicSchema,
+  totals: z.object({
+    monthly: z.number(),
+    sixMonths: z.number(),
+    twelveMonths: z.number(),
+  }),
+  oneTimeTotal: z.number(),
+  items: z.array(expenseItemPublicSchema),
+});
+
+export type CategorySummary = z.infer<typeof categorySummarySchema>;

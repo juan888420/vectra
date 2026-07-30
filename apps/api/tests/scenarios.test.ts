@@ -270,6 +270,20 @@ describe("Scenarios", () => {
     expect(after.body.hasUpdates).toBe(true);
   });
 
+  it("includes the monthly total per scenario in the list response", async () => {
+    const scenario = await createScenario();
+    const itemId = await createExpenseItem(40000, "MONTHLY");
+    await request(app.server)
+      .post(`/scenarios/${scenario.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: itemId });
+
+    const res = await request(app.server).get("/scenarios?pageSize=100").set(auth);
+
+    const listed = res.body.data.find((entry: { id: string }) => entry.id === scenario.id);
+    expect(listed.monthly).toBe(40000);
+  });
+
   it("hides another user's scenario behind a 404", async () => {
     const stranger = await registerTestUser(app);
     const strangerAuth = { Authorization: `Bearer ${stranger.accessToken}` };
