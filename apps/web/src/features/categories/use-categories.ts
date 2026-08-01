@@ -1,10 +1,12 @@
 import type { ListCategoriesQuery, UpdateCategoryBody } from "@vectra/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { expenseItemsKeys } from "../expense-items/expense-items.keys.js";
 import {
   archiveCategoryRequest,
   createCategoryRequest,
   deleteCategoryRequest,
+  deleteCategoryWithReassignmentRequest,
   getCategorySummaryRequest,
   listCategoriesRequest,
   unarchiveCategoryRequest,
@@ -23,6 +25,7 @@ export function useCategorySummary(id: string) {
   return useQuery({
     queryKey: categoriesKeys.summary(id),
     queryFn: () => getCategorySummaryRequest(id),
+    enabled: id.length > 0,
   });
 }
 
@@ -64,5 +67,19 @@ export function useDeleteCategory() {
   return useMutation({
     mutationFn: deleteCategoryRequest,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: categoriesKeys.all }),
+  });
+}
+
+// Moves the category's expense items elsewhere first, so it invalidates
+// expense items too (their categoryId changed) on top of categories.
+export function useDeleteCategoryWithReassignment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, targetCategoryId }: { id: string; targetCategoryId: string }) =>
+      deleteCategoryWithReassignmentRequest(id, targetCategoryId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: categoriesKeys.all });
+      queryClient.invalidateQueries({ queryKey: expenseItemsKeys.all });
+    },
   });
 }

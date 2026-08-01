@@ -6,6 +6,12 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   EmptyState,
   Select,
   SelectContent,
@@ -15,14 +21,20 @@ import {
   Skeleton,
 } from "@vectra/ui";
 import { formatMoney } from "@vectra/utils";
-import { Plus, ShoppingBag, X } from "lucide-react";
+import { FolderPlus, Plus, ShoppingBag, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
+import { useCategories } from "../categories/use-categories.js";
 import { ExpenseItemFormDialog } from "../expense-items/ExpenseItemFormDialog.js";
 import { useExpenseItems } from "../expense-items/use-expense-items.js";
-import { useAddScenarioItem, useRemoveScenarioItem, useScenarioItems } from "./use-scenarios.js";
+import {
+  useAddScenarioCategory,
+  useAddScenarioItem,
+  useRemoveScenarioItem,
+  useScenarioItems,
+} from "./use-scenarios.js";
 
 const FREQUENCY_LABELS: Record<ExpenseItemFrequency, string> = {
   MONTHLY: "Mensual",
@@ -37,10 +49,18 @@ interface ScenarioItemsSectionProps {
 export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
   const [selectedId, setSelectedId] = useState("");
   const [creatingItem, setCreatingItem] = useState(false);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const { data: scenarioItems, isLoading } = useScenarioItems(scenario.id);
   const { data: expenseItemsData } = useExpenseItems({ pageSize: 100, sortBy: "name" });
+  const { data: categoriesData } = useCategories({
+    type: "EXPENSE",
+    pageSize: 100,
+    sortBy: "name",
+  });
   const addItem = useAddScenarioItem(scenario.id);
   const removeItem = useRemoveScenarioItem(scenario.id);
+  const addCategory = useAddScenarioCategory(scenario.id);
 
   const includedIds = new Set((scenarioItems ?? []).map((item) => item.expenseItemId));
   const availableItems = (expenseItemsData?.data ?? []).filter((item) => !includedIds.has(item.id));
@@ -75,6 +95,26 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
     }
   }
 
+  // ADR-0005 §7: every active product of the category joins as the initial
+  // selection, and the scenario starts watching it — a product added to the
+  // category later surfaces in "Revisar cambios" instead of silently never
+  // showing up (RFC-0023.1).
+  async function handleAddCategory() {
+    if (!selectedCategoryId) return;
+    try {
+      const result = await addCategory.mutateAsync({ categoryId: selectedCategoryId });
+      toast.success(
+        result.addedCount > 0
+          ? `Se agregaron ${result.addedCount} productos de "${result.watch.categoryName}". El escenario ahora sigue esta categoría.`
+          : `El escenario ya sigue "${result.watch.categoryName}".`,
+      );
+      setSelectedCategoryId("");
+      setAddingCategory(false);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -100,6 +140,9 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
             </Button>
             <Button variant="outline" onClick={() => setCreatingItem(true)}>
               <Plus /> Nuevo
+            </Button>
+            <Button variant="outline" onClick={() => setAddingCategory(true)}>
+              <FolderPlus /> Categoría completa
             </Button>
           </div>
         ) : null}
@@ -159,6 +202,44 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
         onOpenChange={setCreatingItem}
         onCreated={(item) => void handleCreated(item.id)}
       />
+
+      <Dialog open={addingCategory} onOpenChange={setAddingCategory}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Agregar categoría completa</DialogTitle>
+            <DialogDescription>
+              Se agregan todos los productos activos de la categoría que todavía no estén en este
+              escenario. El escenario quedará siguiendo la categoría: si más adelante se agrega un
+              producto nuevo ahí, aparecerá en "Revisar cambios".
+            </DialogDescription>
+          </DialogHeader>
+
+          <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecciona una categoría" />
+            </SelectTrigger>
+            <SelectContent>
+              {(categoriesData?.data ?? []).map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddingCategory(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => void handleAddCategory()}
+              disabled={!selectedCategoryId || addCategory.isPending}
+            >
+              Agregar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

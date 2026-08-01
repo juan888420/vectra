@@ -1,5 +1,5 @@
 import type { ScenarioSummary } from "@vectra/types";
-import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@vectra/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@vectra/ui";
 import { formatMoney } from "@vectra/utils";
 import { AlertTriangle } from "lucide-react";
 
@@ -9,16 +9,26 @@ interface ScenarioSummaryCardsProps {
   summary?: ScenarioSummary;
   isLoading: boolean;
   currency: string;
+  onReviewChanges: () => void;
 }
 
-export function ScenarioSummaryCards({ summary, isLoading, currency }: ScenarioSummaryCardsProps) {
+export function ScenarioSummaryCards({
+  summary,
+  isLoading,
+  currency,
+  onReviewChanges,
+}: ScenarioSummaryCardsProps) {
   return (
     <div className="flex flex-col gap-4">
       {summary?.hasUpdates ? (
-        <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-          <AlertTriangle className="size-4 shrink-0" />
-          Uno o más productos, ingresos o escenarios incluidos cambiaron desde que se agregaron. Los
-          totales de abajo siguen usando el precio con el que se agregaron.
+        <div className="flex flex-col gap-2 rounded-md border border-amber-500/30 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-4 shrink-0" />
+            Este escenario tiene cambios pendientes de revisar.
+          </div>
+          <Button size="sm" variant="outline" className="w-fit" onClick={onReviewChanges}>
+            Revisar cambios
+          </Button>
         </div>
       ) : null}
 

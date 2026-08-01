@@ -1,6 +1,6 @@
 import { toMonthlyEquivalent, toProjection } from "@vectra/utils";
 
-import { conflict } from "../../lib/http-errors.js";
+import { badRequest, conflict } from "../../lib/http-errors.js";
 import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
 import type { Category, PrismaClient } from "../../generated/prisma/client.js";
@@ -164,6 +164,54 @@ export async function deleteCategory(
   }
 
   await prisma.category.delete({ where: { id } });
+}
+
+// Alternative to deleteCategory when the only obstacle is expense items:
+// moves them to `targetCategoryId` first so none is ever left without a
+// category, then deletes in the same transaction. Ledger records
+// (transactions/budgets/recurringTransactions) still block it — those keep
+// requiring archive, same as deleteCategory.
+export async function deleteCategoryWithReassignment(
+  prisma: PrismaClient,
+  userId: string,
+  id: string,
+  targetCategoryId: string,
+): Promise<{ movedCount: number }> {
+  const category = await findOwnedOrFail(prisma.category, id, userId, "Category");
+  assertNotSystem(category, "deleted");
+
+  if (targetCategoryId === id) {
+    throw badRequest("Target category must be different from the category being deleted");
+  }
+
+  const counts = await prisma.category.findUniqueOrThrow({
+    where: { id },
+    select: {
+      _count: { select: { transactions: true, budgets: true, recurringTransactions: true } },
+    },
+  });
+  const { transactions, budgets, recurringTransactions } = counts._count;
+  if (transactions > 0 || budgets > 0 || recurringTransactions > 0) {
+    throw conflict("Category has associated records; archive it instead");
+  }
+
+  const target = await findOwnedOrFail(prisma.category, targetCategoryId, userId, "Category");
+  if (target.type !== category.type) {
+    throw badRequest("Target category must be the same type as the category being deleted");
+  }
+  if (target.archivedAt) {
+    throw badRequest("Cannot move products into an archived category");
+  }
+
+  const [{ count: movedCount }] = await prisma.$transaction([
+    prisma.expenseItem.updateMany({
+      where: { categoryId: id, userId },
+      data: { categoryId: targetCategoryId },
+    }),
+    prisma.category.delete({ where: { id } }),
+  ]);
+
+  return { movedCount };
 }
 
 // "¿Cuánto gasto en esta área?" (ADR-0006) — derived, never stored: sums the

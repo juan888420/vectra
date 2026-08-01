@@ -13,4 +13,6 @@ export const scenariosKeys = {
   incomes: (id: string) => [...scenariosKeys.detail(id), "incomes"] as const,
   compositions: (id: string) => [...scenariosKeys.detail(id), "compositions"] as const,
   summary: (id: string) => [...scenariosKeys.detail(id), "summary"] as const,
+  changes: (id: string) => [...scenariosKeys.detail(id), "changes"] as const,
+  categoryWatches: (id: string) => [...scenariosKeys.detail(id), "category-watches"] as const,
 };

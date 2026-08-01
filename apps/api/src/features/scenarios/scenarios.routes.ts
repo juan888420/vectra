@@ -3,20 +3,25 @@ import { z } from "zod";
 
 import { errorResponseSchema, idParamsSchema } from "../../lib/schemas.js";
 import {
+  addScenarioCategory,
   addScenarioComposition,
   addScenarioIncome,
   addScenarioItem,
+  applyScenarioChanges,
   archiveScenario,
   activateScenario,
   createScenario,
   deactivateScenario,
   deleteScenario,
+  detectScenarioChanges,
   getScenario,
   getScenarioSummary,
+  listScenarioCategoryWatches,
   listScenarioCompositions,
   listScenarioIncomes,
   listScenarioItems,
   listScenarios,
+  removeScenarioCategoryWatch,
   removeScenarioComposition,
   removeScenarioIncome,
   removeScenarioItem,
@@ -24,11 +29,17 @@ import {
   updateScenario,
 } from "./scenarios.service.js";
 import {
+  addScenarioCategoryBodySchema,
+  addScenarioCategoryResponseSchema,
   addScenarioCompositionBodySchema,
   addScenarioIncomeBodySchema,
   addScenarioItemBodySchema,
+  applyScenarioChangesBodySchema,
+  applyScenarioChangesResponseSchema,
   createScenarioBodySchema,
   listScenariosQuerySchema,
+  scenarioCategoryWatchPublicSchema,
+  scenarioChangesResponseSchema,
   scenarioCompositionPublicSchema,
   scenarioIncomePublicSchema,
   scenarioItemPublicSchema,
@@ -43,6 +54,7 @@ const SECURITY = [{ bearerAuth: [] }];
 const scenarioItemParamsSchema = z.object({ id: z.uuid(), itemId: z.uuid() });
 const scenarioIncomeParamsSchema = z.object({ id: z.uuid(), incomeId: z.uuid() });
 const scenarioCompositionParamsSchema = z.object({ id: z.uuid(), compositionId: z.uuid() });
+const scenarioCategoryWatchParamsSchema = z.object({ id: z.uuid(), watchId: z.uuid() });
 
 export const scenariosRoutes: FastifyPluginAsyncZod = async (app) => {
   app.addHook("onRequest", app.authenticate);
@@ -405,6 +417,114 @@ export const scenariosRoutes: FastifyPluginAsyncZod = async (app) => {
         request.user.sub,
         request.params.id,
         request.params.compositionId,
+      );
+      return reply.status(204).send(null);
+    },
+  );
+
+  // --- Change review (RFC-0023.1) -----------------------------------------
+
+  app.get(
+    "/:id/changes",
+    {
+      schema: {
+        tags: TAGS,
+        summary: "List a scenario's pending changes (visual + financial), explained field by field",
+        security: SECURITY,
+        params: idParamsSchema,
+        response: { 200: scenarioChangesResponseSchema, 404: errorResponseSchema },
+      },
+    },
+    async (request) => ({
+      data: await detectScenarioChanges(app.prisma, request.user.sub, request.params.id),
+    }),
+  );
+
+  app.post(
+    "/:id/changes/apply",
+    {
+      schema: {
+        tags: TAGS,
+        summary:
+          "Apply a set of pending changes by id (visual changes never need this to be listed first)",
+        security: SECURITY,
+        params: idParamsSchema,
+        body: applyScenarioChangesBodySchema,
+        response: { 200: applyScenarioChangesResponseSchema, 404: errorResponseSchema },
+      },
+    },
+    async (request) =>
+      applyScenarioChanges(app.prisma, request.user.sub, request.params.id, request.body.changeIds),
+  );
+
+  // --- Category watches & "add whole category" (ADR-0005 §7) -------------
+
+  app.get(
+    "/:id/category-watches",
+    {
+      schema: {
+        tags: TAGS,
+        summary: "List the categories a scenario is watching for new products",
+        security: SECURITY,
+        params: idParamsSchema,
+        response: {
+          200: z.object({ data: z.array(scenarioCategoryWatchPublicSchema) }),
+          404: errorResponseSchema,
+        },
+      },
+    },
+    async (request) => ({
+      data: await listScenarioCategoryWatches(app.prisma, request.user.sub, request.params.id),
+    }),
+  );
+
+  app.post(
+    "/:id/category",
+    {
+      schema: {
+        tags: TAGS,
+        summary:
+          "Add every product of a category to the scenario and start watching it for new ones",
+        security: SECURITY,
+        params: idParamsSchema,
+        body: addScenarioCategoryBodySchema,
+        response: {
+          201: addScenarioCategoryResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const result = await addScenarioCategory(
+        app.prisma,
+        request.user.sub,
+        request.params.id,
+        request.body.categoryId,
+      );
+      return reply.status(201).send(result);
+    },
+  );
+
+  app.delete(
+    "/:id/category-watches/:watchId",
+    {
+      schema: {
+        tags: TAGS,
+        summary:
+          "Stop watching a category for new products (already-added products are unaffected)",
+        security: SECURITY,
+        params: scenarioCategoryWatchParamsSchema,
+        response: { 204: z.null(), 404: errorResponseSchema },
+      },
+    },
+    async (request, reply) => {
+      await removeScenarioCategoryWatch(
+        app.prisma,
+        request.user.sub,
+        request.params.id,
+        request.params.watchId,
       );
       return reply.status(204).send(null);
     },

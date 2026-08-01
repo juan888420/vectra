@@ -48,7 +48,11 @@ export async function buildApp() {
   registerErrorHandler(app);
 
   await app.register(helmet);
-  await app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
+  await app.register(cors, {
+    origin: env.CORS_ORIGIN,
+    credentials: true,
+    methods: ["GET", "HEAD", "POST", "PATCH", "DELETE"],
+  });
   await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
   await app.register(prismaPlugin);
   await app.register(authPlugin);

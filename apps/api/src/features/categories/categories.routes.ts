@@ -7,6 +7,8 @@ import {
   categoryPublicSchema,
   categorySummarySchema,
   createCategoryBodySchema,
+  deleteCategoryWithReassignmentBodySchema,
+  deleteCategoryWithReassignmentResponseSchema,
   listCategoriesQuerySchema,
   updateCategoryBodySchema,
 } from "./categories.schemas.js";
@@ -14,6 +16,7 @@ import {
   archiveCategory,
   createCategory,
   deleteCategory,
+  deleteCategoryWithReassignment,
   getCategory,
   getCategorySummary,
   listCategories,
@@ -145,5 +148,31 @@ export const categoriesRoutes: FastifyPluginAsyncZod = async (app) => {
       await deleteCategory(app.prisma, request.user.sub, request.params.id);
       return reply.status(204).send(null);
     },
+  );
+
+  app.post(
+    "/:id/delete-with-reassignment",
+    {
+      schema: {
+        tags: TAGS,
+        summary: "Move a category's expense items to another category, then delete it",
+        security: SECURITY,
+        params: idParamsSchema,
+        body: deleteCategoryWithReassignmentBodySchema,
+        response: {
+          200: deleteCategoryWithReassignmentResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+        },
+      },
+    },
+    async (request) =>
+      deleteCategoryWithReassignment(
+        app.prisma,
+        request.user.sub,
+        request.params.id,
+        request.body.targetCategoryId,
+      ),
   );
 };

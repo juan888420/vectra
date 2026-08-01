@@ -17,16 +17,27 @@ import {
   DropdownMenuTrigger,
   EmptyState,
 } from "@vectra/ui";
-import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Plus, Tags, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Tags,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
 import { CategoryFormDialog } from "./CategoryFormDialog.js";
+import { MoveItemsAndDeleteCategoryDialog } from "./MoveItemsAndDeleteCategoryDialog.js";
 import {
   useArchiveCategory,
   useCategories,
+  useCategorySummary,
   useDeleteCategory,
   useUnarchiveCategory,
 } from "./use-categories.js";
@@ -50,6 +61,12 @@ export function CategoriesPage() {
   const archiveCategory = useArchiveCategory();
   const unarchiveCategory = useUnarchiveCategory();
   const deleteCategory = useDeleteCategory();
+
+  // Item count isn't in the list row, so it's fetched on demand once the
+  // user actually asks to delete a category, rather than prefetched per row.
+  const { data: pendingSummary, isFetching: isCheckingPendingDelete } = useCategorySummary(
+    pendingDelete?.id ?? "",
+  );
 
   async function handleToggleArchive(category: CategoryPublic) {
     try {
@@ -149,11 +166,19 @@ export function CategoriesPage() {
                     {category.archivedAt ? "Desarchivar" : "Archivar"}
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    disabled={category.isSystem}
+                    disabled={
+                      category.isSystem ||
+                      (isCheckingPendingDelete && pendingDelete?.id === category.id)
+                    }
                     className="text-destructive focus:text-destructive"
                     onSelect={() => setPendingDelete(category)}
                   >
-                    <Trash2 /> Eliminar
+                    {isCheckingPendingDelete && pendingDelete?.id === category.id ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <Trash2 />
+                    )}
+                    Eliminar
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -211,26 +236,38 @@ export function CategoriesPage() {
         category={formDialog?.mode === "edit" ? formDialog.category : undefined}
       />
 
-      <AlertDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingDelete(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar &quot;{pendingDelete?.name}&quot;?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. Las categorías con transacciones o presupuestos no
-              se pueden eliminar, archívalas en su lugar.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {pendingDelete && pendingSummary && pendingSummary.items.length > 0 ? (
+        <MoveItemsAndDeleteCategoryDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setPendingDelete(null);
+          }}
+          category={pendingDelete}
+          itemCount={pendingSummary.items.length}
+          onDeleted={() => setPendingDelete(null)}
+        />
+      ) : (
+        <AlertDialog
+          open={pendingDelete !== null && !isCheckingPendingDelete}
+          onOpenChange={(open) => {
+            if (!open) setPendingDelete(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar &quot;{pendingDelete?.name}&quot;?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. Las categorías con transacciones o presupuestos no
+                se pueden eliminar, archívalas en su lugar.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

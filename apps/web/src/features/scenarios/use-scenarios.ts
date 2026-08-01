@@ -1,4 +1,5 @@
 import type {
+  AddScenarioCategoryBody,
   AddScenarioCompositionBody,
   AddScenarioIncomeBody,
   AddScenarioItemBody,
@@ -10,19 +11,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { expenseItemsKeys } from "../expense-items/expense-items.keys.js";
 import {
   activateScenarioRequest,
+  addScenarioCategoryRequest,
   addScenarioCompositionRequest,
   addScenarioIncomeRequest,
   addScenarioItemRequest,
+  applyScenarioChangesRequest,
   archiveScenarioRequest,
   createScenarioRequest,
   deactivateScenarioRequest,
   deleteScenarioRequest,
   getScenarioRequest,
   getScenarioSummaryRequest,
+  listScenarioCategoryWatchesRequest,
+  listScenarioChangesRequest,
   listScenarioCompositionsRequest,
   listScenarioIncomesRequest,
   listScenarioItemsRequest,
   listScenariosRequest,
+  removeScenarioCategoryWatchRequest,
   removeScenarioCompositionRequest,
   removeScenarioIncomeRequest,
   removeScenarioItemRequest,
@@ -191,6 +197,50 @@ export function useRemoveScenarioComposition(scenarioId: string) {
   return useMutation({
     mutationFn: (compositionId: string) =>
       removeScenarioCompositionRequest(scenarioId, compositionId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: scenariosKeys.all }),
+  });
+}
+
+// --- Change review (RFC-0023.1) ------------------------------------------
+
+export function useScenarioChanges(scenarioId: string) {
+  return useQuery({
+    queryKey: scenariosKeys.changes(scenarioId),
+    queryFn: () => listScenarioChangesRequest(scenarioId),
+    enabled: scenarioId.length > 0,
+  });
+}
+
+export function useApplyScenarioChanges(scenarioId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (changeIds: string[]) => applyScenarioChangesRequest(scenarioId, changeIds),
+    onSuccess: () => invalidateScenariosAndExpenseItems(queryClient),
+  });
+}
+
+// --- Category watches & "add whole category" (ADR-0005 §7) --------------
+
+export function useScenarioCategoryWatches(scenarioId: string) {
+  return useQuery({
+    queryKey: scenariosKeys.categoryWatches(scenarioId),
+    queryFn: () => listScenarioCategoryWatchesRequest(scenarioId),
+    enabled: scenarioId.length > 0,
+  });
+}
+
+export function useAddScenarioCategory(scenarioId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AddScenarioCategoryBody) => addScenarioCategoryRequest(scenarioId, body),
+    onSuccess: () => invalidateScenariosAndExpenseItems(queryClient),
+  });
+}
+
+export function useRemoveScenarioCategoryWatch(scenarioId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (watchId: string) => removeScenarioCategoryWatchRequest(scenarioId, watchId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: scenariosKeys.all }),
   });
 }

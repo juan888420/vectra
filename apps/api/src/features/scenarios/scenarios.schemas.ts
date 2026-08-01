@@ -115,9 +115,169 @@ export const scenarioSummarySchema = z.object({
   hasUpdates: z.boolean(),
 });
 
+// --- Change review (RFC-0023.1) ---------------------------------------------
+//
+// A ScenarioChange is a derived, never-stored fact: "this field of this row
+// drifted from its live source". `kind` drives the review UI split exactly
+// along the line the product asked for: "visual" changes (a rename) apply
+// silently the moment the review panel opens; "financial" ones (anything
+// that moves a total) stay listed until the user checks them and confirms.
+//
+// To add a new change type in the future (currency, taxes, discounts, saving
+// goals...): add one literal to `scenarioChangeSchema`'s union below, one
+// case in `CHANGE_KIND` and one in the apply-dispatch switch in
+// scenarios.service.ts. Nothing else in the review flow (routes, dialog,
+// apply endpoint) needs to change — every change flows through the same
+// `id`/`kind`/apply pipeline regardless of type.
+export const scenarioChangeKindSchema = z.enum(["visual", "financial"]);
+
+// Shared by every change: which row it was computed from and, since a
+// composed scenario's items can originate in a scenario it includes, which
+// scenario actually owns the drifted row (ADR-0005 §9).
+const scenarioChangeBaseSchema = z.object({
+  id: z.string(),
+  kind: scenarioChangeKindSchema,
+  originScenarioId: z.uuid(),
+  originScenarioName: z.string(),
+});
+
+export const itemRenamedChangeSchema = scenarioChangeBaseSchema.extend({
+  type: z.literal("ITEM_RENAMED"),
+  scenarioItemId: z.uuid(),
+  expenseItemId: z.uuid(),
+  from: z.string(),
+  to: z.string(),
+});
+
+export const itemCategoryRenamedChangeSchema = scenarioChangeBaseSchema.extend({
+  type: z.literal("ITEM_CATEGORY_RENAMED"),
+  scenarioItemId: z.uuid(),
+  expenseItemId: z.uuid(),
+  itemName: z.string(),
+  from: z.string(),
+  to: z.string(),
+});
+
+export const itemPriceChangedSchema = scenarioChangeBaseSchema.extend({
+  type: z.literal("ITEM_PRICE_CHANGED"),
+  scenarioItemId: z.uuid(),
+  expenseItemId: z.uuid(),
+  itemName: z.string(),
+  currency: z.string().length(3),
+  from: z.number(),
+  to: z.number(),
+});
+
+export const itemFrequencyChangedSchema = scenarioChangeBaseSchema.extend({
+  type: z.literal("ITEM_FREQUENCY_CHANGED"),
+  scenarioItemId: z.uuid(),
+  expenseItemId: z.uuid(),
+  itemName: z.string(),
+  from: expenseItemFrequencySchema,
+  to: expenseItemFrequencySchema,
+});
+
+export const itemArchivedChangeSchema = scenarioChangeBaseSchema.extend({
+  type: z.literal("ITEM_ARCHIVED"),
+  scenarioItemId: z.uuid(),
+  expenseItemId: z.uuid(),
+  itemName: z.string(),
+});
+
+export const incomeRenamedChangeSchema = scenarioChangeBaseSchema.extend({
+  type: z.literal("INCOME_RENAMED"),
+  scenarioIncomeId: z.uuid(),
+  incomeId: z.uuid(),
+  from: z.string(),
+  to: z.string(),
+});
+
+export const incomeAmountChangedSchema = scenarioChangeBaseSchema.extend({
+  type: z.literal("INCOME_AMOUNT_CHANGED"),
+  scenarioIncomeId: z.uuid(),
+  incomeId: z.uuid(),
+  incomeName: z.string(),
+  currency: z.string().length(3),
+  from: z.number(),
+  to: z.number(),
+});
+
+export const incomeFrequencyChangedSchema = scenarioChangeBaseSchema.extend({
+  type: z.literal("INCOME_FREQUENCY_CHANGED"),
+  scenarioIncomeId: z.uuid(),
+  incomeId: z.uuid(),
+  incomeName: z.string(),
+  from: incomeFrequencySchema,
+  to: incomeFrequencySchema,
+});
+
+export const incomeArchivedChangeSchema = scenarioChangeBaseSchema.extend({
+  type: z.literal("INCOME_ARCHIVED"),
+  scenarioIncomeId: z.uuid(),
+  incomeId: z.uuid(),
+  incomeName: z.string(),
+});
+
+export const newItemAvailableChangeSchema = scenarioChangeBaseSchema.extend({
+  type: z.literal("NEW_ITEM_AVAILABLE"),
+  categoryId: z.uuid(),
+  categoryName: z.string(),
+  expenseItemId: z.uuid(),
+  itemName: z.string(),
+  currency: z.string().length(3),
+  amount: z.number(),
+  frequency: expenseItemFrequencySchema,
+});
+
+export const scenarioChangeSchema = z.discriminatedUnion("type", [
+  itemRenamedChangeSchema,
+  itemCategoryRenamedChangeSchema,
+  itemPriceChangedSchema,
+  itemFrequencyChangedSchema,
+  itemArchivedChangeSchema,
+  incomeRenamedChangeSchema,
+  incomeAmountChangedSchema,
+  incomeFrequencyChangedSchema,
+  incomeArchivedChangeSchema,
+  newItemAvailableChangeSchema,
+]);
+
+export const scenarioChangesResponseSchema = z.object({
+  data: z.array(scenarioChangeSchema),
+});
+
+export const applyScenarioChangesBodySchema = z.object({
+  changeIds: z.array(z.string()).min(1),
+});
+
+export const applyScenarioChangesResponseSchema = z.object({
+  appliedCount: z.number(),
+});
+
+// --- Category watches (ADR-0005 §7 / RFC-0023.1) ----------------------------
+
+export const scenarioCategoryWatchPublicSchema = z.object({
+  id: z.uuid(),
+  categoryId: z.uuid(),
+  categoryName: z.string(),
+});
+
+export const addScenarioCategoryBodySchema = z.object({
+  categoryId: z.uuid(),
+});
+
+export const addScenarioCategoryResponseSchema = z.object({
+  addedCount: z.number(),
+  watch: scenarioCategoryWatchPublicSchema,
+});
+
 export type CreateScenarioBody = z.infer<typeof createScenarioBodySchema>;
 export type UpdateScenarioBody = z.infer<typeof updateScenarioBodySchema>;
 export type ListScenariosQuery = z.infer<typeof listScenariosQuerySchema>;
 export type AddScenarioItemBody = z.infer<typeof addScenarioItemBodySchema>;
 export type AddScenarioIncomeBody = z.infer<typeof addScenarioIncomeBodySchema>;
 export type AddScenarioCompositionBody = z.infer<typeof addScenarioCompositionBodySchema>;
+export type ScenarioChange = z.infer<typeof scenarioChangeSchema>;
+export type ScenarioChangeKind = z.infer<typeof scenarioChangeKindSchema>;
+export type ApplyScenarioChangesBody = z.infer<typeof applyScenarioChangesBodySchema>;
+export type AddScenarioCategoryBody = z.infer<typeof addScenarioCategoryBodySchema>;

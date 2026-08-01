@@ -62,3 +62,21 @@ export const categorySummarySchema = z.object({
 });
 
 export type CategorySummary = z.infer<typeof categorySummarySchema>;
+
+// Moves a category's expense items to another category, then deletes it
+// (no product is ever left without a category).
+export const deleteCategoryWithReassignmentBodySchema = z.object({
+  targetCategoryId: z.uuid(),
+});
+
+export type DeleteCategoryWithReassignmentBody = z.infer<
+  typeof deleteCategoryWithReassignmentBodySchema
+>;
+
+export const deleteCategoryWithReassignmentResponseSchema = z.object({
+  movedCount: z.number(),
+});
+
+export type DeleteCategoryWithReassignmentResponse = z.infer<
+  typeof deleteCategoryWithReassignmentResponseSchema
+>;

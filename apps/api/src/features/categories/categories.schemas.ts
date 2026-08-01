@@ -55,6 +55,20 @@ export const categorySummarySchema = z.object({
   items: z.array(expenseItemPublicSchema),
 });
 
+// Body for /:id/delete-with-reassignment: moves every active expense item
+// off the category being deleted before deleting it, so no product is ever
+// left without a category (business rule: no orphaned data).
+export const deleteCategoryWithReassignmentBodySchema = z.object({
+  targetCategoryId: z.uuid(),
+});
+
+export const deleteCategoryWithReassignmentResponseSchema = z.object({
+  movedCount: z.number(),
+});
+
 export type CreateCategoryBody = z.infer<typeof createCategoryBodySchema>;
 export type UpdateCategoryBody = z.infer<typeof updateCategoryBodySchema>;
 export type ListCategoriesQuery = z.infer<typeof listCategoriesQuerySchema>;
+export type DeleteCategoryWithReassignmentBody = z.infer<
+  typeof deleteCategoryWithReassignmentBodySchema
+>;

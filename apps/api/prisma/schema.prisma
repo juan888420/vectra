@@ -158,11 +158,12 @@ model Category {
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
 
-  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions          Transaction[]
   budgets               Budget[]
   recurringTransactions RecurringTransaction[]
   expenseItems          ExpenseItem[]
+  scenarioWatches       ScenarioCategoryWatch[]
 
   @@index([userId])
   @@map("categories")
@@ -206,25 +207,25 @@ model Transaction {
 
 /// Template that generates Transactions over time; not itself a money movement.
 model RecurringTransaction {
-  id         String              @id @default(uuid(7)) @db.Uuid
-  userId     String              @db.Uuid
-  accountId  String              @db.Uuid
-  categoryId String              @db.Uuid
+  id                String              @id @default(uuid(7)) @db.Uuid
+  userId            String              @db.Uuid
+  accountId         String              @db.Uuid
+  categoryId        String              @db.Uuid
   /// Money VO. The transaction type derives from the category (business rule 2).
-  amount     Decimal             @db.Decimal(12, 2)
-  currency   String              @db.Char(3)
-  frequency  RecurrenceFrequency
-  startDate  DateTime            @db.Date
-  endDate    DateTime?           @db.Date
+  amount            Decimal             @db.Decimal(12, 2)
+  currency          String              @db.Char(3)
+  frequency         RecurrenceFrequency
+  startDate         DateTime            @db.Date
+  endDate           DateTime?           @db.Date
   /// System-managed schedule pointer: the next occurrence the processor
   /// should generate. Seeded to `startDate` on create and advanced by the
   /// processor — never set directly by the client (RFC-0015).
-  nextExecutionDate DateTime     @db.Date
+  nextExecutionDate DateTime            @db.Date
   /// Pause/resume switch. A paused template keeps its `nextExecutionDate`,
   /// so resuming catches up rather than losing the schedule.
-  isActive   Boolean             @default(true)
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   account      Account       @relation(fields: [accountId], references: [id], onDelete: Restrict)
@@ -285,8 +286,8 @@ model ExpenseItem {
   createdAt  DateTime             @default(now())
   updatedAt  DateTime             @updatedAt
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   scenarioItems ScenarioItem[]
 
   @@index([userId])
@@ -310,7 +311,7 @@ model Income {
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   scenarioIncomes ScenarioIncome[]
 
   @@index([userId])
@@ -326,16 +327,21 @@ model Scenario {
   id        String         @id @default(uuid(7)) @db.Uuid
   userId    String         @db.Uuid
   name      String
-  status    ScenarioStatus @default(ACTIVE)
+  /// Lands INACTIVE: a brand-new simulation is never "the current situation"
+  /// by default — the user activates it explicitly (RFC-0023.1).
+  status    ScenarioStatus @default(INACTIVE)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items   ScenarioItem[]
-  incomes ScenarioIncome[]
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items           ScenarioItem[]
+  incomes         ScenarioIncome[]
+  /// Categories this scenario watches for new products (added via "add whole
+  /// category"), surfaced as NEW_ITEM_AVAILABLE in the change-review system.
+  categoryWatches ScenarioCategoryWatch[]
 
   /// Compositions where this scenario is the container (it includes others).
-  includes ScenarioComposition[] @relation("ScenarioAsParent")
+  includes   ScenarioComposition[] @relation("ScenarioAsParent")
   /// Compositions where this scenario is included inside another. A non-empty
   /// list here is what blocks a hard delete (business rule 3 equivalent).
   includedIn ScenarioComposition[] @relation("ScenarioAsChild")
@@ -347,10 +353,10 @@ model Scenario {
 /// Snapshot of an ExpenseItem at the moment it was selected into a Scenario.
 /// The scenario's totals are computed from these frozen fields, never from
 /// the live ExpenseItem — editing the source item never changes a scenario
-/// silently (ADR-0005 principle 2). `lastSyncedAt` compared against the
-/// source ExpenseItem's `updatedAt` (and its category's `updatedAt`, for the
-/// snapshotted `categoryName`) is how the summary endpoint detects drift;
-/// applying a refresh is the sync flow the frontend/composer RFC builds.
+/// silently (ADR-0005 principle 2). Drift between this snapshot and the live
+/// ExpenseItem is detected field-by-field by the change-review system
+/// (RFC-0023.1: detectScenarioChanges), which is also what updates
+/// `lastSyncedAt` and the drifted fields once the user reviews and applies.
 model ScenarioItem {
   id            String               @id @default(uuid(7)) @db.Uuid
   scenarioId    String               @db.Uuid
@@ -377,7 +383,10 @@ model ScenarioItem {
 
 /// Snapshot of an Income at the moment it was linked to a Scenario, for
 /// coverage calculations (ADR-0005 §15). Same snapshot/drift-detection
-/// reasoning as ScenarioItem.
+/// reasoning as ScenarioItem. Deliberately never inherited through
+/// ScenarioComposition (RFC-0023.1): income belongs only to the scenario it
+/// was directly linked to, unlike ScenarioItem which composition does
+/// aggregate — a composed scenario simulates shared spending, not shared pay.
 model ScenarioIncome {
   id           String          @id @default(uuid(7)) @db.Uuid
   scenarioId   String          @db.Uuid
@@ -399,10 +408,11 @@ model ScenarioIncome {
 }
 
 /// Scenario-in-scenario composition (ADR-0005 §9): `parentScenario` includes
-/// the full, live selection of `childScenario` (its own items/incomes, plus
-/// whatever it composes, recursively). Direct and transitive cycles are
-/// rejected in the service layer (BFS) before a row is ever inserted — there
-/// is no DB-level cycle constraint.
+/// the full, live selection of `childScenario`'s ScenarioItems (its own,
+/// plus whatever it composes, recursively) — but never its ScenarioIncomes
+/// (RFC-0023.1 §9: income stays exclusive to the scenario it was linked to).
+/// Direct and transitive cycles are rejected in the service layer (BFS)
+/// before a row is ever inserted — there is no DB-level cycle constraint.
 model ScenarioComposition {
   id               String   @id @default(uuid(7)) @db.Uuid
   parentScenarioId String   @db.Uuid
@@ -417,6 +427,28 @@ model ScenarioComposition {
   @@unique([parentScenarioId, childScenarioId])
   @@index([childScenarioId])
   @@map("scenario_compositions")
+}
+
+/// A scenario "following" a category (ADR-0005 §7 / RFC-0023.1): created when
+/// the user adds a whole category to a scenario at once. Every active
+/// ExpenseItem in a watched category that isn't already a ScenarioItem here
+/// surfaces as a NEW_ITEM_AVAILABLE change in the review system — the user
+/// decides whether to add it, nothing is added silently. Scoped to the
+/// scenario it was created on; not inherited through composition, same
+/// reasoning as ScenarioIncome (a composed child's "still watching" concern
+/// is its own to review, not the parent's).
+model ScenarioCategoryWatch {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  scenarioId String   @db.Uuid
+  categoryId String   @db.Uuid
+  createdAt  DateTime @default(now())
+
+  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([scenarioId, categoryId])
+  @@index([categoryId])
+  @@map("scenario_category_watches")
 }
 
 /// Designed now, implemented in roadmap Phase 3 — not part of the MVP build.

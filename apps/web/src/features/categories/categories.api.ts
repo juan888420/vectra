@@ -2,9 +2,11 @@ import {
   categoryListResponseSchema,
   categoryPublicSchema,
   categorySummarySchema,
+  deleteCategoryWithReassignmentResponseSchema,
   type CategoryPublic,
   type CategorySummary,
   type CreateCategoryBody,
+  type DeleteCategoryWithReassignmentResponse,
   type ListCategoriesQuery,
   type PaginatedResponse,
   type UpdateCategoryBody,
@@ -62,4 +64,15 @@ export async function deleteCategoryRequest(id: string): Promise<void> {
 export async function getCategorySummaryRequest(id: string): Promise<CategorySummary> {
   const data = await apiRequest<unknown>(`/categories/${id}/summary`);
   return categorySummarySchema.parse(data);
+}
+
+export async function deleteCategoryWithReassignmentRequest(
+  id: string,
+  targetCategoryId: string,
+): Promise<DeleteCategoryWithReassignmentResponse> {
+  const data = await apiRequest<unknown>(`/categories/${id}/delete-with-reassignment`, {
+    method: "POST",
+    body: { targetCategoryId },
+  });
+  return deleteCategoryWithReassignmentResponseSchema.parse(data);
 }

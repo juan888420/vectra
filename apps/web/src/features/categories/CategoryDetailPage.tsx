@@ -40,6 +40,7 @@ import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
 import { ApiError } from "../../lib/api-client.js";
 import { ExpenseItemFormDialog } from "../expense-items/ExpenseItemFormDialog.js";
 import { CategoryFormDialog } from "./CategoryFormDialog.js";
+import { MoveItemsAndDeleteCategoryDialog } from "./MoveItemsAndDeleteCategoryDialog.js";
 import {
   useArchiveCategory,
   useCategorySummary,
@@ -203,21 +204,31 @@ export function CategoryDetailPage() {
         defaultCategoryId={category.id}
       />
 
-      <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar &quot;{category.name}&quot;?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. Las categorías con productos o transacciones no se
-              pueden eliminar, archívalas en su lugar.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {items.length > 0 ? (
+        <MoveItemsAndDeleteCategoryDialog
+          open={confirmingDelete}
+          onOpenChange={setConfirmingDelete}
+          category={category}
+          itemCount={items.length}
+          onDeleted={() => navigate("/categories")}
+        />
+      ) : (
+        <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar &quot;{category.name}&quot;?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. Las categorías con transacciones o presupuestos no
+                se pueden eliminar, archívalas en su lugar.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

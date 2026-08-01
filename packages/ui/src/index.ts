@@ -12,6 +12,7 @@ export {
   CardFooter,
 } from "./components/ui/card.js";
 export { Separator } from "./components/ui/separator.js";
+export { Checkbox } from "./components/ui/checkbox.js";
 export {
   DropdownMenu,
   DropdownMenuTrigger,
