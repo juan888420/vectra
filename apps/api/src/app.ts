@@ -53,7 +53,14 @@ export async function buildApp() {
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PATCH", "DELETE"],
   });
-  await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
+  // Not global under test: the whole suite shares one IP, so the per-IP
+  // budget would reject legitimate requests as test files grow. Routes with
+  // their own `config.rateLimit` (auth) keep theirs either way.
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: "1 minute",
+    global: env.NODE_ENV !== "test",
+  });
   await app.register(prismaPlugin);
   await app.register(authPlugin);
   await app.register(swaggerPlugin);

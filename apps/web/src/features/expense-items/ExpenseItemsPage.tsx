@@ -38,6 +38,9 @@ import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
 import { useCategories } from "../categories/use-categories.js";
+import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
+import { useScenarioImpact } from "../scenarios/use-scenario-impact.js";
+import { syncExpenseItemScenariosRequest } from "./expense-items.api.js";
 import { ExpenseItemFormDialog } from "./ExpenseItemFormDialog.js";
 import {
   useArchiveExpenseItem,
@@ -84,14 +87,15 @@ export function ExpenseItemsPage() {
   const archiveExpenseItem = useArchiveExpenseItem();
   const unarchiveExpenseItem = useUnarchiveExpenseItem();
   const deleteExpenseItem = useDeleteExpenseItem();
+  const scenarioImpact = useScenarioImpact(syncExpenseItemScenariosRequest);
 
   async function handleToggleArchive(item: ExpenseItemPublic) {
     try {
-      if (item.archivedAt) {
-        await unarchiveExpenseItem.mutateAsync(item.id);
-      } else {
-        await archiveExpenseItem.mutateAsync(item.id);
-      }
+      scenarioImpact.report(
+        item.archivedAt
+          ? await unarchiveExpenseItem.mutateAsync(item.id)
+          : await archiveExpenseItem.mutateAsync(item.id),
+      );
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
     }
@@ -279,7 +283,10 @@ export function ExpenseItemsPage() {
           if (!open) setFormDialog(null);
         }}
         expenseItem={formDialog?.mode === "edit" ? formDialog.item : undefined}
+        onEdited={scenarioImpact.report}
       />
+
+      <ScenarioImpactDialog {...scenarioImpact.dialogProps} />
 
       <AlertDialog
         open={pendingDelete !== null}

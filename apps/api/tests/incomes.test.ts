@@ -90,8 +90,10 @@ describe("Incomes", () => {
       .send({ amount: 900000, frequency: "YEARLY" });
 
     expect(res.status).toBe(200);
-    expect(res.body.amount).toBe(900000);
-    expect(res.body.frequency).toBe("YEARLY");
+    expect(res.body.data.amount).toBe(900000);
+    expect(res.body.data.frequency).toBe("YEARLY");
+    // No scenario links it, so nothing to offer syncing (RFC-0023.3).
+    expect(res.body.affectedScenarios).toEqual([]);
   });
 
   it("filters by frequency and excludes archived incomes by default", async () => {
@@ -121,12 +123,12 @@ describe("Incomes", () => {
     const archived = await request(app.server)
       .post(`/incomes/${created.body.id}/archive`)
       .set(auth);
-    expect(archived.body.archivedAt).not.toBeNull();
+    expect(archived.body.data.archivedAt).not.toBeNull();
 
     const unarchived = await request(app.server)
       .post(`/incomes/${created.body.id}/unarchive`)
       .set(auth);
-    expect(unarchived.body.archivedAt).toBeNull();
+    expect(unarchived.body.data.archivedAt).toBeNull();
   });
 
   it("projects WEEKLY and YEARLY incomes to their monthly equivalent", async () => {

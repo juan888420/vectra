@@ -4,6 +4,8 @@ import { badRequest, conflict } from "../../lib/http-errors.js";
 import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
 import type { ExpenseItem, PrismaClient } from "../../generated/prisma/client.js";
+import { reconcileExpenseItemScenarios } from "../scenarios/scenarios.service.js";
+import type { ScenarioImpact } from "../scenarios/scenarios.service.js";
 import type {
   CreateExpenseItemBody,
   ListExpenseItemsQuery,
@@ -107,12 +109,29 @@ export async function createExpenseItem(
   return toPublic(item);
 }
 
+export type ExpenseItemMutationResult = ScenarioImpact & { data: PublicExpenseItem };
+
+// Saves immediately, always — the scenarios that use this item never block
+// the write. Visual drift (name, category label) syncs into their snapshots
+// in the same breath; financial drift (price, frequency, archived) is
+// reported back — both which scenarios move and what exactly would change —
+// so the caller can ask "¿actualizar ahora?" with the specifics, without a
+// second save (RFC-0023.3).
+async function finalizeExpenseItemWrite(
+  prisma: PrismaClient,
+  item: ExpenseItem,
+): Promise<ExpenseItemMutationResult> {
+  const category = await prisma.category.findUniqueOrThrow({ where: { id: item.categoryId } });
+  const impact = await reconcileExpenseItemScenarios(prisma, { ...item, category });
+  return { data: toPublic(item), ...impact };
+}
+
 export async function updateExpenseItem(
   prisma: PrismaClient,
   userId: string,
   id: string,
   input: UpdateExpenseItemBody,
-): Promise<PublicExpenseItem> {
+): Promise<ExpenseItemMutationResult> {
   const existing = await findOwnedOrFail(prisma.expenseItem, id, userId, "Expense item");
 
   if (input.categoryId) {
@@ -123,34 +142,36 @@ export async function updateExpenseItem(
   }
 
   const item = await prisma.expenseItem.update({ where: { id: existing.id }, data: input });
-  return toPublic(item);
+  return finalizeExpenseItemWrite(prisma, item);
 }
 
 export async function archiveExpenseItem(
   prisma: PrismaClient,
   userId: string,
   id: string,
-): Promise<PublicExpenseItem> {
+): Promise<ExpenseItemMutationResult> {
   const item = await findOwnedOrFail(prisma.expenseItem, id, userId, "Expense item");
 
   if (item.archivedAt) {
-    return toPublic(item);
+    return finalizeExpenseItemWrite(prisma, item);
   }
 
-  return toPublic(
-    await prisma.expenseItem.update({ where: { id }, data: { archivedAt: new Date() } }),
-  );
+  const archived = await prisma.expenseItem.update({
+    where: { id },
+    data: { archivedAt: new Date() },
+  });
+  return finalizeExpenseItemWrite(prisma, archived);
 }
 
 export async function unarchiveExpenseItem(
   prisma: PrismaClient,
   userId: string,
   id: string,
-): Promise<PublicExpenseItem> {
+): Promise<ExpenseItemMutationResult> {
   const item = await findOwnedOrFail(prisma.expenseItem, id, userId, "Expense item");
 
   if (!item.archivedAt) {
-    return toPublic(item);
+    return finalizeExpenseItemWrite(prisma, item);
   }
 
   // Restoring must not collide with an item created under the same name since,
@@ -158,7 +179,11 @@ export async function unarchiveExpenseItem(
   await assertNameAvailable(prisma, userId, item.name, id);
   await assertCategoryUsable(prisma, userId, item.categoryId);
 
-  return toPublic(await prisma.expenseItem.update({ where: { id }, data: { archivedAt: null } }));
+  const restored = await prisma.expenseItem.update({
+    where: { id },
+    data: { archivedAt: null },
+  });
+  return finalizeExpenseItemWrite(prisma, restored);
 }
 
 // Items referenced by a scenario are archived, never deleted (business rule

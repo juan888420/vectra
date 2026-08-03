@@ -95,18 +95,18 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
     }
   }
 
-  // ADR-0005 §7: every active product of the category joins as the initial
-  // selection, and the scenario starts watching it — a product added to the
-  // category later surfaces in "Revisar cambios" instead of silently never
-  // showing up (RFC-0023.1).
+  // ADR-0005 §7, as a pure selection helper: the category expands into
+  // individual products right here. The scenario keeps no live link to it,
+  // so a product created there later never shows up on its own
+  // (RFC-0023.3).
   async function handleAddCategory() {
     if (!selectedCategoryId) return;
     try {
-      const result = await addCategory.mutateAsync({ categoryId: selectedCategoryId });
+      const { addedCount } = await addCategory.mutateAsync({ categoryId: selectedCategoryId });
       toast.success(
-        result.addedCount > 0
-          ? `Se agregaron ${result.addedCount} productos de "${result.watch.categoryName}". El escenario ahora sigue esta categoría.`
-          : `El escenario ya sigue "${result.watch.categoryName}".`,
+        addedCount > 0
+          ? `Se agregaron ${addedCount} productos.`
+          : "Todos los productos de esa categoría ya estaban en el escenario.",
       );
       setSelectedCategoryId("");
       setAddingCategory(false);
@@ -209,8 +209,8 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
             <DialogTitle>Agregar categoría completa</DialogTitle>
             <DialogDescription>
               Se agregan todos los productos activos de la categoría que todavía no estén en este
-              escenario. El escenario quedará siguiendo la categoría: si más adelante se agrega un
-              producto nuevo ahí, aparecerá en "Revisar cambios".
+              escenario, como productos individuales. Si más adelante creas un producto nuevo ahí,
+              tendrás que agregarlo tú.
             </DialogDescription>
           </DialogHeader>
 

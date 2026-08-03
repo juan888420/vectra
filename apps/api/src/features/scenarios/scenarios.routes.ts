@@ -16,15 +16,14 @@ import {
   detectScenarioChanges,
   getScenario,
   getScenarioSummary,
-  listScenarioCategoryWatches,
   listScenarioCompositions,
   listScenarioIncomes,
   listScenarioItems,
   listScenarios,
-  removeScenarioCategoryWatch,
   removeScenarioComposition,
   removeScenarioIncome,
   removeScenarioItem,
+  syncScenario,
   unarchiveScenario,
   updateScenario,
 } from "./scenarios.service.js";
@@ -38,7 +37,6 @@ import {
   applyScenarioChangesResponseSchema,
   createScenarioBodySchema,
   listScenariosQuerySchema,
-  scenarioCategoryWatchPublicSchema,
   scenarioChangesResponseSchema,
   scenarioCompositionPublicSchema,
   scenarioIncomePublicSchema,
@@ -46,6 +44,7 @@ import {
   scenarioListResponseSchema,
   scenarioPublicSchema,
   scenarioSummarySchema,
+  syncScenarioResponseSchema,
   updateScenarioBodySchema,
 } from "./scenarios.schemas.js";
 
@@ -54,7 +53,6 @@ const SECURITY = [{ bearerAuth: [] }];
 const scenarioItemParamsSchema = z.object({ id: z.uuid(), itemId: z.uuid() });
 const scenarioIncomeParamsSchema = z.object({ id: z.uuid(), incomeId: z.uuid() });
 const scenarioCompositionParamsSchema = z.object({ id: z.uuid(), compositionId: z.uuid() });
-const scenarioCategoryWatchParamsSchema = z.object({ id: z.uuid(), watchId: z.uuid() });
 
 export const scenariosRoutes: FastifyPluginAsyncZod = async (app) => {
   app.addHook("onRequest", app.authenticate);
@@ -99,6 +97,20 @@ export const scenariosRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => getScenarioSummary(app.prisma, request.user.sub, request.params.id),
+  );
+
+  app.post(
+    "/:id/sync",
+    {
+      schema: {
+        tags: TAGS,
+        summary: "Apply every pending financial change reachable from this scenario at once",
+        security: SECURITY,
+        params: idParamsSchema,
+        response: { 200: syncScenarioResponseSchema, 404: errorResponseSchema },
+      },
+    },
+    async (request) => syncScenario(app.prisma, request.user.sub, request.params.id),
   );
 
   app.post(
@@ -457,34 +469,14 @@ export const scenariosRoutes: FastifyPluginAsyncZod = async (app) => {
       applyScenarioChanges(app.prisma, request.user.sub, request.params.id, request.body.changeIds),
   );
 
-  // --- Category watches & "add whole category" (ADR-0005 §7) -------------
-
-  app.get(
-    "/:id/category-watches",
-    {
-      schema: {
-        tags: TAGS,
-        summary: "List the categories a scenario is watching for new products",
-        security: SECURITY,
-        params: idParamsSchema,
-        response: {
-          200: z.object({ data: z.array(scenarioCategoryWatchPublicSchema) }),
-          404: errorResponseSchema,
-        },
-      },
-    },
-    async (request) => ({
-      data: await listScenarioCategoryWatches(app.prisma, request.user.sub, request.params.id),
-    }),
-  );
+  // --- "Add whole category" (ADR-0005 §7) ---------------------------------
 
   app.post(
     "/:id/category",
     {
       schema: {
         tags: TAGS,
-        summary:
-          "Add every product of a category to the scenario and start watching it for new ones",
+        summary: "Add every active product of a category to the scenario as individual items",
         security: SECURITY,
         params: idParamsSchema,
         body: addScenarioCategoryBodySchema,
@@ -504,29 +496,6 @@ export const scenariosRoutes: FastifyPluginAsyncZod = async (app) => {
         request.body.categoryId,
       );
       return reply.status(201).send(result);
-    },
-  );
-
-  app.delete(
-    "/:id/category-watches/:watchId",
-    {
-      schema: {
-        tags: TAGS,
-        summary:
-          "Stop watching a category for new products (already-added products are unaffected)",
-        security: SECURITY,
-        params: scenarioCategoryWatchParamsSchema,
-        response: { 204: z.null(), 404: errorResponseSchema },
-      },
-    },
-    async (request, reply) => {
-      await removeScenarioCategoryWatch(
-        app.prisma,
-        request.user.sub,
-        request.params.id,
-        request.params.watchId,
-      );
-      return reply.status(204).send(null);
     },
   );
 };

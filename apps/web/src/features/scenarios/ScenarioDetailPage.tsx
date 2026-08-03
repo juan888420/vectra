@@ -31,7 +31,6 @@ import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
 import { useAuth } from "../auth/useAuth.js";
-import { ScenarioChangesDialog } from "./ScenarioChangesDialog.js";
 import { ScenarioCompositionsSection } from "./ScenarioCompositionsSection.js";
 import { ScenarioFormDialog } from "./ScenarioFormDialog.js";
 import { ScenarioIncomesSection } from "./ScenarioIncomesSection.js";
@@ -44,6 +43,7 @@ import {
   useDeleteScenario,
   useScenario,
   useScenarioSummary,
+  useSyncScenario,
   useUnarchiveScenario,
 } from "./use-scenarios.js";
 
@@ -59,7 +59,6 @@ export function ScenarioDetailPage() {
   const { user } = useAuth();
   const [renaming, setRenaming] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [reviewingChanges, setReviewingChanges] = useState(false);
 
   const { data: scenario, isLoading, error } = useScenario(id ?? "");
   const { data: summary, isLoading: isLoadingSummary } = useScenarioSummary(id ?? "");
@@ -68,6 +67,7 @@ export function ScenarioDetailPage() {
   const archiveScenario = useArchiveScenario();
   const unarchiveScenario = useUnarchiveScenario();
   const deleteScenario = useDeleteScenario();
+  const syncScenario = useSyncScenario(id ?? "");
 
   if (!id) {
     return <Navigate to="/scenarios" replace />;
@@ -111,6 +111,19 @@ export function ScenarioDetailPage() {
     } catch (thrown) {
       toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
       setConfirmingDelete(false);
+    }
+  }
+
+  async function handleSync() {
+    try {
+      const { syncedCount } = await syncScenario.mutateAsync();
+      toast.success(
+        syncedCount === 1
+          ? "Se actualizó 1 elemento."
+          : `Se actualizaron ${syncedCount} elementos.`,
+      );
+    } catch (thrown) {
+      toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
     }
   }
 
@@ -167,7 +180,8 @@ export function ScenarioDetailPage() {
         summary={summary}
         isLoading={isLoadingSummary}
         currency={user?.defaultCurrency ?? "USD"}
-        onReviewChanges={() => setReviewingChanges(true)}
+        onSync={() => void handleSync()}
+        isSyncing={syncScenario.isPending}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -178,12 +192,6 @@ export function ScenarioDetailPage() {
       <ScenarioCompositionsSection scenario={scenario} />
 
       <ScenarioFormDialog open={renaming} onOpenChange={setRenaming} scenario={scenario} />
-
-      <ScenarioChangesDialog
-        open={reviewingChanges}
-        onOpenChange={setReviewingChanges}
-        scenarioId={scenario.id}
-      />
 
       <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
         <AlertDialogContent>

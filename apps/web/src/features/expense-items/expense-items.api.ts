@@ -1,12 +1,16 @@
 import {
   expenseItemListResponseSchema,
+  expenseItemMutationResponseSchema,
   expenseItemPublicSchema,
   expenseItemSummarySchema,
+  syncScenariosResponseSchema,
   type CreateExpenseItemBody,
+  type ExpenseItemMutationResponse,
   type ExpenseItemPublic,
   type ExpenseItemSummary,
   type ListExpenseItemsQuery,
   type PaginatedResponse,
+  type SyncScenariosResponse,
   type UpdateExpenseItemBody,
 } from "@vectra/types";
 
@@ -40,22 +44,31 @@ export async function createExpenseItemRequest(
   return expenseItemPublicSchema.parse(data);
 }
 
+// These three save unconditionally and return the scenarios their change
+// would move financially, for the caller to offer syncing (RFC-0023.3).
 export async function updateExpenseItemRequest(
   id: string,
   body: UpdateExpenseItemBody,
-): Promise<ExpenseItemPublic> {
+): Promise<ExpenseItemMutationResponse> {
   const data = await apiRequest<unknown>(`/expense-items/${id}`, { method: "PATCH", body });
-  return expenseItemPublicSchema.parse(data);
+  return expenseItemMutationResponseSchema.parse(data);
 }
 
-export async function archiveExpenseItemRequest(id: string): Promise<ExpenseItemPublic> {
+export async function archiveExpenseItemRequest(id: string): Promise<ExpenseItemMutationResponse> {
   const data = await apiRequest<unknown>(`/expense-items/${id}/archive`, { method: "POST" });
-  return expenseItemPublicSchema.parse(data);
+  return expenseItemMutationResponseSchema.parse(data);
 }
 
-export async function unarchiveExpenseItemRequest(id: string): Promise<ExpenseItemPublic> {
+export async function unarchiveExpenseItemRequest(
+  id: string,
+): Promise<ExpenseItemMutationResponse> {
   const data = await apiRequest<unknown>(`/expense-items/${id}/unarchive`, { method: "POST" });
-  return expenseItemPublicSchema.parse(data);
+  return expenseItemMutationResponseSchema.parse(data);
+}
+
+export async function syncExpenseItemScenariosRequest(id: string): Promise<SyncScenariosResponse> {
+  const data = await apiRequest<unknown>(`/expense-items/${id}/sync-scenarios`, { method: "POST" });
+  return syncScenariosResponseSchema.parse(data);
 }
 
 export async function deleteExpenseItemRequest(id: string): Promise<void> {

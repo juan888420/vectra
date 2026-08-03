@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { moneyAmountSchema } from "./money.js";
 import { paginatedResponseSchema } from "./pagination.js";
+import { withAffectedScenariosSchema } from "./scenario-impact.js";
 
 // Hand-mirrored from apps/api/src/features/expense-items/expense-items.schemas.ts.
 // `archivedAt`/`createdAt`/`updatedAt` are strings, not the backend's own
@@ -47,6 +48,13 @@ export const updateExpenseItemBodySchema = z
   .refine((body) => Object.keys(body).length > 0, { message: "At least one field is required" });
 
 export type UpdateExpenseItemBody = z.infer<typeof updateExpenseItemBodySchema>;
+
+// PATCH/archive/unarchive always save, then report which scenarios would
+// change cost if synced (RFC-0023.3) — see scenarios.ts.
+export const expenseItemMutationResponseSchema =
+  withAffectedScenariosSchema(expenseItemPublicSchema);
+
+export type ExpenseItemMutationResponse = z.infer<typeof expenseItemMutationResponseSchema>;
 
 export const expenseItemListResponseSchema = paginatedResponseSchema(expenseItemPublicSchema);
 

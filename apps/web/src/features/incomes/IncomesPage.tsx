@@ -32,7 +32,10 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
+import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
+import { useScenarioImpact } from "../scenarios/use-scenario-impact.js";
 import { IncomeFormDialog } from "./IncomeFormDialog.js";
+import { syncIncomeScenariosRequest } from "./incomes.api.js";
 import {
   useArchiveIncome,
   useDeleteIncome,
@@ -61,14 +64,15 @@ export function IncomesPage() {
   const archiveIncome = useArchiveIncome();
   const unarchiveIncome = useUnarchiveIncome();
   const deleteIncome = useDeleteIncome();
+  const scenarioImpact = useScenarioImpact(syncIncomeScenariosRequest);
 
   async function handleToggleArchive(income: IncomePublic) {
     try {
-      if (income.archivedAt) {
-        await unarchiveIncome.mutateAsync(income.id);
-      } else {
-        await archiveIncome.mutateAsync(income.id);
-      }
+      scenarioImpact.report(
+        income.archivedAt
+          ? await unarchiveIncome.mutateAsync(income.id)
+          : await archiveIncome.mutateAsync(income.id),
+      );
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
     }
@@ -223,7 +227,10 @@ export function IncomesPage() {
           if (!open) setFormDialog(null);
         }}
         income={formDialog?.mode === "edit" ? formDialog.income : undefined}
+        onEdited={scenarioImpact.report}
       />
+
+      <ScenarioImpactDialog {...scenarioImpact.dialogProps} />
 
       <AlertDialog
         open={pendingDelete !== null}

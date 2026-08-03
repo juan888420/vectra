@@ -1,12 +1,16 @@
 import {
   incomeListResponseSchema,
+  incomeMutationResponseSchema,
   incomePublicSchema,
   incomeSummarySchema,
+  syncScenariosResponseSchema,
   type CreateIncomeBody,
+  type IncomeMutationResponse,
   type IncomePublic,
   type IncomeSummary,
   type ListIncomesQuery,
   type PaginatedResponse,
+  type SyncScenariosResponse,
   type UpdateIncomeBody,
 } from "@vectra/types";
 
@@ -37,22 +41,29 @@ export async function createIncomeRequest(body: CreateIncomeBody): Promise<Incom
   return incomePublicSchema.parse(data);
 }
 
+// These three save unconditionally and return the scenarios their change
+// would move financially, for the caller to offer syncing (RFC-0023.3).
 export async function updateIncomeRequest(
   id: string,
   body: UpdateIncomeBody,
-): Promise<IncomePublic> {
+): Promise<IncomeMutationResponse> {
   const data = await apiRequest<unknown>(`/incomes/${id}`, { method: "PATCH", body });
-  return incomePublicSchema.parse(data);
+  return incomeMutationResponseSchema.parse(data);
 }
 
-export async function archiveIncomeRequest(id: string): Promise<IncomePublic> {
+export async function archiveIncomeRequest(id: string): Promise<IncomeMutationResponse> {
   const data = await apiRequest<unknown>(`/incomes/${id}/archive`, { method: "POST" });
-  return incomePublicSchema.parse(data);
+  return incomeMutationResponseSchema.parse(data);
 }
 
-export async function unarchiveIncomeRequest(id: string): Promise<IncomePublic> {
+export async function unarchiveIncomeRequest(id: string): Promise<IncomeMutationResponse> {
   const data = await apiRequest<unknown>(`/incomes/${id}/unarchive`, { method: "POST" });
-  return incomePublicSchema.parse(data);
+  return incomeMutationResponseSchema.parse(data);
+}
+
+export async function syncIncomeScenariosRequest(id: string): Promise<SyncScenariosResponse> {
+  const data = await apiRequest<unknown>(`/incomes/${id}/sync-scenarios`, { method: "POST" });
+  return syncScenariosResponseSchema.parse(data);
 }
 
 export async function deleteIncomeRequest(id: string): Promise<void> {

@@ -4,6 +4,7 @@ import {
   incomeFrequencySchema,
   moneyAmountSchema,
   type IncomeFrequency,
+  type IncomeMutationResponse,
   type IncomePublic,
 } from "@vectra/types";
 import {
@@ -38,12 +39,10 @@ const FREQUENCY_LABELS: Record<IncomeFrequency, string> = {
 
 // `frequency` is re-declared without its `.default(...)` — see the same
 // comment in ExpenseItemFormDialog.tsx.
-const incomeFormSchema = createIncomeBodySchema
-  .omit({ amount: true, frequency: true })
-  .extend({
-    amount: z.string().min(1, "El monto es obligatorio"),
-    frequency: incomeFrequencySchema,
-  });
+const incomeFormSchema = createIncomeBodySchema.omit({ amount: true, frequency: true }).extend({
+  amount: z.string().min(1, "El monto es obligatorio"),
+  frequency: incomeFrequencySchema,
+});
 
 type IncomeFormValues = z.infer<typeof incomeFormSchema>;
 
@@ -54,9 +53,19 @@ interface IncomeFormDialogProps {
   /** Called after a successful create — the scenario composer uses this to
    * link the new income right away. */
   onCreated?: (income: IncomePublic) => void;
+  /** Called after a successful edit with the impact the edit would have on
+   * the scenarios using it — the parent owns the confirmation dialog
+   * (RFC-0023.3). */
+  onEdited?: (result: IncomeMutationResponse) => void;
 }
 
-export function IncomeFormDialog({ open, onOpenChange, income, onCreated }: IncomeFormDialogProps) {
+export function IncomeFormDialog({
+  open,
+  onOpenChange,
+  income,
+  onCreated,
+  onEdited,
+}: IncomeFormDialogProps) {
   const isEditing = income !== undefined;
   const createIncome = useCreateIncome();
   const updateIncome = useUpdateIncome();
@@ -87,10 +96,11 @@ export function IncomeFormDialog({ open, onOpenChange, income, onCreated }: Inco
 
     try {
       if (isEditing) {
-        await updateIncome.mutateAsync({
+        const result = await updateIncome.mutateAsync({
           id: income.id,
           body: { ...values, amount: parsedAmount.data },
         });
+        onEdited?.(result);
       } else {
         const created = await createIncome.mutateAsync({ ...values, amount: parsedAmount.data });
         onCreated?.(created);

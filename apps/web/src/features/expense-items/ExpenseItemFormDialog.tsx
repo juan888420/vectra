@@ -4,6 +4,7 @@ import {
   expenseItemFrequencySchema,
   moneyAmountSchema,
   type ExpenseItemFrequency,
+  type ExpenseItemMutationResponse,
   type ExpenseItemPublic,
 } from "@vectra/types";
 import {
@@ -65,6 +66,10 @@ interface ExpenseItemFormDialogProps {
   /** Called after a successful create — the scenario composer uses this to
    * add the new product to the scenario right away (ADR-0005 §3). */
   onCreated?: (item: ExpenseItemPublic) => void;
+  /** Called after a successful edit with the impact the edit would have on
+   * the scenarios using it — the parent owns the confirmation dialog
+   * (RFC-0023.3). */
+  onEdited?: (result: ExpenseItemMutationResponse) => void;
 }
 
 export function ExpenseItemFormDialog({
@@ -73,6 +78,7 @@ export function ExpenseItemFormDialog({
   expenseItem,
   defaultCategoryId,
   onCreated,
+  onEdited,
 }: ExpenseItemFormDialogProps) {
   const isEditing = expenseItem !== undefined;
   const createExpenseItem = useCreateExpenseItem();
@@ -118,10 +124,11 @@ export function ExpenseItemFormDialog({
 
     try {
       if (isEditing) {
-        await updateExpenseItem.mutateAsync({
+        const result = await updateExpenseItem.mutateAsync({
           id: expenseItem.id,
           body: { ...values, amount: parsedAmount.data },
         });
+        onEdited?.(result);
       } else {
         const created = await createExpenseItem.mutateAsync({
           ...values,

@@ -24,7 +24,10 @@ import { toast } from "sonner";
 
 import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
 import { ApiError } from "../../lib/api-client.js";
+import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
+import { useScenarioImpact } from "../scenarios/use-scenario-impact.js";
 import { IncomeFormDialog } from "./IncomeFormDialog.js";
+import { syncIncomeScenariosRequest } from "./incomes.api.js";
 import {
   useArchiveIncome,
   useDeleteIncome,
@@ -49,6 +52,7 @@ export function IncomeDetailPage() {
   const archiveIncome = useArchiveIncome();
   const unarchiveIncome = useUnarchiveIncome();
   const deleteIncome = useDeleteIncome();
+  const scenarioImpact = useScenarioImpact(syncIncomeScenariosRequest);
 
   if (!id || error) {
     return <Navigate to="/incomes" replace />;
@@ -57,11 +61,11 @@ export function IncomeDetailPage() {
   async function handleToggleArchive() {
     if (!summary) return;
     try {
-      if (summary.income.archivedAt) {
-        await unarchiveIncome.mutateAsync(summary.income.id);
-      } else {
-        await archiveIncome.mutateAsync(summary.income.id);
-      }
+      scenarioImpact.report(
+        summary.income.archivedAt
+          ? await unarchiveIncome.mutateAsync(summary.income.id)
+          : await archiveIncome.mutateAsync(summary.income.id),
+      );
     } catch (thrown) {
       toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
     }
@@ -143,7 +147,14 @@ export function IncomeDetailPage() {
         </p>
       )}
 
-      <IncomeFormDialog open={editing} onOpenChange={setEditing} income={income} />
+      <IncomeFormDialog
+        open={editing}
+        onOpenChange={setEditing}
+        income={income}
+        onEdited={scenarioImpact.report}
+      />
+
+      <ScenarioImpactDialog {...scenarioImpact.dialogProps} />
 
       <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
         <AlertDialogContent>
