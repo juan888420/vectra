@@ -2,12 +2,15 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 
 import { errorResponseSchema, idParamsSchema } from "../../lib/schemas.js";
+import { syncIncomeScenarios } from "../scenarios/scenarios.service.js";
 import {
   createIncomeBodySchema,
   incomeListResponseSchema,
+  incomeMutationResponseSchema,
   incomePublicSchema,
   incomeSummarySchema,
   listIncomesQuerySchema,
+  syncIncomeScenariosResponseSchema,
   updateIncomeBodySchema,
 } from "./incomes.schemas.js";
 import {
@@ -95,7 +98,11 @@ export const incomesRoutes: FastifyPluginAsyncZod = async (app) => {
         security: SECURITY,
         params: idParamsSchema,
         body: updateIncomeBodySchema,
-        response: { 200: incomePublicSchema, 404: errorResponseSchema, 409: errorResponseSchema },
+        response: {
+          200: incomeMutationResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+        },
       },
     },
     async (request) => updateIncome(app.prisma, request.user.sub, request.params.id, request.body),
@@ -109,7 +116,7 @@ export const incomesRoutes: FastifyPluginAsyncZod = async (app) => {
         summary: "Archive an income",
         security: SECURITY,
         params: idParamsSchema,
-        response: { 200: incomePublicSchema, 404: errorResponseSchema },
+        response: { 200: incomeMutationResponseSchema, 404: errorResponseSchema },
       },
     },
     async (request) => archiveIncome(app.prisma, request.user.sub, request.params.id),
@@ -123,10 +130,28 @@ export const incomesRoutes: FastifyPluginAsyncZod = async (app) => {
         summary: "Unarchive an income",
         security: SECURITY,
         params: idParamsSchema,
-        response: { 200: incomePublicSchema, 404: errorResponseSchema, 409: errorResponseSchema },
+        response: {
+          200: incomeMutationResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+        },
       },
     },
     async (request) => unarchiveIncome(app.prisma, request.user.sub, request.params.id),
+  );
+
+  app.post(
+    "/:id/sync-scenarios",
+    {
+      schema: {
+        tags: TAGS,
+        summary: "Sync every scenario snapshot still financially out of sync with this income",
+        security: SECURITY,
+        params: idParamsSchema,
+        response: { 200: syncIncomeScenariosResponseSchema, 404: errorResponseSchema },
+      },
+    },
+    async (request) => syncIncomeScenarios(app.prisma, request.user.sub, request.params.id),
   );
 
   app.delete(

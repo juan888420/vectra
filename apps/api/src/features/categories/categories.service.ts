@@ -5,6 +5,7 @@ import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
 import type { Category, PrismaClient } from "../../generated/prisma/client.js";
 import { toPublic as toPublicExpenseItem } from "../expense-items/expense-items.service.js";
+import { syncCategoryNameInScenarios } from "../scenarios/scenarios.service.js";
 import type { ListCategoriesQuery } from "./categories.schemas.js";
 
 async function assertNameAvailable(
@@ -85,7 +86,14 @@ export async function updateCategory(
   const category = await findOwnedOrFail(prisma.category, id, userId, "Category");
   assertNotSystem(category, "renamed");
   await assertNameAvailable(prisma, userId, input.name, category.type, id);
-  return prisma.category.update({ where: { id }, data: input });
+  const updated = await prisma.category.update({ where: { id }, data: input });
+
+  // A rename never carries financial impact, so it always syncs into every
+  // scenario snapshot right away — never a "would you like to update"
+  // decision (RFC-0023.3).
+  await syncCategoryNameInScenarios(prisma, id, updated.name);
+
+  return updated;
 }
 
 export async function archiveCategory(

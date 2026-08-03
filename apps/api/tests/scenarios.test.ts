@@ -50,14 +50,14 @@ describe("Scenarios", () => {
     return res.body as { id: string; name: string; status: string };
   }
 
-  it("creates a scenario defaulting to ACTIVE", async () => {
+  it("creates a scenario defaulting to INACTIVE", async () => {
     const res = await request(app.server)
       .post("/scenarios")
       .set(auth)
       .send({ name: uniqueName("Escenario actual") });
 
     expect(res.status).toBe(201);
-    expect(res.body.status).toBe("ACTIVE");
+    expect(res.body.status).toBe("INACTIVE");
   });
 
   it("rejects a second active scenario with the same name", async () => {
@@ -270,6 +270,45 @@ describe("Scenarios", () => {
     expect(after.body.hasUpdates).toBe(true);
   });
 
+  it("flags a composed scenario as outdated in its parent's composition list", async () => {
+    const parent = await createScenario();
+    const child = await createScenario();
+    await request(app.server)
+      .post(`/scenarios/${parent.id}/compositions`)
+      .set(auth)
+      .send({ childScenarioId: child.id });
+
+    const before = await request(app.server).get(`/scenarios/${parent.id}/compositions`).set(auth);
+    expect(before.body.data).toEqual([
+      {
+        id: expect.any(String),
+        childScenarioId: child.id,
+        childScenarioName: child.name,
+        outdated: false,
+      },
+    ]);
+
+    const childItemId = await createExpenseItem(10000, "MONTHLY");
+    await request(app.server)
+      .post(`/scenarios/${child.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: childItemId });
+    await request(app.server)
+      .patch(`/expense-items/${childItemId}`)
+      .set(auth)
+      .send({ amount: 15000 });
+
+    // The child itself has unsynced financial drift, so it shows up as
+    // outdated from the parent's own composition list — no detail here,
+    // that's what opening the child scenario is for.
+    const after = await request(app.server).get(`/scenarios/${parent.id}/compositions`).set(auth);
+    expect(after.body.data[0].outdated).toBe(true);
+
+    await request(app.server).post(`/scenarios/${child.id}/sync`).set(auth);
+    const synced = await request(app.server).get(`/scenarios/${parent.id}/compositions`).set(auth);
+    expect(synced.body.data[0].outdated).toBe(false);
+  });
+
   it("includes the monthly total per scenario in the list response", async () => {
     const scenario = await createScenario();
     const itemId = await createExpenseItem(40000, "MONTHLY");
@@ -282,6 +321,375 @@ describe("Scenarios", () => {
 
     const listed = res.body.data.find((entry: { id: string }) => entry.id === scenario.id);
     expect(listed.monthly).toBe(40000);
+  });
+
+  // --- Sync-on-write (RFC-0023.3) ---------------------------------------
+
+  it("syncs a renamed product into its snapshots without asking", async () => {
+    const scenario = await createScenario();
+    const itemId = await createExpenseItem(10000, "MONTHLY");
+    await request(app.server)
+      .post(`/scenarios/${scenario.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: itemId });
+
+    const newName = uniqueName("Renombrado");
+    const patched = await request(app.server)
+      .patch(`/expense-items/${itemId}`)
+      .set(auth)
+      .send({ name: newName });
+
+    // A rename moves no total, so it never becomes a decision.
+    expect(patched.body.affectedScenarios).toEqual([]);
+    expect(patched.body.changes).toEqual([]);
+
+    const items = await request(app.server).get(`/scenarios/${scenario.id}/items`).set(auth);
+    expect(items.body.data[0].name).toBe(newName);
+
+    const summary = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    expect(summary.body.hasUpdates).toBe(false);
+  });
+
+  it("syncs a renamed category into its snapshots without asking", async () => {
+    const scenario = await createScenario();
+    const itemId = await createExpenseItem(10000, "MONTHLY");
+    await request(app.server)
+      .post(`/scenarios/${scenario.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: itemId });
+
+    const newName = uniqueName("Categoria");
+    await request(app.server)
+      .patch(`/categories/${user.expenseCategoryId}`)
+      .set(auth)
+      .send({ name: newName });
+
+    const items = await request(app.server).get(`/scenarios/${scenario.id}/items`).set(auth);
+    expect(items.body.data[0].categoryName).toBe(newName);
+
+    const summary = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    expect(summary.body.hasUpdates).toBe(false);
+  });
+
+  it("reports the affected scenarios on a price change and syncs them on demand", async () => {
+    const scenario = await createScenario();
+    const itemId = await createExpenseItem(10000, "MONTHLY");
+    await request(app.server)
+      .post(`/scenarios/${scenario.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: itemId });
+
+    const patched = await request(app.server)
+      .patch(`/expense-items/${itemId}`)
+      .set(auth)
+      .send({ amount: 15000 });
+
+    // Saved regardless, and the impact is reported rather than blocking —
+    // with the actual from/to and the item's own name so the dialog can
+    // spell it out.
+    expect(patched.body.data.amount).toBe(15000);
+    expect(patched.body.affectedScenarios).toEqual([{ id: scenario.id, name: scenario.name }]);
+    expect(patched.body.changes).toEqual([
+      {
+        name: patched.body.data.name,
+        source: "expenseItem",
+        field: "amount",
+        currency: "COP",
+        from: 10000,
+        to: 15000,
+      },
+    ]);
+
+    const declined = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    expect(declined.body.totals.monthly).toBe(10000);
+    expect(declined.body.hasUpdates).toBe(true);
+    // Same shape and wording data as the post-edit dialog — built by the
+    // same describer on the frontend, never a second implementation.
+    expect(declined.body.pendingChanges).toEqual([
+      {
+        name: patched.body.data.name,
+        source: "expenseItem",
+        field: "amount",
+        currency: "COP",
+        from: 10000,
+        to: 15000,
+      },
+    ]);
+
+    const synced = await request(app.server)
+      .post(`/expense-items/${itemId}/sync-scenarios`)
+      .set(auth);
+    expect(synced.body.syncedCount).toBe(1);
+
+    const after = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    expect(after.body.totals.monthly).toBe(15000);
+    expect(after.body.hasUpdates).toBe(false);
+    expect(after.body.pendingChanges).toEqual([]);
+  });
+
+  it("lists every kind of pending change across a scenario's products and incomes", async () => {
+    const scenario = await createScenario();
+    const priceItemId = await createExpenseItem(80000, "MONTHLY");
+    const frequencyItemId = await createExpenseItem(30000, "MONTHLY");
+    const archivedItemId = await createExpenseItem(20000, "MONTHLY");
+    const incomeId = await createIncome(2500000);
+    for (const expenseItemId of [priceItemId, frequencyItemId, archivedItemId]) {
+      await request(app.server)
+        .post(`/scenarios/${scenario.id}/items`)
+        .set(auth)
+        .send({ expenseItemId });
+    }
+    await request(app.server)
+      .post(`/scenarios/${scenario.id}/incomes`)
+      .set(auth)
+      .send({ incomeId });
+
+    await request(app.server)
+      .patch(`/expense-items/${priceItemId}`)
+      .set(auth)
+      .send({ amount: 95000 });
+    await request(app.server)
+      .patch(`/expense-items/${frequencyItemId}`)
+      .set(auth)
+      .send({ frequency: "YEARLY" });
+    await request(app.server).post(`/expense-items/${archivedItemId}/archive`).set(auth);
+    await request(app.server).patch(`/incomes/${incomeId}`).set(auth).send({ amount: 2700000 });
+
+    const summary = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    expect(summary.body.hasUpdates).toBe(true);
+
+    const priceName = (await request(app.server).get(`/expense-items/${priceItemId}`).set(auth))
+      .body.name;
+    const frequencyName = (
+      await request(app.server).get(`/expense-items/${frequencyItemId}`).set(auth)
+    ).body.name;
+    const archivedName = (
+      await request(app.server).get(`/expense-items/${archivedItemId}`).set(auth)
+    ).body.name;
+    const incomeName = (await request(app.server).get(`/incomes/${incomeId}`).set(auth)).body.name;
+
+    expect(summary.body.pendingChanges).toEqual(
+      expect.arrayContaining([
+        {
+          name: priceName,
+          source: "expenseItem",
+          field: "amount",
+          currency: "COP",
+          from: 80000,
+          to: 95000,
+        },
+        {
+          name: frequencyName,
+          source: "expenseItem",
+          field: "frequency",
+          from: "MONTHLY",
+          to: "YEARLY",
+        },
+        { name: archivedName, source: "expenseItem", field: "archived" },
+        {
+          name: incomeName,
+          source: "income",
+          field: "amount",
+          currency: "COP",
+          from: 2500000,
+          to: 2700000,
+        },
+      ]),
+    );
+    expect(summary.body.pendingChanges).toHaveLength(4);
+  });
+
+  it("reports every changed field when several move in one save", async () => {
+    const scenario = await createScenario();
+    const itemId = await createExpenseItem(80000, "MONTHLY");
+    await request(app.server)
+      .post(`/scenarios/${scenario.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: itemId });
+
+    const patched = await request(app.server)
+      .patch(`/expense-items/${itemId}`)
+      .set(auth)
+      .send({ amount: 100000, frequency: "YEARLY" });
+
+    const name = patched.body.data.name;
+    expect(patched.body.changes).toEqual([
+      { name, source: "expenseItem", field: "amount", currency: "COP", from: 80000, to: 100000 },
+      { name, source: "expenseItem", field: "frequency", from: "MONTHLY", to: "YEARLY" },
+    ]);
+  });
+
+  it("omits the old value when the affected snapshots disagree on it", async () => {
+    const synced = await createScenario();
+    const stale = await createScenario();
+    const itemId = await createExpenseItem(10000, "MONTHLY");
+    for (const scenario of [synced, stale]) {
+      await request(app.server)
+        .post(`/scenarios/${scenario.id}/items`)
+        .set(auth)
+        .send({ expenseItemId: itemId });
+    }
+
+    // Only one of the two scenarios follows along to 20000, so their
+    // snapshots now hold different "from" values.
+    await request(app.server).patch(`/expense-items/${itemId}`).set(auth).send({ amount: 20000 });
+    await request(app.server).post(`/scenarios/${synced.id}/sync`).set(auth);
+
+    const patched = await request(app.server)
+      .patch(`/expense-items/${itemId}`)
+      .set(auth)
+      .send({ amount: 30000 });
+
+    expect(patched.body.changes).toEqual([
+      {
+        name: patched.body.data.name,
+        source: "expenseItem",
+        field: "amount",
+        currency: "COP",
+        from: null,
+        to: 30000,
+      },
+    ]);
+  });
+
+  it("reports an archived product as leaving its scenarios", async () => {
+    const scenario = await createScenario();
+    const itemId = await createExpenseItem(10000, "MONTHLY");
+    await request(app.server)
+      .post(`/scenarios/${scenario.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: itemId });
+
+    const archived = await request(app.server).post(`/expense-items/${itemId}/archive`).set(auth);
+
+    expect(archived.body.changes).toEqual([
+      { name: archived.body.data.name, source: "expenseItem", field: "archived" },
+    ]);
+  });
+
+  it("reports composition ancestors as affected by a product's price change", async () => {
+    const parent = await createScenario();
+    const child = await createScenario();
+    await request(app.server)
+      .post(`/scenarios/${parent.id}/compositions`)
+      .set(auth)
+      .send({ childScenarioId: child.id });
+
+    const itemId = await createExpenseItem(10000, "MONTHLY");
+    await request(app.server)
+      .post(`/scenarios/${child.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: itemId });
+
+    const patched = await request(app.server)
+      .patch(`/expense-items/${itemId}`)
+      .set(auth)
+      .send({ amount: 20000 });
+
+    const affectedIds = patched.body.affectedScenarios.map((entry: { id: string }) => entry.id);
+    expect(affectedIds).toContain(child.id);
+    expect(affectedIds).toContain(parent.id);
+  });
+
+  it("excludes archived scenarios from the reported impact", async () => {
+    const scenario = await createScenario();
+    const itemId = await createExpenseItem(10000, "MONTHLY");
+    await request(app.server)
+      .post(`/scenarios/${scenario.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: itemId });
+    await request(app.server).post(`/scenarios/${scenario.id}/archive`).set(auth);
+
+    const patched = await request(app.server)
+      .patch(`/expense-items/${itemId}`)
+      .set(auth)
+      .send({ amount: 30000 });
+
+    expect(patched.body.affectedScenarios).toEqual([]);
+
+    // Frozen: an archived scenario surfaces no pending state at all.
+    const summary = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    expect(summary.body.hasUpdates).toBe(false);
+
+    // Unarchiving re-checks from scratch, so the drift resurfaces.
+    await request(app.server).post(`/scenarios/${scenario.id}/unarchive`).set(auth);
+    const restored = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    expect(restored.body.hasUpdates).toBe(true);
+  });
+
+  it("drops an archived product from its scenarios when synced", async () => {
+    const scenario = await createScenario();
+    const itemId = await createExpenseItem(10000, "MONTHLY");
+    await request(app.server)
+      .post(`/scenarios/${scenario.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: itemId });
+
+    const archived = await request(app.server).post(`/expense-items/${itemId}/archive`).set(auth);
+    expect(archived.body.affectedScenarios).toEqual([{ id: scenario.id, name: scenario.name }]);
+
+    await request(app.server).post(`/scenarios/${scenario.id}/sync`).set(auth);
+
+    const items = await request(app.server).get(`/scenarios/${scenario.id}/items`).set(auth);
+    expect(items.body.data).toEqual([]);
+  });
+
+  it("syncs an income's amount only when asked", async () => {
+    const scenario = await createScenario();
+    const incomeId = await createIncome(100000);
+    await request(app.server)
+      .post(`/scenarios/${scenario.id}/incomes`)
+      .set(auth)
+      .send({ incomeId });
+
+    const patched = await request(app.server)
+      .patch(`/incomes/${incomeId}`)
+      .set(auth)
+      .send({ amount: 150000 });
+    expect(patched.body.affectedScenarios).toEqual([{ id: scenario.id, name: scenario.name }]);
+    expect(patched.body.changes).toEqual([
+      {
+        name: patched.body.data.name,
+        source: "income",
+        field: "amount",
+        currency: "COP",
+        from: 100000,
+        to: 150000,
+      },
+    ]);
+
+    const before = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    expect(before.body.incomeCoverage.totalIncomeMonthly).toBe(100000);
+
+    await request(app.server).post(`/incomes/${incomeId}/sync-scenarios`).set(auth);
+
+    const after = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    expect(after.body.incomeCoverage.totalIncomeMonthly).toBe(150000);
+    expect(after.body.hasUpdates).toBe(false);
+  });
+
+  it("adds a whole category without keeping any link to it", async () => {
+    const scenario = await createScenario();
+    await createExpenseItem(5000, "MONTHLY");
+
+    const added = await request(app.server)
+      .post(`/scenarios/${scenario.id}/category`)
+      .set(auth)
+      .send({ categoryId: user.expenseCategoryId });
+    expect(added.body.addedCount).toBeGreaterThan(0);
+
+    const countAfterAdd = (
+      await request(app.server).get(`/scenarios/${scenario.id}/items`).set(auth)
+    ).body.data.length;
+
+    // A product created in that category afterwards never joins on its own.
+    await createExpenseItem(7000, "MONTHLY");
+
+    const items = await request(app.server).get(`/scenarios/${scenario.id}/items`).set(auth);
+    expect(items.body.data.length).toBe(countAfterAdd);
+
+    const summary = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    expect(summary.body.hasUpdates).toBe(false);
   });
 
   it("hides another user's scenario behind a 404", async () => {

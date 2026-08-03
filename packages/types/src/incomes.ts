@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { moneyAmountSchema } from "./money.js";
 import { paginatedResponseSchema } from "./pagination.js";
+import { withAffectedScenariosSchema } from "./scenario-impact.js";
 
 // Hand-mirrored from apps/api/src/features/incomes/incomes.schemas.ts, same
 // string-dates caveat as expense-items.ts.
@@ -41,6 +42,11 @@ export const updateIncomeBodySchema = z
   .refine((body) => Object.keys(body).length > 0, { message: "At least one field is required" });
 
 export type UpdateIncomeBody = z.infer<typeof updateIncomeBodySchema>;
+
+// Same save-always-report-impact contract as expense items (RFC-0023.3).
+export const incomeMutationResponseSchema = withAffectedScenariosSchema(incomePublicSchema);
+
+export type IncomeMutationResponse = z.infer<typeof incomeMutationResponseSchema>;
 
 export const incomeListResponseSchema = paginatedResponseSchema(incomePublicSchema);
 

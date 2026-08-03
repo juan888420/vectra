@@ -6,7 +6,7 @@ import {
   queryBooleanSchema,
   sortQuerySchema,
 } from "../../lib/pagination.js";
-import { moneyAmountSchema } from "../../lib/schemas.js";
+import { moneyAmountSchema, withAffectedScenarios } from "../../lib/schemas.js";
 
 // Wider than expenseItemFrequencySchema on purpose: weekly pay is common,
 // weekly subscriptions are not (ADR-0005 §13). ONE_TIME incomes (a bonus)
@@ -40,6 +40,14 @@ export const updateIncomeBodySchema = z
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: "At least one field is required" });
+
+// See expense-items.schemas.ts's expenseItemMutationResponseSchema — same
+// save-always-report-impact contract (RFC-0023.3).
+export const incomeMutationResponseSchema = withAffectedScenarios(incomePublicSchema);
+
+export const syncIncomeScenariosResponseSchema = z.object({
+  syncedCount: z.number(),
+});
 
 export const listIncomesQuerySchema = paginationQuerySchema
   .extend(sortQuerySchema(["name", "createdAt", "amount"], "name").shape)

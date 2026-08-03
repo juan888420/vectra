@@ -3,6 +3,7 @@ import { z } from "zod";
 import { expenseItemFrequencySchema } from "./expense-items.js";
 import { incomeFrequencySchema } from "./incomes.js";
 import { paginatedResponseSchema } from "./pagination.js";
+import { scenarioImpactChangeSchema } from "./scenario-impact.js";
 
 // Hand-mirrored from apps/api/src/features/scenarios/scenarios.schemas.ts,
 // same string-dates caveat as expense-items.ts/incomes.ts.
@@ -99,6 +100,10 @@ export const scenarioCompositionPublicSchema = z.object({
   id: z.uuid(),
   childScenarioId: z.uuid(),
   childScenarioName: z.string(),
+  // Same semantics as ScenarioItem/ScenarioIncome's `outdated`: this
+  // composed scenario itself has unsynced financial drift (RFC-0023.3). No
+  // per-change detail here — that's what opening the child scenario is for.
+  outdated: z.boolean(),
 });
 
 export type ScenarioCompositionPublic = z.infer<typeof scenarioCompositionPublicSchema>;
@@ -131,19 +136,23 @@ export const scenarioSummarySchema = z.object({
     })
     .nullable(),
   hasUpdates: z.boolean(),
+  // Same list `hasUpdates` is derived from, described per resource — feeds
+  // the "Cambios pendientes" summary shown above "Aplicar cambios
+  // pendientes", built by the exact same describer as ScenarioImpactDialog
+  // (RFC-0023.3).
+  pendingChanges: z.array(scenarioImpactChangeSchema),
 });
 
 export type ScenarioSummary = z.infer<typeof scenarioSummarySchema>;
 
-// --- Change review (RFC-0023.1) ---------------------------------------------
+// --- Change review (RFC-0023.1, kept as backend capability) ----------------
 //
-// Each ScenarioChange explains exactly what drifted, field by field, instead
-// of a generic "has updates" flag. `kind: "visual"` (a rename) applies the
-// moment the review panel opens, no confirmation needed; `kind: "financial"`
-// (anything that moves a total) stays listed until the user checks it and
-// confirms. To add a new type later, add one variant to the union below —
-// the review dialog renders by `kind` + a per-`type` message, so a new type
-// only needs its own case in the message-formatting switch, nothing else.
+// Each ScenarioChange explains exactly what drifted, field by field. Since
+// RFC-0023.3 (sync-on-write) nothing in the UI consumes this: visual drift
+// syncs inline when the source is saved, and financial drift is surfaced at
+// save time through `affectedScenarios` on the resource's own mutation
+// response. Kept as a general-purpose capability for a future feature that
+// needs the full field-by-field explanation.
 
 export const scenarioChangeKindSchema = z.enum(["visual", "financial"]);
 
@@ -233,17 +242,6 @@ export const incomeArchivedChangeSchema = scenarioChangeBaseSchema.extend({
   incomeName: z.string(),
 });
 
-export const newItemAvailableChangeSchema = scenarioChangeBaseSchema.extend({
-  type: z.literal("NEW_ITEM_AVAILABLE"),
-  categoryId: z.uuid(),
-  categoryName: z.string(),
-  expenseItemId: z.uuid(),
-  itemName: z.string(),
-  currency: z.string().length(3),
-  amount: z.number(),
-  frequency: expenseItemFrequencySchema,
-});
-
 export const scenarioChangeSchema = z.discriminatedUnion("type", [
   itemRenamedChangeSchema,
   itemCategoryRenamedChangeSchema,
@@ -254,7 +252,6 @@ export const scenarioChangeSchema = z.discriminatedUnion("type", [
   incomeAmountChangedSchema,
   incomeFrequencyChangedSchema,
   incomeArchivedChangeSchema,
-  newItemAvailableChangeSchema,
 ]);
 
 export type ScenarioChange = z.infer<typeof scenarioChangeSchema>;
@@ -275,15 +272,11 @@ export const applyScenarioChangesResponseSchema = z.object({
 
 export type ApplyScenarioChangesResponse = z.infer<typeof applyScenarioChangesResponseSchema>;
 
-// --- Category watches (ADR-0005 §7 / RFC-0023.1) ----------------------------
-
-export const scenarioCategoryWatchPublicSchema = z.object({
-  id: z.uuid(),
-  categoryId: z.uuid(),
-  categoryName: z.string(),
-});
-
-export type ScenarioCategoryWatchPublic = z.infer<typeof scenarioCategoryWatchPublicSchema>;
+// --- "Add whole category" (ADR-0005 §7) ------------------------------------
+//
+// A selection helper only: it expands to individual ScenarioItems right
+// away. The scenario keeps no live relationship with the category, so a
+// product created there later never surfaces here on its own (RFC-0023.3).
 
 export const addScenarioCategoryBodySchema = z.object({
   categoryId: z.uuid(),
@@ -293,7 +286,16 @@ export type AddScenarioCategoryBody = z.infer<typeof addScenarioCategoryBodySche
 
 export const addScenarioCategoryResponseSchema = z.object({
   addedCount: z.number(),
-  watch: scenarioCategoryWatchPublicSchema,
 });
 
 export type AddScenarioCategoryResponse = z.infer<typeof addScenarioCategoryResponseSchema>;
+
+// --- Scenario-level sync (RFC-0023.3) --------------------------------------
+//
+// The "Actualizar" action: applies every pending financial change reachable
+// from this scenario at once, with no per-change selection.
+export const syncScenarioResponseSchema = z.object({
+  syncedCount: z.number(),
+});
+
+export type SyncScenarioResponse = z.infer<typeof syncScenarioResponseSchema>;

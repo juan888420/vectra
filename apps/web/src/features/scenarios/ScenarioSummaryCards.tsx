@@ -4,30 +4,49 @@ import { formatMoney } from "@vectra/utils";
 import { AlertTriangle } from "lucide-react";
 
 import { StatCard } from "../dashboard/StatCard.js";
+import { describeScenarioChange } from "./describe-scenario-change.js";
 
 interface ScenarioSummaryCardsProps {
   summary?: ScenarioSummary;
   isLoading: boolean;
   currency: string;
-  onReviewChanges: () => void;
+  onSync: () => void;
+  isSyncing: boolean;
 }
 
 export function ScenarioSummaryCards({
   summary,
   isLoading,
   currency,
-  onReviewChanges,
+  onSync,
+  isSyncing,
 }: ScenarioSummaryCardsProps) {
   return (
     <div className="flex flex-col gap-4">
+      {/* Only ever shows when the user declined syncing at edit time
+          (RFC-0023.3) — an informational summary, no checkboxes and no
+          per-change selection; the button below applies all of it at once.
+          Described with the exact same function as ScenarioImpactDialog, so
+          this list and that dialog never disagree on wording. */}
       {summary?.hasUpdates ? (
         <div className="flex flex-col gap-2 rounded-md border border-amber-500/30 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
           <div className="flex items-center gap-2">
             <AlertTriangle className="size-4 shrink-0" />
-            Este escenario tiene cambios pendientes de revisar.
+            Cambios pendientes
           </div>
-          <Button size="sm" variant="outline" className="w-fit" onClick={onReviewChanges}>
-            Revisar cambios
+          <ul className="flex list-inside list-disc flex-col gap-1 text-sm">
+            {summary.pendingChanges.map((change, index) => (
+              <li key={index}>{describeScenarioChange(change)}</li>
+            ))}
+          </ul>
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-fit"
+            onClick={onSync}
+            disabled={isSyncing}
+          >
+            {isSyncing ? "Aplicando…" : "Aplicar cambios pendientes"}
           </Button>
         </div>
       ) : null}

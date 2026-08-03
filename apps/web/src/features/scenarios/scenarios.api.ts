@@ -1,31 +1,27 @@
 import {
   addScenarioCategoryResponseSchema,
-  applyScenarioChangesResponseSchema,
-  scenarioCategoryWatchPublicSchema,
-  scenarioChangesResponseSchema,
   scenarioCompositionPublicSchema,
   scenarioIncomePublicSchema,
   scenarioItemPublicSchema,
   scenarioListResponseSchema,
   scenarioPublicSchema,
   scenarioSummarySchema,
+  syncScenarioResponseSchema,
   type AddScenarioCategoryBody,
   type AddScenarioCategoryResponse,
   type AddScenarioCompositionBody,
   type AddScenarioIncomeBody,
   type AddScenarioItemBody,
-  type ApplyScenarioChangesResponse,
   type CreateScenarioBody,
   type ListScenariosQuery,
   type PaginatedResponse,
-  type ScenarioCategoryWatchPublic,
-  type ScenarioChange,
   type ScenarioCompositionPublic,
   type ScenarioIncomePublic,
   type ScenarioItemPublic,
   type ScenarioListItem,
   type ScenarioPublic,
   type ScenarioSummary,
+  type SyncScenarioResponse,
   type UpdateScenarioBody,
 } from "@vectra/types";
 import { z } from "zod";
@@ -184,31 +180,13 @@ export async function removeScenarioCompositionRequest(
   });
 }
 
-// --- Change review (RFC-0023.1) -----------------------------------------
+// --- Sync & "add whole category" (RFC-0023.3 / ADR-0005 §7) -------------
 
-export async function listScenarioChangesRequest(scenarioId: string): Promise<ScenarioChange[]> {
-  const data = await apiRequest<unknown>(`/scenarios/${scenarioId}/changes`);
-  return scenarioChangesResponseSchema.parse(data).data;
-}
-
-export async function applyScenarioChangesRequest(
-  scenarioId: string,
-  changeIds: string[],
-): Promise<ApplyScenarioChangesResponse> {
-  const data = await apiRequest<unknown>(`/scenarios/${scenarioId}/changes/apply`, {
-    method: "POST",
-    body: { changeIds },
-  });
-  return applyScenarioChangesResponseSchema.parse(data);
-}
-
-// --- Category watches & "add whole category" (ADR-0005 §7) --------------
-
-export async function listScenarioCategoryWatchesRequest(
-  scenarioId: string,
-): Promise<ScenarioCategoryWatchPublic[]> {
-  const data = await apiRequest<unknown>(`/scenarios/${scenarioId}/category-watches`);
-  return z.object({ data: z.array(scenarioCategoryWatchPublicSchema) }).parse(data).data;
+// The "Actualizar" action: applies every pending financial change reachable
+// from this scenario in one call, with no per-change selection.
+export async function syncScenarioRequest(scenarioId: string): Promise<SyncScenarioResponse> {
+  const data = await apiRequest<unknown>(`/scenarios/${scenarioId}/sync`, { method: "POST" });
+  return syncScenarioResponseSchema.parse(data);
 }
 
 export async function addScenarioCategoryRequest(
@@ -220,13 +198,4 @@ export async function addScenarioCategoryRequest(
     body,
   });
   return addScenarioCategoryResponseSchema.parse(data);
-}
-
-export async function removeScenarioCategoryWatchRequest(
-  scenarioId: string,
-  watchId: string,
-): Promise<void> {
-  await apiRequest<void>(`/scenarios/${scenarioId}/category-watches/${watchId}`, {
-    method: "DELETE",
-  });
 }

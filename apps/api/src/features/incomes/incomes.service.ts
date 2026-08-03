@@ -4,6 +4,8 @@ import { conflict } from "../../lib/http-errors.js";
 import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
 import type { Income, PrismaClient } from "../../generated/prisma/client.js";
+import { reconcileIncomeScenarios } from "../scenarios/scenarios.service.js";
+import type { ScenarioImpact } from "../scenarios/scenarios.service.js";
 import type { CreateIncomeBody, ListIncomesQuery, UpdateIncomeBody } from "./incomes.schemas.js";
 
 type PublicIncome = Omit<Income, "amount"> & { amount: number };
@@ -80,49 +82,67 @@ export async function createIncome(
   return toPublic(income);
 }
 
+export type IncomeMutationResult = ScenarioImpact & { data: PublicIncome };
+
+// See expense-items.service.ts's finalizeExpenseItemWrite — same save-
+// always-report-impact contract (RFC-0023.3).
+async function finalizeIncomeWrite(
+  prisma: PrismaClient,
+  income: Income,
+): Promise<IncomeMutationResult> {
+  const impact = await reconcileIncomeScenarios(prisma, income);
+  return { data: toPublic(income), ...impact };
+}
+
 export async function updateIncome(
   prisma: PrismaClient,
   userId: string,
   id: string,
   input: UpdateIncomeBody,
-): Promise<PublicIncome> {
+): Promise<IncomeMutationResult> {
   const existing = await findOwnedOrFail(prisma.income, id, userId, "Income");
 
   if (input.name) {
     await assertNameAvailable(prisma, userId, input.name, id);
   }
 
-  return toPublic(await prisma.income.update({ where: { id: existing.id }, data: input }));
+  const income = await prisma.income.update({ where: { id: existing.id }, data: input });
+  return finalizeIncomeWrite(prisma, income);
 }
 
 export async function archiveIncome(
   prisma: PrismaClient,
   userId: string,
   id: string,
-): Promise<PublicIncome> {
+): Promise<IncomeMutationResult> {
   const income = await findOwnedOrFail(prisma.income, id, userId, "Income");
 
   if (income.archivedAt) {
-    return toPublic(income);
+    return finalizeIncomeWrite(prisma, income);
   }
 
-  return toPublic(await prisma.income.update({ where: { id }, data: { archivedAt: new Date() } }));
+  const archived = await prisma.income.update({
+    where: { id },
+    data: { archivedAt: new Date() },
+  });
+  return finalizeIncomeWrite(prisma, archived);
 }
 
 export async function unarchiveIncome(
   prisma: PrismaClient,
   userId: string,
   id: string,
-): Promise<PublicIncome> {
+): Promise<IncomeMutationResult> {
   const income = await findOwnedOrFail(prisma.income, id, userId, "Income");
 
   if (!income.archivedAt) {
-    return toPublic(income);
+    return finalizeIncomeWrite(prisma, income);
   }
 
   await assertNameAvailable(prisma, userId, income.name, id);
 
-  return toPublic(await prisma.income.update({ where: { id }, data: { archivedAt: null } }));
+  const restored = await prisma.income.update({ where: { id }, data: { archivedAt: null } });
+  return finalizeIncomeWrite(prisma, restored);
 }
 
 // Incomes referenced by a scenario are archived, never deleted (business

@@ -3,10 +3,12 @@ import { toMonthlyEquivalent, toProjection } from "@vectra/utils";
 import { badRequest, conflict, notFound } from "../../lib/http-errors.js";
 import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
+import type { ScenarioImpactChange } from "../../lib/schemas.js";
 import type {
   Category,
   ExpenseItem,
   Income,
+  Prisma,
   PrismaClient,
   Scenario,
   ScenarioComposition,
@@ -185,7 +187,15 @@ export async function deleteScenario(
 
 // --- Scenario items (ExpenseItem snapshots) ---------------------------------
 
-type ExpenseItemWithCategory = ExpenseItem & { category: Category };
+export type ExpenseItemWithCategory = ExpenseItem & { category: Category };
+
+// A scenario whose ScenarioItem/ScenarioIncome would move if a pending
+// financial edit gets synced — direct owner or a composition ancestor,
+// always non-archived (see the reconcile/sync functions below).
+export interface AffectedScenario {
+  id: string;
+  name: string;
+}
 
 function toPublicScenarioItem(item: ScenarioItem, expenseItem: ExpenseItemWithCategory) {
   // Field-level diff (see the change-review section below), not a blunt
@@ -387,11 +397,17 @@ export async function listScenarioCompositions(
     include: { childScenario: true },
     orderBy: { createdAt: "asc" },
   });
-  return compositions.map((composition) => ({
-    id: composition.id,
-    childScenarioId: composition.childScenarioId,
-    childScenarioName: composition.childScenario.name,
-  }));
+  return Promise.all(
+    compositions.map(async (composition) => ({
+      id: composition.id,
+      childScenarioId: composition.childScenarioId,
+      childScenarioName: composition.childScenario.name,
+      // Same semantics as an item/income's `outdated` flag: this composed
+      // scenario itself has unsynced financial drift. No detail here on
+      // purpose — that still lives behind opening the child scenario.
+      outdated: await hasPendingFinancialChanges(prisma, userId, composition.childScenario),
+    })),
+  );
 }
 
 export async function addScenarioComposition(
@@ -672,70 +688,19 @@ async function detectIncomeChanges(
   return changes;
 }
 
-// Category watches are scoped to the root scenario only — same reasoning as
-// incomes: a composed child's own watches are its own concern to review.
-async function detectNewItemsInWatchedCategories(
-  prisma: PrismaClient,
-  userId: string,
-  rootId: string,
-  scenarioNames: Map<string, string>,
-): Promise<ScenarioChange[]> {
-  const watches = await prisma.scenarioCategoryWatch.findMany({
-    where: { scenarioId: rootId },
-    include: { category: true },
-  });
-  if (watches.length === 0) {
-    return [];
-  }
-
-  const ownItems = await prisma.scenarioItem.findMany({
-    where: { scenarioId: rootId },
-    select: { expenseItemId: true },
-  });
-  const includedIds = new Set(ownItems.map((item) => item.expenseItemId));
-  const origin = { id: rootId, name: scenarioNames.get(rootId) ?? "" };
-
-  const changes: ScenarioChange[] = [];
-  for (const watch of watches) {
-    const candidates = await prisma.expenseItem.findMany({
-      where: { userId, categoryId: watch.categoryId, archivedAt: null },
-    });
-    for (const candidate of candidates) {
-      if (includedIds.has(candidate.id)) continue;
-      changes.push({
-        id: scenarioChangeId("NEW_ITEM_AVAILABLE", `${rootId}:${candidate.id}`),
-        kind: "financial",
-        type: "NEW_ITEM_AVAILABLE",
-        originScenarioId: origin.id,
-        originScenarioName: origin.name,
-        categoryId: watch.categoryId,
-        categoryName: watch.category.name,
-        expenseItemId: candidate.id,
-        itemName: candidate.name,
-        currency: candidate.currency,
-        amount: Number(candidate.amount),
-        frequency: candidate.frequency,
-      });
-    }
-  }
-  return changes;
-}
-
 interface ChangeDetectorContext {
   prisma: PrismaClient;
-  userId: string;
   rootId: string;
   scenarioIds: string[];
   scenarioNames: Map<string, string>;
 }
 
 // The extensibility point: each entry inspects one concern and returns its
-// own ScenarioChange[]. A future detector is one more entry here, nothing
-// else in the pipeline changes.
+// own ScenarioChange[]. A future detector (currency, taxes, saving goals...)
+// is one more entry here, nothing else in the pipeline changes.
 const CHANGE_DETECTORS: Array<(ctx: ChangeDetectorContext) => Promise<ScenarioChange[]>> = [
   (ctx) => detectItemChanges(ctx.prisma, ctx.scenarioIds, ctx.scenarioNames),
   (ctx) => detectIncomeChanges(ctx.prisma, ctx.rootId, ctx.scenarioNames),
-  (ctx) => detectNewItemsInWatchedCategories(ctx.prisma, ctx.userId, ctx.rootId, ctx.scenarioNames),
 ];
 
 export async function detectScenarioChanges(
@@ -746,10 +711,27 @@ export async function detectScenarioChanges(
   await findOwnedOrFail(prisma.scenario, id, userId, "Scenario");
   const scenarioIds = await collectReachableScenarioIds(prisma, id);
   const scenarioNames = await getScenarioNameMap(prisma, scenarioIds);
-  const ctx: ChangeDetectorContext = { prisma, userId, rootId: id, scenarioIds, scenarioNames };
+  const ctx: ChangeDetectorContext = { prisma, rootId: id, scenarioIds, scenarioNames };
 
   const results = await Promise.all(CHANGE_DETECTORS.map((detector) => detector(ctx)));
   return results.flat();
+}
+
+// Whether `scenario` itself has any unsynced financial drift — the same
+// check getScenarioSummary derives `hasUpdates` from, reused wherever only
+// the boolean matters (e.g. the "Desactualizado" badge a composed scenario
+// gets in its parent's list, listScenarioCompositions above). Archived
+// scenarios are frozen, same reasoning as getScenarioSummary.
+async function hasPendingFinancialChanges(
+  prisma: PrismaClient,
+  userId: string,
+  scenario: Scenario,
+): Promise<boolean> {
+  if (scenario.status === "ARCHIVED") {
+    return false;
+  }
+  const changes = await detectScenarioChanges(prisma, userId, scenario.id);
+  return changes.some((change) => change.kind === "financial");
 }
 
 function buildApplyOperation(prisma: PrismaClient, change: ScenarioChange) {
@@ -796,18 +778,6 @@ function buildApplyOperation(prisma: PrismaClient, change: ScenarioChange) {
       });
     case "INCOME_ARCHIVED":
       return prisma.scenarioIncome.delete({ where: { id: change.scenarioIncomeId } });
-    case "NEW_ITEM_AVAILABLE":
-      return prisma.scenarioItem.create({
-        data: {
-          scenarioId: change.originScenarioId,
-          expenseItemId: change.expenseItemId,
-          name: change.itemName,
-          amount: change.amount,
-          currency: change.currency,
-          frequency: change.frequency,
-          categoryName: change.categoryName,
-        },
-      });
     default: {
       // Compile-time reminder: a new schema variant without a case here
       // fails the build instead of silently doing nothing at apply time.
@@ -839,39 +809,20 @@ export async function applyScenarioChanges(
   return { appliedCount: toApply.length };
 }
 
-// --- Category watches & "add whole category" (ADR-0005 §7 / RFC-0023.1) ----
+// --- "Add whole category" (ADR-0005 §7) -------------------------------------
+//
+// A selection helper, nothing more: adds every active product of
+// `categoryId` not already in the scenario, exactly as if each had been
+// picked one by one. No persistent link to the category is kept — a product
+// created in it later never surfaces here on its own (deliberate: the user
+// decides per-product, every time).
 
-export async function listScenarioCategoryWatches(
-  prisma: PrismaClient,
-  userId: string,
-  scenarioId: string,
-) {
-  await findOwnedOrFail(prisma.scenario, scenarioId, userId, "Scenario");
-  const watches = await prisma.scenarioCategoryWatch.findMany({
-    where: { scenarioId },
-    include: { category: true },
-    orderBy: { createdAt: "asc" },
-  });
-  return watches.map((watch) => ({
-    id: watch.id,
-    categoryId: watch.categoryId,
-    categoryName: watch.category.name,
-  }));
-}
-
-// Adds every active product of `categoryId` not already in the scenario
-// (ADR-0005 §7: a whole category as the initial selection) and starts
-// watching it, so products added to the category later surface as
-// NEW_ITEM_AVAILABLE instead of silently never showing up.
 export async function addScenarioCategory(
   prisma: PrismaClient,
   userId: string,
   scenarioId: string,
   categoryId: string,
-): Promise<{
-  addedCount: number;
-  watch: { id: string; categoryId: string; categoryName: string };
-}> {
+): Promise<{ addedCount: number }> {
   const scenario = await findOwnedOrFail(prisma.scenario, scenarioId, userId, "Scenario");
   assertNotArchived(scenario, "add a category to");
 
@@ -887,12 +838,6 @@ export async function addScenarioCategory(
   const existingIds = new Set(existingItems.map((item) => item.expenseItemId));
   const toAdd = activeExpenseItems.filter((item) => !existingIds.has(item.id));
 
-  const watch = await prisma.scenarioCategoryWatch.upsert({
-    where: { scenarioId_categoryId: { scenarioId, categoryId } },
-    create: { scenarioId, categoryId },
-    update: {},
-  });
-
   if (toAdd.length > 0) {
     await prisma.scenarioItem.createMany({
       data: toAdd.map((item) => ({
@@ -907,32 +852,16 @@ export async function addScenarioCategory(
     });
   }
 
-  return {
-    addedCount: toAdd.length,
-    watch: { id: watch.id, categoryId: category.id, categoryName: category.name },
-  };
-}
-
-export async function removeScenarioCategoryWatch(
-  prisma: PrismaClient,
-  userId: string,
-  scenarioId: string,
-  watchId: string,
-): Promise<void> {
-  await findOwnedOrFail(prisma.scenario, scenarioId, userId, "Scenario");
-  const watch = await prisma.scenarioCategoryWatch.findFirst({
-    where: { id: watchId, scenarioId },
-  });
-  if (!watch) {
-    throw notFound("Category watch not found");
-  }
-  await prisma.scenarioCategoryWatch.delete({ where: { id: watch.id } });
+  return { addedCount: toAdd.length };
 }
 
 // --- Summary: totals, projections, coverage and drift, all derived ---------
 
 // Every scenario reachable from `rootId` by following "includes" edges,
-// including itself — the set whose items/incomes feed the summary.
+// including itself — the set whose items/incomes feed the summary. Doesn't
+// filter by status: an archived scenario sitting in the middle of a
+// composition chain still contributes its descendants' items to the total
+// (matches how the app already treated composition before this change).
 async function collectReachableScenarioIds(
   prisma: PrismaClient,
   rootId: string,
@@ -954,6 +883,502 @@ async function collectReachableScenarioIds(
     }
   }
   return [...visited];
+}
+
+// The mirror image of collectReachableScenarioIds: every scenario that
+// includes (directly or transitively) any id in `fromIds`. Used to find
+// which parent scenarios' totals would move if a financial edit gets
+// synced. Doesn't stop at an archived intermediate scenario for the same
+// reason collectReachableScenarioIds doesn't — a live ancestor two levels up
+// must still find out about a drifted grandchild.
+async function collectAncestorScenarioIds(
+  prisma: PrismaClient,
+  fromIds: string[],
+): Promise<string[]> {
+  const visited = new Set<string>(fromIds);
+  const queue = [...fromIds];
+  const ancestors = new Set<string>();
+
+  while (queue.length > 0) {
+    const current = queue.shift() as string;
+    const edges = await prisma.scenarioComposition.findMany({
+      where: { childScenarioId: current },
+      select: { parentScenarioId: true },
+    });
+    for (const edge of edges) {
+      if (!visited.has(edge.parentScenarioId)) {
+        visited.add(edge.parentScenarioId);
+        ancestors.add(edge.parentScenarioId);
+        queue.push(edge.parentScenarioId);
+      }
+    }
+  }
+  return [...ancestors];
+}
+
+async function resolveAffectedScenarios(
+  prisma: PrismaClient,
+  directOwnerIds: string[],
+  { includeAncestors }: { includeAncestors: boolean },
+): Promise<AffectedScenario[]> {
+  const ancestorIds = includeAncestors
+    ? await collectAncestorScenarioIds(prisma, directOwnerIds)
+    : [];
+  const allIds = [...new Set([...directOwnerIds, ...ancestorIds])];
+  return prisma.scenario.findMany({
+    where: { id: { in: allIds }, status: { not: "ARCHIVED" } },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+// --- Sync-on-write: called right after ExpenseItem/Income is saved ---------
+//
+// New flow (replaces the old "review changes" UI, keeping the same
+// detection machinery above): the resource is always saved immediately.
+// Visual fields (name, category label) sync into every live snapshot in the
+// same breath, no confirmation — they never move a total. Financial fields
+// (price, frequency, archived) don't: the caller (expense-items/incomes
+// service) reports the scenarios this would affect *and what syncing would
+// change*, and the user decides right then whether to sync them via
+// syncExpenseItemScenarios/syncIncomeScenarios. Until they do, the snapshot
+// stays stale on purpose — detectScenarioChanges/hasUpdates above picks it
+// up next time it's asked, nothing extra to store.
+
+export interface ScenarioImpact {
+  affectedScenarios: AffectedScenario[];
+  changes: ScenarioImpactChange[];
+}
+
+const NO_IMPACT: ScenarioImpact = { affectedScenarios: [], changes: [] };
+
+// Collapses the per-snapshot diffs into one line per field. Snapshots can
+// legitimately disagree on the old value (scenario A was synced at 80.000
+// while B still sits at 60.000), and inventing a single "from" would be a
+// lie, so that case reports `from: null` and the dialog shows only the
+// destination.
+function collapseFrom<T>(values: Set<T>): T | null {
+  return values.size === 1 ? ([...values][0] as T) : null;
+}
+
+function summarizeItemImpact(
+  rows: ScenarioItem[],
+  expenseItem: ExpenseItemWithCategory,
+): ScenarioImpactChange[] {
+  const base = { name: expenseItem.name, source: "expenseItem" as const };
+
+  if (expenseItem.archivedAt) {
+    return [{ ...base, field: "archived" }];
+  }
+
+  const amountFroms = new Set<number>();
+  const frequencyFroms = new Set<ExpenseItem["frequency"]>();
+
+  for (const row of rows) {
+    for (const kind of diffItemKinds(row, expenseItem)) {
+      if (kind === "priceChanged") amountFroms.add(Number(row.amount));
+      if (kind === "frequencyChanged") frequencyFroms.add(row.frequency);
+    }
+  }
+
+  const changes: ScenarioImpactChange[] = [];
+  if (amountFroms.size > 0) {
+    changes.push({
+      ...base,
+      field: "amount",
+      currency: expenseItem.currency,
+      from: collapseFrom(amountFroms),
+      to: Number(expenseItem.amount),
+    });
+  }
+  if (frequencyFroms.size > 0) {
+    changes.push({
+      ...base,
+      field: "frequency",
+      from: collapseFrom(frequencyFroms),
+      to: expenseItem.frequency,
+    });
+  }
+  return changes;
+}
+
+function summarizeIncomeImpact(rows: ScenarioIncome[], income: Income): ScenarioImpactChange[] {
+  const base = { name: income.name, source: "income" as const };
+
+  if (income.archivedAt) {
+    return [{ ...base, field: "archived" }];
+  }
+
+  const amountFroms = new Set<number>();
+  const frequencyFroms = new Set<Income["frequency"]>();
+
+  for (const row of rows) {
+    for (const kind of diffIncomeKinds(row, income)) {
+      if (kind === "amountChanged") amountFroms.add(Number(row.amount));
+      if (kind === "frequencyChanged") frequencyFroms.add(row.frequency);
+    }
+  }
+
+  const changes: ScenarioImpactChange[] = [];
+  if (amountFroms.size > 0) {
+    changes.push({
+      ...base,
+      field: "amount",
+      currency: income.currency,
+      from: collapseFrom(amountFroms),
+      to: Number(income.amount),
+    });
+  }
+  if (frequencyFroms.size > 0) {
+    changes.push({
+      ...base,
+      field: "frequency",
+      from: collapseFrom(frequencyFroms),
+      to: income.frequency,
+    });
+  }
+  return changes;
+}
+
+// Turns a kept ScenarioChange (the field-by-field detector behind
+// detectScenarioChanges/GET /scenarios/:id/changes, RFC-0023.1) into the
+// exact same ScenarioImpactChange shape summarizeItemImpact/
+// summarizeIncomeImpact produce, so a scenario's own pending-changes list
+// (getScenarioSummary, below) and the post-edit dialog are described by the
+// one function on the frontend — never two implementations. Visual changes
+// never reach here in practice (the caller filters to `kind: "financial"`
+// first, since renames sync inline at edit time and rarely drift), but the
+// switch stays exhaustive so a future ScenarioChange variant fails the
+// build here instead of silently vanishing from the summary.
+function toScenarioImpactChange(change: ScenarioChange): ScenarioImpactChange | null {
+  switch (change.type) {
+    case "ITEM_PRICE_CHANGED":
+      return {
+        name: change.itemName,
+        source: "expenseItem",
+        field: "amount",
+        currency: change.currency,
+        from: change.from,
+        to: change.to,
+      };
+    case "ITEM_FREQUENCY_CHANGED":
+      return {
+        name: change.itemName,
+        source: "expenseItem",
+        field: "frequency",
+        from: change.from,
+        to: change.to,
+      };
+    case "ITEM_ARCHIVED":
+      return { name: change.itemName, source: "expenseItem", field: "archived" };
+    case "INCOME_AMOUNT_CHANGED":
+      return {
+        name: change.incomeName,
+        source: "income",
+        field: "amount",
+        currency: change.currency,
+        from: change.from,
+        to: change.to,
+      };
+    case "INCOME_FREQUENCY_CHANGED":
+      return {
+        name: change.incomeName,
+        source: "income",
+        field: "frequency",
+        from: change.from,
+        to: change.to,
+      };
+    case "INCOME_ARCHIVED":
+      return { name: change.incomeName, source: "income", field: "archived" };
+    case "ITEM_RENAMED":
+    case "ITEM_CATEGORY_RENAMED":
+    case "INCOME_RENAMED":
+      return null;
+  }
+}
+
+// Called right after a Category rename. A category only ever has a name
+// (unlike ExpenseItem/Income), so this drift is never financial — it always
+// syncs immediately, for every live ScenarioItem snapshot under it, no
+// confirmation needed.
+export async function syncCategoryNameInScenarios(
+  prisma: PrismaClient,
+  categoryId: string,
+  categoryName: string,
+): Promise<void> {
+  await prisma.scenarioItem.updateMany({
+    where: {
+      expenseItem: { categoryId },
+      scenario: { status: { not: "ARCHIVED" } },
+      categoryName: { not: categoryName },
+    },
+    data: { categoryName },
+  });
+}
+
+export async function reconcileExpenseItemScenarios(
+  prisma: PrismaClient,
+  expenseItem: ExpenseItemWithCategory,
+): Promise<ScenarioImpact> {
+  const rows = await prisma.scenarioItem.findMany({
+    where: { expenseItemId: expenseItem.id },
+    include: { scenario: true },
+  });
+
+  const visualUpdates: Prisma.PrismaPromise<unknown>[] = [];
+  const financialOwnerIds = new Set<string>();
+  const financialRows: ScenarioItem[] = [];
+
+  for (const row of rows) {
+    if (row.scenario.status === "ARCHIVED") continue;
+
+    const kinds = diffItemKinds(row, expenseItem);
+    const isVisual = kinds.includes("renamed") || kinds.includes("categoryRenamed");
+    const isFinancial = kinds.some((kind) => kind !== "renamed" && kind !== "categoryRenamed");
+
+    if (isVisual) {
+      visualUpdates.push(
+        prisma.scenarioItem.update({
+          where: { id: row.id },
+          data: { name: expenseItem.name, categoryName: expenseItem.category.name },
+        }),
+      );
+    }
+    if (isFinancial) {
+      financialOwnerIds.add(row.scenarioId);
+      financialRows.push(row);
+    }
+  }
+
+  if (visualUpdates.length > 0) {
+    await prisma.$transaction(visualUpdates);
+  }
+  if (financialOwnerIds.size === 0) {
+    return NO_IMPACT;
+  }
+
+  // Items ARE inherited through composition (ADR-0005 §9): a parent's total
+  // moves too, so it needs to know.
+  const affectedScenarios = await resolveAffectedScenarios(prisma, [...financialOwnerIds], {
+    includeAncestors: true,
+  });
+  return { affectedScenarios, changes: summarizeItemImpact(financialRows, expenseItem) };
+}
+
+// The "Actualizar ahora" action for a single product: re-detects (never
+// trusts a client-held list — same caution as applyScenarioChanges) and
+// fully syncs every live ScenarioItem whose price/frequency/archived status
+// still disagrees with the source. An archived source leaves the selection
+// outright, same as buildApplyOperation's ITEM_ARCHIVED case.
+export async function syncExpenseItemScenarios(
+  prisma: PrismaClient,
+  userId: string,
+  expenseItemId: string,
+): Promise<{ syncedCount: number }> {
+  const expenseItem = await prisma.expenseItem.findFirst({
+    where: { id: expenseItemId, userId },
+    include: { category: true },
+  });
+  if (!expenseItem) {
+    throw notFound("Expense item not found");
+  }
+
+  const rows = await prisma.scenarioItem.findMany({
+    where: { expenseItemId, scenario: { status: { not: "ARCHIVED" } } },
+  });
+
+  const now = new Date();
+  const ops: Prisma.PrismaPromise<unknown>[] = [];
+  for (const row of rows) {
+    const kinds = diffItemKinds(row, expenseItem);
+    const isFinancial = kinds.some((kind) => kind !== "renamed" && kind !== "categoryRenamed");
+    if (!isFinancial) continue;
+
+    ops.push(
+      expenseItem.archivedAt
+        ? prisma.scenarioItem.delete({ where: { id: row.id } })
+        : prisma.scenarioItem.update({
+            where: { id: row.id },
+            data: {
+              name: expenseItem.name,
+              categoryName: expenseItem.category.name,
+              amount: expenseItem.amount,
+              frequency: expenseItem.frequency,
+              lastSyncedAt: now,
+            },
+          }),
+    );
+  }
+
+  if (ops.length === 0) {
+    return { syncedCount: 0 };
+  }
+  await prisma.$transaction(ops);
+  return { syncedCount: ops.length };
+}
+
+export async function reconcileIncomeScenarios(
+  prisma: PrismaClient,
+  income: Income,
+): Promise<ScenarioImpact> {
+  const rows = await prisma.scenarioIncome.findMany({
+    where: { incomeId: income.id },
+    include: { scenario: true },
+  });
+
+  const visualUpdates: Prisma.PrismaPromise<unknown>[] = [];
+  const financialOwnerIds = new Set<string>();
+  const financialRows: ScenarioIncome[] = [];
+
+  for (const row of rows) {
+    if (row.scenario.status === "ARCHIVED") continue;
+
+    const kinds = diffIncomeKinds(row, income);
+    const isVisual = kinds.includes("renamed");
+    const isFinancial = kinds.some((kind) => kind !== "renamed");
+
+    if (isVisual) {
+      visualUpdates.push(
+        prisma.scenarioIncome.update({ where: { id: row.id }, data: { name: income.name } }),
+      );
+    }
+    if (isFinancial) {
+      financialOwnerIds.add(row.scenarioId);
+      financialRows.push(row);
+    }
+  }
+
+  if (visualUpdates.length > 0) {
+    await prisma.$transaction(visualUpdates);
+  }
+  if (financialOwnerIds.size === 0) {
+    return NO_IMPACT;
+  }
+
+  // Unlike items, incomes are never inherited through composition
+  // (RFC-0023.1 §9) — a parent's own coverage only ever reads its own
+  // income links, never a child's, so an income change never needs to
+  // propagate to an ancestor the way a price change does.
+  const affectedScenarios = await resolveAffectedScenarios(prisma, [...financialOwnerIds], {
+    includeAncestors: false,
+  });
+  return { affectedScenarios, changes: summarizeIncomeImpact(financialRows, income) };
+}
+
+// Mirrors syncExpenseItemScenarios for incomes.
+export async function syncIncomeScenarios(
+  prisma: PrismaClient,
+  userId: string,
+  incomeId: string,
+): Promise<{ syncedCount: number }> {
+  const income = await prisma.income.findFirst({ where: { id: incomeId, userId } });
+  if (!income) {
+    throw notFound("Income not found");
+  }
+
+  const rows = await prisma.scenarioIncome.findMany({
+    where: { incomeId, scenario: { status: { not: "ARCHIVED" } } },
+  });
+
+  const now = new Date();
+  const ops: Prisma.PrismaPromise<unknown>[] = [];
+  for (const row of rows) {
+    const kinds = diffIncomeKinds(row, income);
+    const isFinancial = kinds.some((kind) => kind !== "renamed");
+    if (!isFinancial) continue;
+
+    ops.push(
+      income.archivedAt
+        ? prisma.scenarioIncome.delete({ where: { id: row.id } })
+        : prisma.scenarioIncome.update({
+            where: { id: row.id },
+            data: {
+              name: income.name,
+              amount: income.amount,
+              frequency: income.frequency,
+              lastSyncedAt: now,
+            },
+          }),
+    );
+  }
+
+  if (ops.length === 0) {
+    return { syncedCount: 0 };
+  }
+  await prisma.$transaction(ops);
+  return { syncedCount: ops.length };
+}
+
+// The scenario-level "Actualizar" action: re-detects and applies every
+// pending financial change reachable from this scenario in one go (its own
+// items/incomes plus every composed descendant's items — the same reachable
+// set the summary sums for the total), no per-item selection.
+export async function syncScenario(
+  prisma: PrismaClient,
+  userId: string,
+  id: string,
+): Promise<{ syncedCount: number }> {
+  await findOwnedOrFail(prisma.scenario, id, userId, "Scenario");
+  const scenarioIds = await collectReachableScenarioIds(prisma, id);
+
+  const items = await prisma.scenarioItem.findMany({
+    where: { scenarioId: { in: scenarioIds } },
+    include: { expenseItem: { include: { category: true } } },
+  });
+  const incomes = await prisma.scenarioIncome.findMany({
+    where: { scenarioId: id },
+    include: { income: true },
+  });
+
+  const now = new Date();
+  const ops: Prisma.PrismaPromise<unknown>[] = [];
+
+  for (const item of items) {
+    const kinds = diffItemKinds(item, item.expenseItem);
+    const isFinancial = kinds.some((kind) => kind !== "renamed" && kind !== "categoryRenamed");
+    if (!isFinancial) continue;
+
+    ops.push(
+      item.expenseItem.archivedAt
+        ? prisma.scenarioItem.delete({ where: { id: item.id } })
+        : prisma.scenarioItem.update({
+            where: { id: item.id },
+            data: {
+              name: item.expenseItem.name,
+              categoryName: item.expenseItem.category.name,
+              amount: item.expenseItem.amount,
+              frequency: item.expenseItem.frequency,
+              lastSyncedAt: now,
+            },
+          }),
+    );
+  }
+
+  for (const income of incomes) {
+    const kinds = diffIncomeKinds(income, income.income);
+    const isFinancial = kinds.some((kind) => kind !== "renamed");
+    if (!isFinancial) continue;
+
+    ops.push(
+      income.income.archivedAt
+        ? prisma.scenarioIncome.delete({ where: { id: income.id } })
+        : prisma.scenarioIncome.update({
+            where: { id: income.id },
+            data: {
+              name: income.income.name,
+              amount: income.income.amount,
+              frequency: income.income.frequency,
+              lastSyncedAt: now,
+            },
+          }),
+    );
+  }
+
+  if (ops.length === 0) {
+    return { syncedCount: 0 };
+  }
+  await prisma.$transaction(ops);
+  return { syncedCount: ops.length };
 }
 
 // Just the recurring monthly total (no coverage/hasUpdates/oneTime detail) —
@@ -1016,16 +1441,31 @@ export async function getScenarioSummary(prisma: PrismaClient, userId: string, i
         }
       : null;
 
-  // Reuses the same field-level detector the review dialog calls (single
-  // source of truth) — a rename never flips this, only changes that
-  // actually need the user's review do (RFC-0023.1).
-  const changes = await detectScenarioChanges(prisma, userId, id);
+  // Archived scenarios are frozen: no pending state to surface, nothing to
+  // sync until the user explicitly unarchives (which re-checks from
+  // scratch, since this is derived and never stored). Otherwise reuses the
+  // same field-level detector `syncScenario` acts on (single source of
+  // truth) — a rename never flips this now that it syncs inline on save
+  // (reconcileExpenseItemScenarios/reconcileIncomeScenarios); only an
+  // unsynced financial change does.
+  const changes =
+    scenario.status === "ARCHIVED" ? [] : await detectScenarioChanges(prisma, userId, id);
+
+  // Same list powers both: `hasUpdates` (a scenario needs the flag) and
+  // `pendingChanges` (the human-readable summary shown right above the
+  // "Aplicar cambios pendientes" button) — one detection pass, two views of
+  // the same result, so they can never disagree with each other.
+  const pendingChanges = changes
+    .filter((change) => change.kind === "financial")
+    .map(toScenarioImpactChange)
+    .filter((change) => change !== null);
 
   return {
     scenario,
     totals: toProjection(monthly),
     oneTime: { items: oneTimeItems, total: oneTimeTotal },
     incomeCoverage,
-    hasUpdates: changes.length > 0,
+    hasUpdates: pendingChanges.length > 0,
+    pendingChanges,
   };
 }

@@ -6,7 +6,7 @@ import {
   queryBooleanSchema,
   sortQuerySchema,
 } from "../../lib/pagination.js";
-import { moneyAmountSchema } from "../../lib/schemas.js";
+import { moneyAmountSchema, withAffectedScenarios } from "../../lib/schemas.js";
 
 // ONE_TIME items stay out of the recurring projections (ADR-0005 §11). The
 // split itself belongs to the projection layer; this feature only records it.
@@ -46,6 +46,19 @@ export const updateExpenseItemBodySchema = z
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: "At least one field is required" });
+
+// PATCH/archive/unarchive save the item immediately — always — and separately
+// report which non-archived scenarios (direct owner or a composition
+// ancestor) still disagree with it financially, so the client can offer
+// "Actualizar ahora" without ever blocking the save on that decision
+// (RFC-0023.3, replaces the old accumulated "review changes" system).
+export const expenseItemMutationResponseSchema = withAffectedScenarios(expenseItemPublicSchema);
+
+// POST /expense-items/:id/sync-scenarios — re-detects and applies the
+// pending financial diff for every scenario that uses this item.
+export const syncExpenseItemScenariosResponseSchema = z.object({
+  syncedCount: z.number(),
+});
 
 export const listExpenseItemsQuerySchema = paginationQuerySchema
   .extend(sortQuerySchema(["name", "createdAt", "amount"], "name").shape)

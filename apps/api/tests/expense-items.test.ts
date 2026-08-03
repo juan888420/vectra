@@ -131,8 +131,10 @@ describe("Expense items", () => {
       .send({ categoryId: otherCategoryId, amount: 120000 });
 
     expect(res.status).toBe(200);
-    expect(res.body.categoryId).toBe(otherCategoryId);
-    expect(res.body.amount).toBe(120000);
+    expect(res.body.data.categoryId).toBe(otherCategoryId);
+    expect(res.body.data.amount).toBe(120000);
+    // No scenario uses it, so nothing to offer syncing (RFC-0023.3).
+    expect(res.body.affectedScenarios).toEqual([]);
   });
 
   it("rejects an empty update body", async () => {
@@ -273,7 +275,7 @@ describe("Expense items", () => {
 
     const after = await request(app.server).get(`/expense-items/${item.body.id}/summary`).set(auth);
     expect(after.body.scenarios).toEqual([
-      { id: scenario.body.id, name: scenario.body.name, status: "ACTIVE" },
+      { id: scenario.body.id, name: scenario.body.name, status: "INACTIVE" },
     ]);
   });
 

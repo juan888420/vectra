@@ -163,7 +163,6 @@ model Category {
   budgets               Budget[]
   recurringTransactions RecurringTransaction[]
   expenseItems          ExpenseItem[]
-  scenarioWatches       ScenarioCategoryWatch[]
 
   @@index([userId])
   @@map("categories")
@@ -333,12 +332,9 @@ model Scenario {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items           ScenarioItem[]
-  incomes         ScenarioIncome[]
-  /// Categories this scenario watches for new products (added via "add whole
-  /// category"), surfaced as NEW_ITEM_AVAILABLE in the change-review system.
-  categoryWatches ScenarioCategoryWatch[]
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items   ScenarioItem[]
+  incomes ScenarioIncome[]
 
   /// Compositions where this scenario is the container (it includes others).
   includes   ScenarioComposition[] @relation("ScenarioAsParent")
@@ -427,28 +423,6 @@ model ScenarioComposition {
   @@unique([parentScenarioId, childScenarioId])
   @@index([childScenarioId])
   @@map("scenario_compositions")
-}
-
-/// A scenario "following" a category (ADR-0005 §7 / RFC-0023.1): created when
-/// the user adds a whole category to a scenario at once. Every active
-/// ExpenseItem in a watched category that isn't already a ScenarioItem here
-/// surfaces as a NEW_ITEM_AVAILABLE change in the review system — the user
-/// decides whether to add it, nothing is added silently. Scoped to the
-/// scenario it was created on; not inherited through composition, same
-/// reasoning as ScenarioIncome (a composed child's "still watching" concern
-/// is its own to review, not the parent's).
-model ScenarioCategoryWatch {
-  id         String   @id @default(uuid(7)) @db.Uuid
-  scenarioId String   @db.Uuid
-  categoryId String   @db.Uuid
-  createdAt  DateTime @default(now())
-
-  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@unique([scenarioId, categoryId])
-  @@index([categoryId])
-  @@map("scenario_category_watches")
 }
 
 /// Designed now, implemented in roadmap Phase 3 — not part of the MVP build.

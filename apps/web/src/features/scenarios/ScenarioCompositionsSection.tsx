@@ -1,5 +1,6 @@
 import type { ScenarioPublic } from "@vectra/types";
 import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -113,12 +114,19 @@ export function ScenarioCompositionsSection({ scenario }: ScenarioCompositionsSe
                 key={composition.id}
                 className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
               >
-                <Link
-                  to={`/scenarios/${composition.childScenarioId}`}
-                  className="font-medium hover:underline"
-                >
-                  {composition.childScenarioName}
-                </Link>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <Link
+                    to={`/scenarios/${composition.childScenarioId}`}
+                    className="truncate font-medium hover:underline"
+                  >
+                    {composition.childScenarioName}
+                  </Link>
+                  {composition.outdated ? (
+                    <Badge className="shrink-0 border-transparent bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                      Desactualizado
+                    </Badge>
+                  ) : null}
+                </div>
                 {canEdit ? (
                   <Button
                     variant="ghost"

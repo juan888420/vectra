@@ -37,6 +37,9 @@ import { toast } from "sonner";
 import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
 import { ApiError } from "../../lib/api-client.js";
 import { useCategories } from "../categories/use-categories.js";
+import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
+import { useScenarioImpact } from "../scenarios/use-scenario-impact.js";
+import { syncExpenseItemScenariosRequest } from "./expense-items.api.js";
 import { ExpenseItemFormDialog } from "./ExpenseItemFormDialog.js";
 import {
   useArchiveExpenseItem,
@@ -68,6 +71,7 @@ export function ExpenseItemDetailPage() {
   const archiveExpenseItem = useArchiveExpenseItem();
   const unarchiveExpenseItem = useUnarchiveExpenseItem();
   const deleteExpenseItem = useDeleteExpenseItem();
+  const scenarioImpact = useScenarioImpact(syncExpenseItemScenariosRequest);
 
   if (!id || error) {
     return <Navigate to="/expense-items" replace />;
@@ -76,11 +80,11 @@ export function ExpenseItemDetailPage() {
   async function handleToggleArchive() {
     if (!summary) return;
     try {
-      if (summary.item.archivedAt) {
-        await unarchiveExpenseItem.mutateAsync(summary.item.id);
-      } else {
-        await archiveExpenseItem.mutateAsync(summary.item.id);
-      }
+      scenarioImpact.report(
+        summary.item.archivedAt
+          ? await unarchiveExpenseItem.mutateAsync(summary.item.id)
+          : await archiveExpenseItem.mutateAsync(summary.item.id),
+      );
     } catch (thrown) {
       toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
     }
@@ -195,7 +199,14 @@ export function ExpenseItemDetailPage() {
         </CardContent>
       </Card>
 
-      <ExpenseItemFormDialog open={editing} onOpenChange={setEditing} expenseItem={item} />
+      <ExpenseItemFormDialog
+        open={editing}
+        onOpenChange={setEditing}
+        expenseItem={item}
+        onEdited={scenarioImpact.report}
+      />
+
+      <ScenarioImpactDialog {...scenarioImpact.dialogProps} />
 
       <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
         <AlertDialogContent>

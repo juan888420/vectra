@@ -2,6 +2,7 @@ import type { ListExpenseItemsQuery, UpdateExpenseItemBody } from "@vectra/types
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { categoriesKeys } from "../categories/categories.keys.js";
+import { scenariosKeys } from "../scenarios/scenarios.keys.js";
 import {
   archiveExpenseItemRequest,
   createExpenseItemRequest,
@@ -27,12 +28,13 @@ export function useExpenseItemSummary(id: string) {
   });
 }
 
-// A product's price/category feeds its category's total (ADR-0006), so every
-// mutation here also invalidates Categories — the one cross-feature
-// invalidation this domain needs.
+// A product's price/category feeds its category's total (ADR-0006), and
+// editing it syncs the visual fields of every scenario snapshot that uses it
+// (RFC-0023.3) — hence both cross-feature invalidations.
 function invalidateExpenseItemsAndCategories(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: expenseItemsKeys.all });
   queryClient.invalidateQueries({ queryKey: categoriesKeys.all });
+  queryClient.invalidateQueries({ queryKey: scenariosKeys.all });
 }
 
 export function useCreateExpenseItem() {

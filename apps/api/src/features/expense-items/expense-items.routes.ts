@@ -2,12 +2,15 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 
 import { errorResponseSchema, idParamsSchema } from "../../lib/schemas.js";
+import { syncExpenseItemScenarios } from "../scenarios/scenarios.service.js";
 import {
   createExpenseItemBodySchema,
   expenseItemListResponseSchema,
+  expenseItemMutationResponseSchema,
   expenseItemPublicSchema,
   expenseItemSummarySchema,
   listExpenseItemsQuerySchema,
+  syncExpenseItemScenariosResponseSchema,
   updateExpenseItemBodySchema,
 } from "./expense-items.schemas.js";
 import {
@@ -100,7 +103,7 @@ export const expenseItemsRoutes: FastifyPluginAsyncZod = async (app) => {
         params: idParamsSchema,
         body: updateExpenseItemBodySchema,
         response: {
-          200: expenseItemPublicSchema,
+          200: expenseItemMutationResponseSchema,
           400: errorResponseSchema,
           404: errorResponseSchema,
           409: errorResponseSchema,
@@ -119,7 +122,7 @@ export const expenseItemsRoutes: FastifyPluginAsyncZod = async (app) => {
         summary: "Archive an expense item",
         security: SECURITY,
         params: idParamsSchema,
-        response: { 200: expenseItemPublicSchema, 404: errorResponseSchema },
+        response: { 200: expenseItemMutationResponseSchema, 404: errorResponseSchema },
       },
     },
     async (request) => archiveExpenseItem(app.prisma, request.user.sub, request.params.id),
@@ -134,7 +137,7 @@ export const expenseItemsRoutes: FastifyPluginAsyncZod = async (app) => {
         security: SECURITY,
         params: idParamsSchema,
         response: {
-          200: expenseItemPublicSchema,
+          200: expenseItemMutationResponseSchema,
           400: errorResponseSchema,
           404: errorResponseSchema,
           409: errorResponseSchema,
@@ -142,6 +145,20 @@ export const expenseItemsRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => unarchiveExpenseItem(app.prisma, request.user.sub, request.params.id),
+  );
+
+  app.post(
+    "/:id/sync-scenarios",
+    {
+      schema: {
+        tags: TAGS,
+        summary: "Sync every scenario snapshot still financially out of sync with this item",
+        security: SECURITY,
+        params: idParamsSchema,
+        response: { 200: syncExpenseItemScenariosResponseSchema, 404: errorResponseSchema },
+      },
+    },
+    async (request) => syncExpenseItemScenarios(app.prisma, request.user.sub, request.params.id),
   );
 
   app.delete(

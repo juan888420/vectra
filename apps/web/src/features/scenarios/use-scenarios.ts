@@ -15,23 +15,20 @@ import {
   addScenarioCompositionRequest,
   addScenarioIncomeRequest,
   addScenarioItemRequest,
-  applyScenarioChangesRequest,
   archiveScenarioRequest,
   createScenarioRequest,
   deactivateScenarioRequest,
   deleteScenarioRequest,
   getScenarioRequest,
   getScenarioSummaryRequest,
-  listScenarioCategoryWatchesRequest,
-  listScenarioChangesRequest,
   listScenarioCompositionsRequest,
   listScenarioIncomesRequest,
   listScenarioItemsRequest,
   listScenariosRequest,
-  removeScenarioCategoryWatchRequest,
   removeScenarioCompositionRequest,
   removeScenarioIncomeRequest,
   removeScenarioItemRequest,
+  syncScenarioRequest,
   unarchiveScenarioRequest,
   updateScenarioRequest,
 } from "./scenarios.api.js";
@@ -201,31 +198,13 @@ export function useRemoveScenarioComposition(scenarioId: string) {
   });
 }
 
-// --- Change review (RFC-0023.1) ------------------------------------------
+// --- Sync & "add whole category" (RFC-0023.3 / ADR-0005 §7) -------------
 
-export function useScenarioChanges(scenarioId: string) {
-  return useQuery({
-    queryKey: scenariosKeys.changes(scenarioId),
-    queryFn: () => listScenarioChangesRequest(scenarioId),
-    enabled: scenarioId.length > 0,
-  });
-}
-
-export function useApplyScenarioChanges(scenarioId: string) {
+export function useSyncScenario(scenarioId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (changeIds: string[]) => applyScenarioChangesRequest(scenarioId, changeIds),
+    mutationFn: () => syncScenarioRequest(scenarioId),
     onSuccess: () => invalidateScenariosAndExpenseItems(queryClient),
-  });
-}
-
-// --- Category watches & "add whole category" (ADR-0005 §7) --------------
-
-export function useScenarioCategoryWatches(scenarioId: string) {
-  return useQuery({
-    queryKey: scenariosKeys.categoryWatches(scenarioId),
-    queryFn: () => listScenarioCategoryWatchesRequest(scenarioId),
-    enabled: scenarioId.length > 0,
   });
 }
 
@@ -234,13 +213,5 @@ export function useAddScenarioCategory(scenarioId: string) {
   return useMutation({
     mutationFn: (body: AddScenarioCategoryBody) => addScenarioCategoryRequest(scenarioId, body),
     onSuccess: () => invalidateScenariosAndExpenseItems(queryClient),
-  });
-}
-
-export function useRemoveScenarioCategoryWatch(scenarioId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (watchId: string) => removeScenarioCategoryWatchRequest(scenarioId, watchId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: scenariosKeys.all }),
   });
 }
