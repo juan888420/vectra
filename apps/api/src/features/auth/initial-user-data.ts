@@ -1,3 +1,5 @@
+import type { CategoryIcon } from "@vectra/types";
+
 import type { Prisma, TransactionType } from "../../generated/prisma/client.js";
 
 // Data every user starts with. Created inside the registration transaction
@@ -9,19 +11,27 @@ import type { Prisma, TransactionType } from "../../generated/prisma/client.js";
 // require a category (resolved open question 3). They are system categories:
 // protected from rename/archive/delete because future flows use them as the
 // re-categorization fallback.
-export const DEFAULT_CATEGORIES: { name: string; type: TransactionType; isSystem?: boolean }[] = [
-  { name: "Sin categorizar", type: "EXPENSE", isSystem: true },
-  { name: "Sin categorizar", type: "INCOME", isSystem: true },
-  { name: "Comida", type: "EXPENSE" },
-  { name: "Transporte", type: "EXPENSE" },
-  { name: "Vivienda", type: "EXPENSE" },
-  { name: "Salud", type: "EXPENSE" },
-  { name: "Entretenimiento", type: "EXPENSE" },
-  { name: "Compras", type: "EXPENSE" },
-  { name: "Suscripciones", type: "EXPENSE" },
-  { name: "Salario", type: "INCOME" },
-  { name: "Freelance", type: "INCOME" },
-  { name: "Otros ingresos", type: "INCOME" },
+// `icon` is required (RFC-0025): the scenario composer navigates categories by
+// icon alone, so a starter set without icons would be unusable there. Keep
+// these in sync with the backfill in the add_category_icon migration.
+export const DEFAULT_CATEGORIES: {
+  name: string;
+  type: TransactionType;
+  icon: CategoryIcon;
+  isSystem?: boolean;
+}[] = [
+  { name: "Sin categorizar", type: "EXPENSE", icon: "tag", isSystem: true },
+  { name: "Sin categorizar", type: "INCOME", icon: "tag", isSystem: true },
+  { name: "Comida", type: "EXPENSE", icon: "utensils" },
+  { name: "Transporte", type: "EXPENSE", icon: "car" },
+  { name: "Vivienda", type: "EXPENSE", icon: "house" },
+  { name: "Salud", type: "EXPENSE", icon: "heart-pulse" },
+  { name: "Entretenimiento", type: "EXPENSE", icon: "gamepad-2" },
+  { name: "Compras", type: "EXPENSE", icon: "shopping-bag" },
+  { name: "Suscripciones", type: "EXPENSE", icon: "credit-card" },
+  { name: "Salario", type: "INCOME", icon: "briefcase" },
+  { name: "Freelance", type: "INCOME", icon: "laptop" },
+  { name: "Otros ingresos", type: "INCOME", icon: "banknote" },
 ];
 
 export const DEFAULT_ACCOUNT_NAME = "Efectivo";
