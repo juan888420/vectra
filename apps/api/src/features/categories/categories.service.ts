@@ -1,4 +1,4 @@
-import { categoryIconSchema, DEFAULT_CATEGORY_ICON, type CategoryIcon } from "@vectra/types";
+import { parseCategoryIcon, type CategoryIcon } from "@vectra/types";
 import { toMonthlyEquivalent, toProjection } from "@vectra/utils";
 
 import { badRequest, conflict } from "../../lib/http-errors.js";
@@ -6,7 +6,10 @@ import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
 import type { Category, PrismaClient } from "../../generated/prisma/client.js";
 import { toPublic as toPublicExpenseItem } from "../expense-items/expense-items.service.js";
-import { syncCategoryNameInScenarios } from "../scenarios/scenarios.service.js";
+import {
+  syncCategoryIconInScenarios,
+  syncCategoryNameInScenarios,
+} from "../scenarios/scenarios.service.js";
 import type { ListCategoriesQuery } from "./categories.schemas.js";
 
 // Prisma types `icon` as a plain string; the API contract narrows it to the
@@ -16,8 +19,7 @@ import type { ListCategoriesQuery } from "./categories.schemas.js";
 export type PublicCategory = Omit<Category, "icon"> & { icon: CategoryIcon };
 
 export function toPublic(category: Category): PublicCategory {
-  const icon = categoryIconSchema.safeParse(category.icon);
-  return { ...category, icon: icon.success ? icon.data : DEFAULT_CATEGORY_ICON };
+  return { ...category, icon: parseCategoryIcon(category.icon) };
 }
 
 async function assertNameAvailable(
@@ -107,11 +109,15 @@ export async function updateCategory(
 
   const updated = await prisma.category.update({ where: { id }, data: input });
 
-  // A rename never carries financial impact, so it always syncs into every
-  // scenario snapshot right away — never a "would you like to update"
-  // decision (RFC-0023.3). An icon-only edit touches no snapshot at all.
+  // Neither a rename nor a new icon carries financial impact, so both sync
+  // into every live scenario snapshot right away — never a "would you like to
+  // update" decision (RFC-0023.3), which stays reserved for changes that move
+  // a total.
   if (input.name !== undefined) {
     await syncCategoryNameInScenarios(prisma, id, updated.name);
+  }
+  if (input.icon !== undefined) {
+    await syncCategoryIconInScenarios(prisma, id, updated.icon);
   }
 
   return toPublic(updated);

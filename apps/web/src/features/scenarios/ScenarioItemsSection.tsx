@@ -1,32 +1,25 @@
-import type { ExpenseItemFrequency, ScenarioPublic } from "@vectra/types";
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  EmptyState,
-  Skeleton,
-} from "@vectra/ui";
-import { formatMoney } from "@vectra/utils";
+import { zodResolver } from "@hookform/resolvers/zod";
+import type { CategoryPublic, ExpenseItemFrequency, ScenarioPublic } from "@vectra/types";
+import { Button, Card, CardContent, CardHeader, CardTitle, EmptyState, Skeleton } from "@vectra/ui";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, LayoutGrid, Plus, ShoppingBag, X } from "lucide-react";
+import { ArrowLeft, LayoutGrid, Plus, ShoppingBag } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
 import { useCategories } from "../categories/use-categories.js";
 import { ScenarioCategoryGallery } from "./ScenarioCategoryGallery.js";
-import { ScenarioInlineProductForm } from "./ScenarioInlineProductForm.js";
+import { ScenarioInlineCategoryForm } from "./ScenarioInlineCategoryForm.js";
+import {
+  INLINE_PRODUCT_DEFAULT_VALUES,
+  inlineProductSchema,
+  ScenarioInlineProductForm,
+  type InlineProductValues,
+} from "./ScenarioInlineProductForm.js";
+import { ScenarioItemCard } from "./ScenarioItemCard.js";
 import { ScenarioProductChecklist } from "./ScenarioProductChecklist.js";
 import { useAddScenarioItem, useRemoveScenarioItem, useScenarioItems } from "./use-scenarios.js";
-
-const FREQUENCY_LABELS: Record<ExpenseItemFrequency, string> = {
-  MONTHLY: "Mensual",
-  YEARLY: "Anual",
-  ONE_TIME: "Esporádico",
-};
 
 /** Both composer flows share step one (pick a category); only step two
  * differs, so the user learns a single interaction pattern (RFC-0025). */
@@ -39,8 +32,21 @@ interface ScenarioItemsSectionProps {
 export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
   const [mode, setMode] = useState<Mode>("idle");
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [creatingCategory, setCreatingCategory] = useState(false);
   const [stagedIds, setStagedIds] = useState<ReadonlySet<string>>(new Set());
+  const [frequencyOverrides, setFrequencyOverrides] = useState<
+    ReadonlyMap<string, ExpenseItemFrequency>
+  >(new Map());
   const [isApplying, setIsApplying] = useState(false);
+
+  // Owned here, not by ScenarioInlineProductForm: this component stays
+  // mounted for the whole "create" session, so a "crear categoría" detour
+  // (which swaps the form out of view) never resets what the user already
+  // typed — only entering/leaving create mode does, explicitly, below.
+  const productForm = useForm<InlineProductValues>({
+    resolver: zodResolver(inlineProductSchema),
+    defaultValues: INLINE_PRODUCT_DEFAULT_VALUES,
+  });
 
   const { data: scenarioItems, isLoading } = useScenarioItems(scenario.id);
   const { data: categoriesData } = useCategories({
@@ -61,24 +67,32 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
     () => new Map(items.map((item) => [item.expenseItemId, item.id])),
     [items],
   );
+  const currentIds = new Set(items.map((item) => item.expenseItemId));
 
   function openBrowse() {
     // Seeding from what the scenario already holds turns "Aceptar cambios"
     // into an edit of the whole selection: unchecking removes, checking adds.
     setStagedIds(new Set(items.map((item) => item.expenseItemId)));
+    setFrequencyOverrides(new Map());
     setCategoryId(null);
+    setCreatingCategory(false);
     setMode("browse");
   }
 
   function openCreate() {
     setCategoryId(null);
+    setCreatingCategory(false);
+    productForm.reset(INLINE_PRODUCT_DEFAULT_VALUES);
     setMode("create");
   }
 
   function backToIdle() {
     setMode("idle");
     setCategoryId(null);
+    setCreatingCategory(false);
     setStagedIds(new Set());
+    setFrequencyOverrides(new Map());
+    productForm.reset(INLINE_PRODUCT_DEFAULT_VALUES);
   }
 
   function toggleStaged(expenseItemId: string) {
@@ -91,9 +105,32 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
       }
       return next;
     });
+    // Always resets to "mantener original" — a fresh check/uncheck shouldn't
+    // carry a frequency choice made in a previous pass.
+    setFrequencyOverrides((prev) => {
+      if (!prev.has(expenseItemId)) return prev;
+      const next = new Map(prev);
+      next.delete(expenseItemId);
+      return next;
+    });
   }
 
-  const currentIds = new Set(items.map((item) => item.expenseItemId));
+  function handleFrequencyChange(expenseItemId: string, frequency: ExpenseItemFrequency | null) {
+    setFrequencyOverrides((prev) => {
+      const next = new Map(prev);
+      if (frequency === null) {
+        next.delete(expenseItemId);
+      } else {
+        next.set(expenseItemId, frequency);
+      }
+      return next;
+    });
+  }
+
+  function backFromCreateCategory() {
+    setCreatingCategory(false);
+  }
+
   const toAdd = [...stagedIds].filter((id) => !currentIds.has(id));
   const toRemove = [...currentIds].filter((id) => !stagedIds.has(id));
   const pendingCount = toAdd.length + toRemove.length;
@@ -102,7 +139,9 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
     setIsApplying(true);
     try {
       await Promise.all([
-        ...toAdd.map((expenseItemId) => addItem.mutateAsync({ expenseItemId })),
+        ...toAdd.map((expenseItemId) =>
+          addItem.mutateAsync({ expenseItemId, frequency: frequencyOverrides.get(expenseItemId) }),
+        ),
         ...toRemove.map((expenseItemId) => {
           const scenarioItemId = scenarioItemIdByProduct.get(expenseItemId);
           return scenarioItemId
@@ -133,6 +172,15 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
     }
+  }
+
+  // Selecting a category and clearing "creating" happen in the same handler,
+  // so React batches them into one render: the key below-gallery goes
+  // straight from "new-category" to `${mode}-${newId}`, never through an
+  // in-between render where neither is true.
+  function handleCategoryCreated(category: CategoryPublic) {
+    setCategoryId(category.id);
+    setCreatingCategory(false);
   }
 
   return (
@@ -189,7 +237,12 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
               ) : null}
 
               {isLoading ? (
-                <Skeleton className="h-16 w-full" />
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
+                  <Skeleton className="h-36 w-full rounded-xl" />
+                  <Skeleton className="h-36 w-full rounded-xl" />
+                  <Skeleton className="h-36 w-full rounded-xl" />
+                  <Skeleton className="h-36 w-full rounded-xl" />
+                </div>
               ) : items.length === 0 ? (
                 <EmptyState
                   icon={ShoppingBag}
@@ -197,44 +250,22 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
                   description="Agrega productos para incluirlos en este escenario."
                 />
               ) : (
-                <ul className="flex flex-col gap-2">
-                  {items.map((item) => (
-                    <li
+                <ul className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
+                  {items.map((item, index) => (
+                    <motion.li
                       key={item.id}
-                      className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                      layout
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.18, delay: Math.min(index, 8) * 0.025 }}
+                      className="flex"
                     >
-                      <div className="flex min-w-0 flex-col">
-                        <div className="flex items-center gap-1.5">
-                          <span className="truncate font-medium">{item.name}</span>
-                          <Badge variant="outline" className="shrink-0">
-                            {FREQUENCY_LABELS[item.frequency]}
-                          </Badge>
-                          {item.outdated ? (
-                            <Badge className="shrink-0 border-transparent bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                              Desactualizado
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {item.categoryName}
-                        </span>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span className="font-medium">
-                          {formatMoney(item.amount, item.currency)}
-                        </span>
-                        {canEdit ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Quitar ${item.name}`}
-                            onClick={() => void handleRemove(item.id)}
-                          >
-                            <X />
-                          </Button>
-                        ) : null}
-                      </div>
-                    </li>
+                      <ScenarioItemCard
+                        item={item}
+                        canEdit={canEdit}
+                        onRemove={() => void handleRemove(item.id)}
+                      />
+                    </motion.li>
                   ))}
                 </ul>
               )}
@@ -248,61 +279,81 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
               transition={{ duration: 0.18 }}
               className="flex flex-col gap-4"
             >
-              {categories.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  Todavía no tienes categorías de gasto. Crea una desde la sección Categorías.
-                </p>
-              ) : (
-                <>
-                  <ScenarioCategoryGallery
-                    categories={categories}
-                    selectedId={categoryId}
-                    onSelect={setCategoryId}
-                  />
+              <ScenarioCategoryGallery
+                categories={categories}
+                selectedId={categoryId}
+                onSelect={setCategoryId}
+                creatingCategory={creatingCategory}
+                onCreateCategory={() => setCreatingCategory(true)}
+              />
 
-                  <AnimatePresence mode="wait">
-                    {categoryId ? (
-                      <motion.div
-                        key={`${mode}-${categoryId}`}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.18 }}
-                      >
-                        {mode === "browse" ? (
-                          <ScenarioProductChecklist
-                            categoryId={categoryId}
-                            stagedIds={stagedIds}
-                            onToggle={toggleStaged}
-                          />
-                        ) : (
-                          <ScenarioInlineProductForm
-                            categoryId={categoryId}
-                            onCreated={(item) => void handleCreated(item.id)}
-                            onCancel={backToIdle}
-                          />
-                        )}
-                      </motion.div>
-                    ) : null}
-                  </AnimatePresence>
+              {/* One AnimatePresence, one key, three mutually-exclusive
+                  branches. Previously this nested a second `mode="wait"`
+                  AnimatePresence inside the outer idle/browse/create one,
+                  switched by `categoryId` alone — introducing "creating a
+                  category" as a second, independently-toggled condition on
+                  the same slot meant two state updates could each think they
+                  were exiting, so framer-motion sometimes needed a repeated
+                  click to settle. Combining creatingCategory/categoryId/none
+                  into a single computed key removes that race entirely. */}
+              <AnimatePresence mode="wait">
+                {creatingCategory ? (
+                  <motion.div
+                    key="new-category"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    <ScenarioInlineCategoryForm
+                      onCreated={handleCategoryCreated}
+                      onCancel={backFromCreateCategory}
+                    />
+                  </motion.div>
+                ) : categoryId ? (
+                  <motion.div
+                    key={`${mode}-${categoryId}`}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    {mode === "browse" ? (
+                      <ScenarioProductChecklist
+                        categoryId={categoryId}
+                        stagedIds={stagedIds}
+                        alreadyIncludedIds={currentIds}
+                        frequencyOverrides={frequencyOverrides}
+                        onToggle={toggleStaged}
+                        onFrequencyChange={handleFrequencyChange}
+                      />
+                    ) : (
+                      <ScenarioInlineProductForm
+                        form={productForm}
+                        categoryId={categoryId}
+                        onCreated={(item) => void handleCreated(item.id)}
+                        onCancel={backToIdle}
+                      />
+                    )}
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
 
-                  {mode === "browse" ? (
-                    <div className="flex items-center justify-between gap-2 border-t pt-3">
-                      <span className="text-sm text-muted-foreground">
-                        {pendingCount === 0
-                          ? "Sin cambios pendientes"
-                          : `${pendingCount} ${pendingCount === 1 ? "cambio" : "cambios"} por aplicar`}
-                      </span>
-                      <Button
-                        onClick={() => void handleApply()}
-                        disabled={pendingCount === 0 || isApplying}
-                      >
-                        {isApplying ? "Aplicando…" : "Aceptar cambios"}
-                      </Button>
-                    </div>
-                  ) : null}
-                </>
-              )}
+              {mode === "browse" ? (
+                <div className="flex items-center justify-between gap-2 border-t pt-3">
+                  <span className="text-sm text-muted-foreground">
+                    {pendingCount === 0
+                      ? "Sin cambios pendientes"
+                      : `${pendingCount} ${pendingCount === 1 ? "cambio" : "cambios"} por aplicar`}
+                  </span>
+                  <Button
+                    onClick={() => void handleApply()}
+                    disabled={pendingCount === 0 || isApplying}
+                  >
+                    {isApplying ? "Aplicando…" : "Aceptar cambios"}
+                  </Button>
+                </div>
+              ) : null}
             </motion.div>
           )}
         </AnimatePresence>

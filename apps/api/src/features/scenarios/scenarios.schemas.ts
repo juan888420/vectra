@@ -1,3 +1,4 @@
+import { categoryIconSchema } from "@vectra/types";
 import { z } from "zod";
 
 import {
@@ -46,8 +47,8 @@ export const scenarioListItemSchema = scenarioPublicSchema.extend({
 export const scenarioListResponseSchema = paginatedResponseSchema(scenarioListItemSchema);
 
 // A ScenarioItem is a frozen snapshot (name/amount/currency/frequency/
-// categoryName) plus `outdated`, computed at read time by comparing
-// `lastSyncedAt` against the live ExpenseItem's (and its category's)
+// categoryName/categoryIcon) plus `outdated`, computed at read time by
+// comparing `lastSyncedAt` against the live ExpenseItem's (and its category's)
 // `updatedAt` — never stored (ADR-0005 principle 2).
 export const scenarioItemPublicSchema = z.object({
   id: z.uuid(),
@@ -57,12 +58,17 @@ export const scenarioItemPublicSchema = z.object({
   currency: z.string().length(3),
   frequency: expenseItemFrequencySchema,
   categoryName: z.string(),
+  categoryIcon: categoryIconSchema,
   lastSyncedAt: z.date(),
   outdated: z.boolean(),
 });
 
 export const addScenarioItemBodySchema = z.object({
   expenseItemId: z.uuid(),
+  // Pins this scenario's snapshot to a frequency other than the product's own
+  // — e.g. simulating an annual-billed subscription here while the real
+  // product stays monthly. Omitted keeps the product's current frequency.
+  frequency: expenseItemFrequencySchema.optional(),
 });
 
 export const scenarioIncomePublicSchema = z.object({
@@ -162,6 +168,10 @@ export const itemRenamedChangeSchema = scenarioChangeBaseSchema.extend({
   to: z.string(),
 });
 
+// Carries the icon alongside the name because both are the same snapshotted
+// view of the category (RFC-0025): applying this change has to bring the whole
+// category display up to date, or the card would show the new name under the
+// old icon.
 export const itemCategoryRenamedChangeSchema = scenarioChangeBaseSchema.extend({
   type: z.literal("ITEM_CATEGORY_RENAMED"),
   scenarioItemId: z.uuid(),
@@ -169,6 +179,7 @@ export const itemCategoryRenamedChangeSchema = scenarioChangeBaseSchema.extend({
   itemName: z.string(),
   from: z.string(),
   to: z.string(),
+  toIcon: categoryIconSchema,
 });
 
 export const itemPriceChangedSchema = scenarioChangeBaseSchema.extend({

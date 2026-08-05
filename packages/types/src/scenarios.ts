@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { categoryIconSchema } from "./categories.js";
 import { expenseItemFrequencySchema } from "./expense-items.js";
 import { incomeFrequencySchema } from "./incomes.js";
 import { paginatedResponseSchema } from "./pagination.js";
@@ -65,6 +66,7 @@ export const scenarioItemPublicSchema = z.object({
   currency: z.string().length(3),
   frequency: expenseItemFrequencySchema,
   categoryName: z.string(),
+  categoryIcon: categoryIconSchema,
   lastSyncedAt: z.string(),
   outdated: z.boolean(),
 });
@@ -73,6 +75,10 @@ export type ScenarioItemPublic = z.infer<typeof scenarioItemPublicSchema>;
 
 export const addScenarioItemBodySchema = z.object({
   expenseItemId: z.uuid(),
+  // Pins this scenario's snapshot to a frequency other than the product's own
+  // — e.g. simulating an annual-billed subscription here while the real
+  // product stays monthly. Omitted keeps the product's current frequency.
+  frequency: expenseItemFrequencySchema.optional(),
 });
 
 export type AddScenarioItemBody = z.infer<typeof addScenarioItemBodySchema>;
@@ -173,6 +179,10 @@ export const itemRenamedChangeSchema = scenarioChangeBaseSchema.extend({
   to: z.string(),
 });
 
+// Carries the icon alongside the name because both are the same snapshotted
+// view of the category (RFC-0025): applying this change has to bring the whole
+// category display up to date, or the card would show the new name under the
+// old icon.
 export const itemCategoryRenamedChangeSchema = scenarioChangeBaseSchema.extend({
   type: z.literal("ITEM_CATEGORY_RENAMED"),
   scenarioItemId: z.uuid(),
@@ -180,6 +190,7 @@ export const itemCategoryRenamedChangeSchema = scenarioChangeBaseSchema.extend({
   itemName: z.string(),
   from: z.string(),
   to: z.string(),
+  toIcon: categoryIconSchema,
 });
 
 export const itemPriceChangedSchema = scenarioChangeBaseSchema.extend({

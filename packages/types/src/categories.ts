@@ -70,6 +70,14 @@ export type CategoryIcon = z.infer<typeof categoryIconSchema>;
  * value, so a category always renders something. */
 export const DEFAULT_CATEGORY_ICON: CategoryIcon = "tag";
 
+/** Narrows a stored icon (the DB column is a plain string) to the vocabulary,
+ * degrading instead of throwing: retiring an id from CATEGORY_ICON_NAMES must
+ * never turn every row still holding it into a failed response. */
+export function parseCategoryIcon(value: string): CategoryIcon {
+  const parsed = categoryIconSchema.safeParse(value);
+  return parsed.success ? parsed.data : DEFAULT_CATEGORY_ICON;
+}
+
 export const categoryPublicSchema = z.object({
   id: z.uuid(),
   name: z.string(),

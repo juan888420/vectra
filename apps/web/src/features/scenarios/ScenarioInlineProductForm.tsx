@@ -1,4 +1,3 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
   createExpenseItemBodySchema,
   expenseItemFrequencySchema,
@@ -17,7 +16,7 @@ import {
   FormMessage,
   Input,
 } from "@vectra/ui";
-import { useForm } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -33,32 +32,39 @@ const FREQUENCY_LABELS: Record<ExpenseItemFrequency, string> = {
 
 // `categoryId` comes from step one, not from a field. Same string-amount
 // treatment as ExpenseItemFormDialog: the real money rule runs at submit.
-const inlineProductSchema = createExpenseItemBodySchema
+export const inlineProductSchema = createExpenseItemBodySchema
   .omit({ amount: true, frequency: true, categoryId: true })
   .extend({
     amount: z.string().min(1, "El monto es obligatorio"),
     frequency: expenseItemFrequencySchema,
   });
 
-type InlineProductValues = z.infer<typeof inlineProductSchema>;
+export type InlineProductValues = z.infer<typeof inlineProductSchema>;
+
+export const INLINE_PRODUCT_DEFAULT_VALUES: InlineProductValues = {
+  name: "",
+  amount: "",
+  frequency: "MONTHLY",
+};
 
 interface ScenarioInlineProductFormProps {
+  // Owned by the parent (ScenarioItemsSection), not created here: the parent
+  // stays mounted while the user detours into "crear categoría", so the
+  // already-typed name/amount survive that detour instead of resetting with
+  // this component's own mount/unmount.
+  form: UseFormReturn<InlineProductValues>;
   categoryId: string;
   onCreated: (item: ExpenseItemPublic) => void;
   onCancel: () => void;
 }
 
 export function ScenarioInlineProductForm({
+  form,
   categoryId,
   onCreated,
   onCancel,
 }: ScenarioInlineProductFormProps) {
   const createExpenseItem = useCreateExpenseItem();
-
-  const form = useForm<InlineProductValues>({
-    resolver: zodResolver(inlineProductSchema),
-    defaultValues: { name: "", amount: "", frequency: "MONTHLY" },
-  });
 
   async function onSubmit(values: InlineProductValues) {
     const parsedAmount = moneyAmountSchema.safeParse(Number(values.amount));

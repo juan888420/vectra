@@ -1,3 +1,4 @@
+import { parseCategoryIcon } from "@vectra/types";
 import { toMonthlyEquivalent, toProjection } from "@vectra/utils";
 
 import { badRequest, conflict, notFound } from "../../lib/http-errors.js";
@@ -7,6 +8,7 @@ import type { ScenarioImpactChange } from "../../lib/schemas.js";
 import type {
   Category,
   ExpenseItem,
+  ExpenseItemFrequency,
   Income,
   Prisma,
   PrismaClient,
@@ -209,6 +211,7 @@ function toPublicScenarioItem(item: ScenarioItem, expenseItem: ExpenseItemWithCa
     currency: item.currency,
     frequency: item.frequency,
     categoryName: item.categoryName,
+    categoryIcon: parseCategoryIcon(item.categoryIcon),
     lastSyncedAt: item.lastSyncedAt,
     outdated,
   };
@@ -229,6 +232,7 @@ export async function addScenarioItem(
   userId: string,
   scenarioId: string,
   expenseItemId: string,
+  frequency?: ExpenseItemFrequency,
 ) {
   const scenario = await findOwnedOrFail(prisma.scenario, scenarioId, userId, "Scenario");
   assertNotArchived(scenario, "add items to");
@@ -256,8 +260,10 @@ export async function addScenarioItem(
       name: expenseItem.name,
       amount: expenseItem.amount,
       currency: expenseItem.currency,
-      frequency: expenseItem.frequency,
+      frequency: frequency ?? expenseItem.frequency,
+      frequencyOverride: frequency !== undefined,
       categoryName: expenseItem.category.name,
+      categoryIcon: expenseItem.category.icon,
     },
   });
   return toPublicScenarioItem(item, expenseItem);
@@ -497,7 +503,11 @@ function diffItemKinds(item: ScenarioItem, expenseItem: ExpenseItemWithCategory)
   if (item.name !== expenseItem.name) kinds.push("renamed");
   if (item.categoryName !== expenseItem.category.name) kinds.push("categoryRenamed");
   if (Number(item.amount) !== Number(expenseItem.amount)) kinds.push("priceChanged");
-  if (item.frequency !== expenseItem.frequency) kinds.push("frequencyChanged");
+  // Pinned on purpose (frequencyOverride) — never drift, or every sync path
+  // would silently overwrite the user's chosen frequency back to the source's.
+  if (!item.frequencyOverride && item.frequency !== expenseItem.frequency) {
+    kinds.push("frequencyChanged");
+  }
   return kinds;
 }
 
@@ -540,6 +550,7 @@ function toItemChange(
         itemName: expenseItem.name,
         from: item.categoryName,
         to: expenseItem.category.name,
+        toIcon: parseCategoryIcon(expenseItem.category.icon),
       };
     case "priceChanged":
       return {
@@ -745,7 +756,7 @@ function buildApplyOperation(prisma: PrismaClient, change: ScenarioChange) {
     case "ITEM_CATEGORY_RENAMED":
       return prisma.scenarioItem.update({
         where: { id: change.scenarioItemId },
-        data: { categoryName: change.to, lastSyncedAt: now },
+        data: { categoryName: change.to, categoryIcon: change.toIcon, lastSyncedAt: now },
       });
     case "ITEM_PRICE_CHANGED":
       return prisma.scenarioItem.update({
@@ -848,6 +859,7 @@ export async function addScenarioCategory(
         currency: item.currency,
         frequency: item.frequency,
         categoryName: category.name,
+        categoryIcon: category.icon,
       })),
     });
   }
@@ -1097,9 +1109,9 @@ function toScenarioImpactChange(change: ScenarioChange): ScenarioImpactChange | 
   }
 }
 
-// Called right after a Category rename. A category only ever has a name
-// (unlike ExpenseItem/Income), so this drift is never financial — it always
-// syncs immediately, for every live ScenarioItem snapshot under it, no
+// Called right after a Category rename. A category only ever carries display
+// data (unlike ExpenseItem/Income), so this drift is never financial — it
+// always syncs immediately, for every live ScenarioItem snapshot under it, no
 // confirmation needed.
 export async function syncCategoryNameInScenarios(
   prisma: PrismaClient,
@@ -1113,6 +1125,25 @@ export async function syncCategoryNameInScenarios(
       categoryName: { not: categoryName },
     },
     data: { categoryName },
+  });
+}
+
+// Same contract as syncCategoryNameInScenarios, for the icon the scenario
+// cards are keyed by (RFC-0025). Deliberately not part of diffItemKinds: an
+// icon change must never light up the "Desactualizado" badge or land in
+// `affectedScenarios`, because it cannot move a single total.
+export async function syncCategoryIconInScenarios(
+  prisma: PrismaClient,
+  categoryId: string,
+  categoryIcon: string,
+): Promise<void> {
+  await prisma.scenarioItem.updateMany({
+    where: {
+      expenseItem: { categoryId },
+      scenario: { status: { not: "ARCHIVED" } },
+      categoryIcon: { not: categoryIcon },
+    },
+    data: { categoryIcon },
   });
 }
 
@@ -1140,7 +1171,11 @@ export async function reconcileExpenseItemScenarios(
       visualUpdates.push(
         prisma.scenarioItem.update({
           where: { id: row.id },
-          data: { name: expenseItem.name, categoryName: expenseItem.category.name },
+          data: {
+            name: expenseItem.name,
+            categoryName: expenseItem.category.name,
+            categoryIcon: expenseItem.category.icon,
+          },
         }),
       );
     }
@@ -1202,8 +1237,12 @@ export async function syncExpenseItemScenarios(
             data: {
               name: expenseItem.name,
               categoryName: expenseItem.category.name,
+              categoryIcon: expenseItem.category.icon,
               amount: expenseItem.amount,
-              frequency: expenseItem.frequency,
+              // A pinned frequency is never drift (diffItemKinds already
+              // excludes it above), so a sync triggered by the price alone
+              // must not overwrite it back to the source's.
+              frequency: row.frequencyOverride ? row.frequency : expenseItem.frequency,
               lastSyncedAt: now,
             },
           }),
@@ -1346,8 +1385,9 @@ export async function syncScenario(
             data: {
               name: item.expenseItem.name,
               categoryName: item.expenseItem.category.name,
+              categoryIcon: item.expenseItem.category.icon,
               amount: item.expenseItem.amount,
-              frequency: item.expenseItem.frequency,
+              frequency: item.frequencyOverride ? item.frequency : item.expenseItem.frequency,
               lastSyncedAt: now,
             },
           }),

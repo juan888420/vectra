@@ -367,9 +367,21 @@ model ScenarioItem {
   amount        Decimal              @db.Decimal(12, 2)
   currency      String               @db.Char(3)
   frequency     ExpenseItemFrequency
+  /// True when `frequency` was chosen for this scenario on purpose (RFC-0025
+  /// cont.) instead of copied from the live ExpenseItem — e.g. simulating an
+  /// annual-billed subscription here while the real product stays monthly.
+  /// Excludes `frequency` from drift detection (diffItemKinds) and from the
+  /// financial fields a sync overwrites, so the override survives a price
+  /// change on the source product instead of being silently clobbered.
+  frequencyOverride Boolean          @default(false)
   /// Snapshotted for historical display (e.g. an item shown under the
-  /// category name it had when added, even if the category was renamed since).
+  /// category name and icon it had when added, even if the category was
+  /// renamed or re-iconed since). Both are purely visual, so unlike the
+  /// financial fields above they re-sync on their own the moment the source
+  /// changes (RFC-0023.3) — they are snapshotted so the scenario never has to
+  /// read the live Category, not to defer a decision to the user.
   categoryName  String
+  categoryIcon  String
   lastSyncedAt  DateTime             @default(now())
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
