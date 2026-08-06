@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
 import { useCategories } from "../categories/use-categories.js";
-import { ScenarioCategoryGallery } from "./ScenarioCategoryGallery.js";
+import { ScenarioCategoryChips } from "./ScenarioCategoryChips.js";
 import { ScenarioInlineCategoryForm } from "./ScenarioInlineCategoryForm.js";
 import {
   INLINE_PRODUCT_DEFAULT_VALUES,
@@ -195,168 +195,175 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
-        <AnimatePresence mode="wait">
-          {mode === "idle" ? (
-            <motion.div
-              key="idle"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="flex flex-col gap-4"
-            >
-              {canEdit ? (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={openCreate}
-                    className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-left transition-colors hover:bg-muted/60"
-                  >
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Plus className="size-4" />
-                    </span>
-                    <span className="flex flex-col">
-                      <span className="text-sm font-medium">Nuevo producto</span>
-                      <span className="text-xs text-muted-foreground">Créalo y agrégalo</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openBrowse}
-                    className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-left transition-colors hover:bg-muted/60"
-                  >
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <LayoutGrid className="size-4" />
-                    </span>
-                    <span className="flex flex-col">
-                      <span className="text-sm font-medium">Desde categorías</span>
-                      <span className="text-xs text-muted-foreground">Elige varios a la vez</span>
-                    </span>
-                  </button>
-                </div>
-              ) : null}
+        {/* Deliberately NOT wrapped in AnimatePresence. Wrapping this swap
+            broke category selection outright: after setCategoryId committed,
+            AnimatePresence re-rendered its cached copy of the previous
+            subtree, and React committed that stale output over the fresh one
+            — so the chips repainted with selectedId=null and the panel below
+            never appeared. The state was correct the whole time, which is why
+            clicking the same chip again did nothing (Object.is bail-out) and
+            only a different chip forced a render that won. Reproduced with
+            framer-motion 11.15 + React 19 in both "popLayout" and the default
+            mode, with the inner AnimatePresence removed, so it is the wrapper
+            itself and not its mode.
 
-              {isLoading ? (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
-                  <Skeleton className="h-36 w-full rounded-xl" />
-                  <Skeleton className="h-36 w-full rounded-xl" />
-                  <Skeleton className="h-36 w-full rounded-xl" />
-                  <Skeleton className="h-36 w-full rounded-xl" />
-                </div>
-              ) : items.length === 0 ? (
-                <EmptyState
-                  icon={ShoppingBag}
-                  title="Sin productos"
-                  description="Agrega productos para incluirlos en este escenario."
-                />
-              ) : (
-                <ul className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
-                  {items.map((item, index) => (
-                    <motion.li
-                      key={item.id}
-                      layout
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.18, delay: Math.min(index, 8) * 0.025 }}
-                      className="flex"
-                    >
-                      <ScenarioItemCard
-                        item={item}
-                        canEdit={canEdit}
-                        onRemove={() => void handleRemove(item.id)}
-                      />
-                    </motion.li>
-                  ))}
-                </ul>
-              )}
-            </motion.div>
-          ) : (
-            <motion.div
-              key={mode}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.18 }}
-              className="flex flex-col gap-4"
-            >
-              <ScenarioCategoryGallery
-                categories={categories}
-                selectedId={categoryId}
-                onSelect={setCategoryId}
-                creatingCategory={creatingCategory}
-                onCreateCategory={() => setCreatingCategory(true)}
-              />
-
-              {/* One AnimatePresence, one key, three mutually-exclusive
-                  branches. Previously this nested a second `mode="wait"`
-                  AnimatePresence inside the outer idle/browse/create one,
-                  switched by `categoryId` alone — introducing "creating a
-                  category" as a second, independently-toggled condition on
-                  the same slot meant two state updates could each think they
-                  were exiting, so framer-motion sometimes needed a repeated
-                  click to settle. Combining creatingCategory/categoryId/none
-                  into a single computed key removes that race entirely. */}
-              <AnimatePresence mode="wait">
-                {creatingCategory ? (
-                  <motion.div
-                    key="new-category"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.18 }}
-                  >
-                    <ScenarioInlineCategoryForm
-                      onCreated={handleCategoryCreated}
-                      onCancel={backFromCreateCategory}
-                    />
-                  </motion.div>
-                ) : categoryId ? (
-                  <motion.div
-                    key={`${mode}-${categoryId}`}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.18 }}
-                  >
-                    {mode === "browse" ? (
-                      <ScenarioProductChecklist
-                        categoryId={categoryId}
-                        stagedIds={stagedIds}
-                        alreadyIncludedIds={currentIds}
-                        frequencyOverrides={frequencyOverrides}
-                        onToggle={toggleStaged}
-                        onFrequencyChange={handleFrequencyChange}
-                      />
-                    ) : (
-                      <ScenarioInlineProductForm
-                        form={productForm}
-                        categoryId={categoryId}
-                        onCreated={(item) => void handleCreated(item.id)}
-                        onCancel={backToIdle}
-                      />
-                    )}
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-
-              {mode === "browse" ? (
-                <div className="flex items-center justify-between gap-2 border-t pt-3">
-                  <span className="text-sm text-muted-foreground">
-                    {pendingCount === 0
-                      ? "Sin cambios pendientes"
-                      : `${pendingCount} ${pendingCount === 1 ? "cambio" : "cambios"} por aplicar`}
+            initial/animate need no AnimatePresence — only exit does. Dropping
+            the exit animations is the whole cost, and it is worth it. */}
+        {mode === "idle" ? (
+          <motion.div
+            key="idle"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.15 }}
+            className="flex flex-col gap-4"
+          >
+            {canEdit ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-left transition-colors hover:bg-muted/60"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Plus className="size-4" />
                   </span>
-                  <Button
-                    onClick={() => void handleApply()}
-                    disabled={pendingCount === 0 || isApplying}
+                  <span className="flex flex-col">
+                    <span className="text-sm font-medium">Nuevo producto</span>
+                    <span className="text-xs text-muted-foreground">Créalo y agrégalo</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={openBrowse}
+                  className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-left transition-colors hover:bg-muted/60"
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <LayoutGrid className="size-4" />
+                  </span>
+                  <span className="flex flex-col">
+                    <span className="text-sm font-medium">Desde categorías</span>
+                    <span className="text-xs text-muted-foreground">Elige varios a la vez</span>
+                  </span>
+                </button>
+              </div>
+            ) : null}
+
+            {isLoading ? (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
+                <Skeleton className="h-36 w-full rounded-xl" />
+                <Skeleton className="h-36 w-full rounded-xl" />
+                <Skeleton className="h-36 w-full rounded-xl" />
+                <Skeleton className="h-36 w-full rounded-xl" />
+              </div>
+            ) : items.length === 0 ? (
+              <EmptyState
+                icon={ShoppingBag}
+                title="Sin productos"
+                description="Agrega productos para incluirlos en este escenario."
+              />
+            ) : (
+              <ul className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
+                {items.map((item, index) => (
+                  <motion.li
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18, delay: Math.min(index, 8) * 0.025 }}
+                    className="flex"
                   >
-                    {isApplying ? "Aplicando…" : "Aceptar cambios"}
-                  </Button>
-                </div>
+                    <ScenarioItemCard
+                      item={item}
+                      canEdit={canEdit}
+                      onRemove={() => void handleRemove(item.id)}
+                    />
+                  </motion.li>
+                ))}
+              </ul>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div
+            key={mode}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18 }}
+            className="flex flex-col gap-4"
+          >
+            <ScenarioCategoryChips
+              categories={categories}
+              selectedId={categoryId}
+              onSelect={setCategoryId}
+              creatingCategory={creatingCategory}
+              onCreateCategory={() => setCreatingCategory(true)}
+            />
+
+            {/* One AnimatePresence, one key, three mutually-exclusive
+                  branches: combining creatingCategory/categoryId/none into a
+                  single computed key keeps two independent state updates from
+                  each thinking they own the exit. popLayout, not wait, for the
+                  same reason as the outer one — the entering panel mounts
+                  immediately instead of waiting out the exit animation. */}
+            <AnimatePresence mode="popLayout">
+              {creatingCategory ? (
+                <motion.div
+                  key="new-category"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <ScenarioInlineCategoryForm
+                    onCreated={handleCategoryCreated}
+                    onCancel={backFromCreateCategory}
+                  />
+                </motion.div>
+              ) : categoryId ? (
+                <motion.div
+                  key={`${mode}-${categoryId}`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  {mode === "browse" ? (
+                    <ScenarioProductChecklist
+                      categoryId={categoryId}
+                      stagedIds={stagedIds}
+                      alreadyIncludedIds={currentIds}
+                      frequencyOverrides={frequencyOverrides}
+                      onToggle={toggleStaged}
+                      onFrequencyChange={handleFrequencyChange}
+                    />
+                  ) : (
+                    <ScenarioInlineProductForm
+                      form={productForm}
+                      categoryId={categoryId}
+                      onCreated={(item) => void handleCreated(item.id)}
+                      onCancel={backToIdle}
+                    />
+                  )}
+                </motion.div>
               ) : null}
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </AnimatePresence>
+
+            {mode === "browse" ? (
+              <div className="flex items-center justify-between gap-2 border-t pt-3">
+                <span className="text-sm text-muted-foreground">
+                  {pendingCount === 0
+                    ? "Sin cambios pendientes"
+                    : `${pendingCount} ${pendingCount === 1 ? "cambio" : "cambios"} por aplicar`}
+                </span>
+                <Button
+                  onClick={() => void handleApply()}
+                  disabled={pendingCount === 0 || isApplying}
+                >
+                  {isApplying ? "Aplicando…" : "Aceptar cambios"}
+                </Button>
+              </div>
+            ) : null}
+          </motion.div>
+        )}
       </CardContent>
     </Card>
   );

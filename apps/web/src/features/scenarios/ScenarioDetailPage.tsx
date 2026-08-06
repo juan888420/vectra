@@ -184,7 +184,7 @@ export function ScenarioDetailPage() {
         isSyncing={syncScenario.isPending}
       />
 
-      <ScenarioItemsSection scenario={scenario} />
+      <ScenarioItemsSection key={scenario.id} scenario={scenario} />
       <ScenarioIncomesSection scenario={scenario} />
 
       <ScenarioCompositionsSection scenario={scenario} />

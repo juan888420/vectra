@@ -1,4 +1,3 @@
-import { parseCategoryIcon } from "@vectra/types";
 import { toMonthlyEquivalent, toProjection } from "@vectra/utils";
 
 import { badRequest, conflict, notFound } from "../../lib/http-errors.js";
@@ -211,7 +210,6 @@ function toPublicScenarioItem(item: ScenarioItem, expenseItem: ExpenseItemWithCa
     currency: item.currency,
     frequency: item.frequency,
     categoryName: item.categoryName,
-    categoryIcon: parseCategoryIcon(item.categoryIcon),
     lastSyncedAt: item.lastSyncedAt,
     outdated,
   };
@@ -263,7 +261,6 @@ export async function addScenarioItem(
       frequency: frequency ?? expenseItem.frequency,
       frequencyOverride: frequency !== undefined,
       categoryName: expenseItem.category.name,
-      categoryIcon: expenseItem.category.icon,
     },
   });
   return toPublicScenarioItem(item, expenseItem);
@@ -550,7 +547,6 @@ function toItemChange(
         itemName: expenseItem.name,
         from: item.categoryName,
         to: expenseItem.category.name,
-        toIcon: parseCategoryIcon(expenseItem.category.icon),
       };
     case "priceChanged":
       return {
@@ -756,7 +752,7 @@ function buildApplyOperation(prisma: PrismaClient, change: ScenarioChange) {
     case "ITEM_CATEGORY_RENAMED":
       return prisma.scenarioItem.update({
         where: { id: change.scenarioItemId },
-        data: { categoryName: change.to, categoryIcon: change.toIcon, lastSyncedAt: now },
+        data: { categoryName: change.to, lastSyncedAt: now },
       });
     case "ITEM_PRICE_CHANGED":
       return prisma.scenarioItem.update({
@@ -859,7 +855,6 @@ export async function addScenarioCategory(
         currency: item.currency,
         frequency: item.frequency,
         categoryName: category.name,
-        categoryIcon: category.icon,
       })),
     });
   }
@@ -1128,25 +1123,6 @@ export async function syncCategoryNameInScenarios(
   });
 }
 
-// Same contract as syncCategoryNameInScenarios, for the icon the scenario
-// cards are keyed by (RFC-0025). Deliberately not part of diffItemKinds: an
-// icon change must never light up the "Desactualizado" badge or land in
-// `affectedScenarios`, because it cannot move a single total.
-export async function syncCategoryIconInScenarios(
-  prisma: PrismaClient,
-  categoryId: string,
-  categoryIcon: string,
-): Promise<void> {
-  await prisma.scenarioItem.updateMany({
-    where: {
-      expenseItem: { categoryId },
-      scenario: { status: { not: "ARCHIVED" } },
-      categoryIcon: { not: categoryIcon },
-    },
-    data: { categoryIcon },
-  });
-}
-
 export async function reconcileExpenseItemScenarios(
   prisma: PrismaClient,
   expenseItem: ExpenseItemWithCategory,
@@ -1174,7 +1150,6 @@ export async function reconcileExpenseItemScenarios(
           data: {
             name: expenseItem.name,
             categoryName: expenseItem.category.name,
-            categoryIcon: expenseItem.category.icon,
           },
         }),
       );
@@ -1237,7 +1212,6 @@ export async function syncExpenseItemScenarios(
             data: {
               name: expenseItem.name,
               categoryName: expenseItem.category.name,
-              categoryIcon: expenseItem.category.icon,
               amount: expenseItem.amount,
               // A pinned frequency is never drift (diffItemKinds already
               // excludes it above), so a sync triggered by the price alone
@@ -1385,7 +1359,6 @@ export async function syncScenario(
             data: {
               name: item.expenseItem.name,
               categoryName: item.expenseItem.category.name,
-              categoryIcon: item.expenseItem.category.icon,
               amount: item.expenseItem.amount,
               frequency: item.frequencyOverride ? item.frequency : item.expenseItem.frequency,
               lastSyncedAt: now,

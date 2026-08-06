@@ -1,4 +1,3 @@
-import { parseCategoryIcon, type CategoryIcon } from "@vectra/types";
 import { toMonthlyEquivalent, toProjection } from "@vectra/utils";
 
 import { badRequest, conflict } from "../../lib/http-errors.js";
@@ -6,21 +5,8 @@ import { findOwnedOrFail } from "../../lib/ownership.js";
 import { buildMeta, toSkipTake, type PageMeta } from "../../lib/pagination.js";
 import type { Category, PrismaClient } from "../../generated/prisma/client.js";
 import { toPublic as toPublicExpenseItem } from "../expense-items/expense-items.service.js";
-import {
-  syncCategoryIconInScenarios,
-  syncCategoryNameInScenarios,
-} from "../scenarios/scenarios.service.js";
+import { syncCategoryNameInScenarios } from "../scenarios/scenarios.service.js";
 import type { ListCategoriesQuery } from "./categories.schemas.js";
-
-// Prisma types `icon` as a plain string; the API contract narrows it to the
-// CATEGORY_ICON_NAMES vocabulary. Retiring an icon id from that list would
-// otherwise turn every row still holding it into a failed response, so an
-// unrecognized value degrades to the fallback instead of 500ing the request.
-export type PublicCategory = Omit<Category, "icon"> & { icon: CategoryIcon };
-
-export function toPublic(category: Category): PublicCategory {
-  return { ...category, icon: parseCategoryIcon(category.icon) };
-}
 
 async function assertNameAvailable(
   prisma: PrismaClient,
@@ -55,7 +41,7 @@ export async function listCategories(
   prisma: PrismaClient,
   userId: string,
   query: ListCategoriesQuery,
-): Promise<{ data: PublicCategory[]; meta: PageMeta }> {
+): Promise<{ data: Category[]; meta: PageMeta }> {
   const where = {
     userId,
     ...(query.type && { type: query.type }),
@@ -71,68 +57,58 @@ export async function listCategories(
     }),
   ]);
 
-  return { data: data.map(toPublic), meta: buildMeta(query, totalItems) };
+  return { data, meta: buildMeta(query, totalItems) };
 }
 
 export async function getCategory(
   prisma: PrismaClient,
   userId: string,
   id: string,
-): Promise<PublicCategory> {
-  return toPublic(await findOwnedOrFail(prisma.category, id, userId, "Category"));
+): Promise<Category> {
+  return findOwnedOrFail(prisma.category, id, userId, "Category");
 }
 
 export async function createCategory(
   prisma: PrismaClient,
   userId: string,
-  input: { name: string; type: Category["type"]; icon: CategoryIcon },
-): Promise<PublicCategory> {
+  input: { name: string; type: Category["type"] },
+): Promise<Category> {
   await assertNameAvailable(prisma, userId, input.name, input.type);
-  return toPublic(await prisma.category.create({ data: { ...input, userId } }));
+  return prisma.category.create({ data: { ...input, userId } });
 }
 
 export async function updateCategory(
   prisma: PrismaClient,
   userId: string,
   id: string,
-  input: { name?: string; icon?: CategoryIcon },
-): Promise<PublicCategory> {
+  input: { name: string },
+): Promise<Category> {
   const category = await findOwnedOrFail(prisma.category, id, userId, "Category");
 
-  // The system guard covers the name only: "Sin categorizar" must keep its
-  // name (other flows fall back to it) but there is no reason it cannot carry
-  // an icon, and the scenario composer needs every category to have one.
-  if (input.name !== undefined) {
-    assertNotSystem(category, "renamed");
-    await assertNameAvailable(prisma, userId, input.name, category.type, id);
-  }
+  // "Sin categorizar" must keep its name — other flows fall back to it.
+  assertNotSystem(category, "renamed");
+  await assertNameAvailable(prisma, userId, input.name, category.type, id);
 
   const updated = await prisma.category.update({ where: { id }, data: input });
 
-  // Neither a rename nor a new icon carries financial impact, so both sync
-  // into every live scenario snapshot right away — never a "would you like to
-  // update" decision (RFC-0023.3), which stays reserved for changes that move
-  // a total.
-  if (input.name !== undefined) {
-    await syncCategoryNameInScenarios(prisma, id, updated.name);
-  }
-  if (input.icon !== undefined) {
-    await syncCategoryIconInScenarios(prisma, id, updated.icon);
-  }
+  // A rename carries no financial impact, so it syncs into every live scenario
+  // snapshot right away — never a "would you like to update" decision
+  // (RFC-0023.3), which stays reserved for changes that move a total.
+  await syncCategoryNameInScenarios(prisma, id, updated.name);
 
-  return toPublic(updated);
+  return updated;
 }
 
 export async function archiveCategory(
   prisma: PrismaClient,
   userId: string,
   id: string,
-): Promise<PublicCategory> {
+): Promise<Category> {
   const category = await findOwnedOrFail(prisma.category, id, userId, "Category");
   assertNotSystem(category, "archived");
 
   if (category.archivedAt) {
-    return toPublic(category);
+    return category;
   }
 
   // Budgets archive in cascade with their category (RFC-0006 §7), and so do
@@ -148,18 +124,18 @@ export async function archiveCategory(
     }),
   ]);
 
-  return toPublic(archived);
+  return archived;
 }
 
 export async function unarchiveCategory(
   prisma: PrismaClient,
   userId: string,
   id: string,
-): Promise<PublicCategory> {
+): Promise<Category> {
   const category = await findOwnedOrFail(prisma.category, id, userId, "Category");
 
   if (!category.archivedAt) {
-    return toPublic(category);
+    return category;
   }
 
   // Restoring the name must not collide with an active category created since.
@@ -167,7 +143,7 @@ export async function unarchiveCategory(
 
   // Budgets and expense items stay archived: cascade-unarchive could silently
   // reactivate spending limits — or scenario costs — the user forgot about.
-  return toPublic(await prisma.category.update({ where: { id }, data: { archivedAt: null } }));
+  return prisma.category.update({ where: { id }, data: { archivedAt: null } });
 }
 
 export async function deleteCategory(
@@ -272,7 +248,7 @@ export async function getCategorySummary(prisma: PrismaClient, userId: string, i
   }
 
   return {
-    category: toPublic(category),
+    category,
     totals: toProjection(monthly),
     oneTimeTotal,
     items: expenseItems.map(toPublicExpenseItem),

@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { DEFAULT_CATEGORY_ICON, type CategoryIcon, type CategoryPublic } from "@vectra/types";
+import type { CategoryPublic } from "@vectra/types";
 import {
   Button,
   Form,
@@ -15,12 +15,10 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { applyConflictError } from "../../lib/form-errors.js";
-import { CategoryIconPicker } from "../categories/CategoryIconPicker.js";
 import { useCreateCategory } from "../categories/use-categories.js";
 
 const inlineCategorySchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio").max(50),
-  icon: z.custom<CategoryIcon>(),
 });
 
 type InlineCategoryValues = z.infer<typeof inlineCategorySchema>;
@@ -43,7 +41,7 @@ export function ScenarioInlineCategoryForm({
 
   const form = useForm<InlineCategoryValues>({
     resolver: zodResolver(inlineCategorySchema),
-    defaultValues: { name: "", icon: DEFAULT_CATEGORY_ICON },
+    defaultValues: { name: "" },
   });
 
   async function onSubmit(values: InlineCategoryValues) {
@@ -68,19 +66,6 @@ export function ScenarioInlineCategoryForm({
               <FormLabel>Nombre</FormLabel>
               <FormControl>
                 <Input autoComplete="off" placeholder="Suscripciones, Salud…" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="icon"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Icono</FormLabel>
-              <FormControl>
-                <CategoryIconPicker value={field.value} onChange={field.onChange} />
               </FormControl>
               <FormMessage />
             </FormItem>

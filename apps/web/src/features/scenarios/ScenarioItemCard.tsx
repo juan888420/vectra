@@ -3,7 +3,7 @@ import { Button, cn } from "@vectra/ui";
 import { formatMoney } from "@vectra/utils";
 import { X } from "lucide-react";
 
-import { categoryIcon } from "../categories/category-icons.js";
+import { categoryColor } from "../categories/category-color.js";
 
 // Lowercase and terse: at tile size the frequency is a qualifier hanging off
 // the price, not a label of its own.
@@ -24,7 +24,7 @@ interface ScenarioItemCardProps {
  * carried by border and background rather than a badge — at this size a badge
  * would own the tile instead of annotating it. */
 export function ScenarioItemCard({ item, canEdit, onRemove }: ScenarioItemCardProps) {
-  const Icon = categoryIcon(item.categoryIcon);
+  const color = categoryColor(item.categoryName);
 
   return (
     <div
@@ -35,9 +35,16 @@ export function ScenarioItemCard({ item, canEdit, onRemove }: ScenarioItemCardPr
           : "hover:bg-muted/50",
       )}
     >
-      <div className="flex items-start justify-between">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <Icon className="size-4" />
+      <div className="flex items-start justify-between gap-1">
+        {/* Reserves room for the remove button, which sits absolutely over the
+            same corner and only appears on hover. */}
+        <span
+          className={cn(
+            "max-w-[calc(100%-1.75rem)] truncate rounded-full border px-1.5 py-0.5 text-[11px] font-medium leading-tight",
+            color.soft,
+          )}
+        >
+          {item.categoryName}
         </span>
         {item.outdated ? (
           <>
@@ -53,9 +60,6 @@ export function ScenarioItemCard({ item, canEdit, onRemove }: ScenarioItemCardPr
 
       <div className="mt-2 flex min-w-0 flex-col">
         <span className="line-clamp-2 text-sm font-medium leading-tight">{item.name}</span>
-        <span className="truncate text-xs leading-tight text-muted-foreground">
-          {item.categoryName}
-        </span>
       </div>
 
       <div className="mt-auto flex min-w-0 flex-col">

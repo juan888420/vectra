@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión. Léelo primero para saber dónde retomar.
 
-**Última actualización**: 2026-08-05 (RFC-0025 cont.: la mini sección de Productos en Escenarios pasa de lista vertical a una rejilla de tarjetas tipo launcher, `categoryIcon` y `frequencyOverride` se suman como snapshots reales de `ScenarioItem`, el asistente gana creación de categoría inline y elección de frecuencia por producto, y se corrige una carrera de `AnimatePresence` entre "Nuevo producto" y "Nueva categoría")
+**Última actualización**: 2026-08-05 (sesión de debugging, sin resolver: bug de "primer clic" en el asistente de Productos de Escenarios — cinco hipótesis descartadas con evidencia, un bug real e independiente encontrado y corregido de paso, el bug original sigue abierto. Ver "Qué se hizo en esta sesión" y "Bug documentado para la próxima sesión" en "Sigue")
 
 ## Estado
 
@@ -50,6 +50,7 @@
   - `browse` (`ScenarioCategoryGallery` + `ScenarioProductChecklist`): galería de iconos en fila (con un tile "+" final para crear categoría inline) → productos con checkboxes animados. Un producto recién marcado (no uno ya incluido) gana un selector de frecuencia inline ("Original/Mensual/Anual/Esporádico") que viaja como `frequency` opcional al agregar.
   - `create` (`ScenarioInlineProductForm`): misma galería (con el mismo "+") para elegir categoría, luego formulario de nombre/precio/frecuencia. El `useForm` del formulario vive en `ScenarioItemsSection`, no en el componente hijo, para que un desvío a "crear categoría" no borre lo ya tecleado.
   - **Crear categoría inline** (`ScenarioInlineCategoryForm`, nuevo): tercer paso posible desde la galería en ambos flujos, sin modal — nombre + `CategoryIconPicker`, siempre `EXPENSE`. Al crear, selecciona la categoría automáticamente.
+  - **Nota de esta sesión (sin resolver)**: el `AnimatePresence` que envolvía `creatingCategory`/`categoryId` en `ScenarioItemsSection` está **temporalmente reemplazado por `<div>` planos sin animación** mientras se depura el bug de "primer clic" (ver "Qué se hizo en esta sesión" y "Sigue" más abajo). Los 5 componentes de este asistente también tienen contadores de render de debug todavía activos en el código.
 - **Categorías** (`/categories` → `/categories/:id`): responde "¿cuánto gasto en esta área?" + eliminar con reasignación de productos.
 - **Productos** (`/expense-items` → `/expense-items/:id`): "¿cuánto me cuesta mantener esto?" + en qué escenarios se usa.
 - **Ingresos** (`/incomes` → `/incomes/:id`): "¿cuánto me genera esta fuente?", o "esporádico, sin proyección" si `ONE_TIME`.
@@ -60,38 +61,58 @@
 
 ## Qué se hizo en esta sesión
 
-Continuación de RFC-0025, en dos partes dentro de la misma sesión: (1) rediseño visual de la mini sección de Productos en Escenarios, de lista vertical a rejilla de tarjetas; (2) tres correcciones de flujo pedidas después sobre ese mismo asistente (categoría inline, frecuencia por producto, bug de navegación).
+Sesión íntegramente de debugging, **sin resolver al cierre**, sobre un bug reportado por el usuario en el asistente de "Productos" de Escenarios (el mismo de RFC-0025 cont., sesión anterior).
 
-### Parte 1 — Rejilla de productos
+**Síntoma reportado** (100% reproducible según el usuario, nunca visto directamente en este entorno — sin navegador disponible): al entrar a "Nuevo producto" o "Desde categorías" y hacer clic en el icono de una categoría **por primera vez**, el panel esperado debajo de la galería (formulario de producto nuevo, o checklist de productos de esa categoría) no aparece. Un segundo clic — en la misma categoría o en otra — sí lo muestra, y desde ahí el flujo funciona con normalidad el resto de la sesión de navegador.
 
-Arrancó con un pedido de **solo análisis** (sin código): se leyó `docs/resumen.md` y el código de `ScenarioItemsSection`/`ScenarioCategoryGallery`/`ScenarioProductChecklist` para evaluar la propuesta del usuario (reemplazar la lista vertical de productos ya incluidos por una rejilla de mini tarjetas con icono, nombre, valor y categoría). El análisis encontró que `ScenarioItemPublic` no tenía el icono de categoría snapshoteado — el hallazgo determinó el resto del alcance.
+### Hipótesis probadas y descartadas, en orden, con evidencia real (no solo lectura de código)
 
-Dos decisiones se confirmaron con el usuario antes de escribir código (vía preguntas puntuales, no asumidas):
+1. **`AnimatePresence` externo** (`ScenarioItemsSection.tsx`, alterna idle ↔ browse/create): `mode="wait"` → `mode="popLayout"`, para que el contenido entrante no espere a que termine de salir el saliente antes de montarse. El usuario probó el cambio en el navegador: **no alteró el comportamiento reportado**. Se mantiene en el código porque sigue siendo una mejora real independiente (evita un hueco de montaje al cambiar de modo), pero queda descartado como causa.
 
-1. El icono de categoría se convierte en un **snapshot real** de `ScenarioItem` (como `categoryName`), no en algo derivado en el frontend contra la lista de categorías en vivo.
-2. Sincroniza **en silencio**, igual que el rename de categoría — nunca genera un diálogo de decisión, porque el icono es 100% visual.
+2. **`AnimatePresence` interno** (alterna `creatingCategory`/`categoryId`/nada, envuelve directamente a `ScenarioInlineProductForm`/`ScenarioProductChecklist`/`ScenarioInlineCategoryForm`): mismo cambio `mode="wait"` → `"popLayout"`. Probado en el navegador: **tampoco cambió nada**.
 
-Con eso aprobado, se implementó: migración + `categoryIcon` en `ScenarioItem`, `syncCategoryIconInScenarios`, y el rediseño visual de la tarjeta, que pasó por tres iteraciones dentro de la misma sesión (fila horizontal con borde → tarjeta vertical → tile cuadrado tipo launcher) hasta llegar al pedido final del usuario: tiles compactos y cuadrados (~144px), varias columnas (`auto-fill`), solo icono/categoría/nombre/precio+frecuencia, estados por borde/fondo/color en vez de badges grandes. Se documenta solo el resultado final.
+3. **Capa de interacción/DOM**: revisión exhaustiva por código (no hay herramienta de navegador) de overlays invisibles, z-index en conflicto, `pointer-events`, `preventDefault`/`stopPropagation`, robo de foco, y elementos `absolute`/`fixed` superpuestos, tanto en los 5 componentes del flujo como en `packages/ui` (Radix `Dialog`/`DropdownMenu`/`AlertDialog`/`Select`). Cero hallazgos — ninguno de estos existe en el camino de este flujo.
 
-Fix de consistencia pedido aparte: `buildApplyOperation` (infraestructura RFC-0023.1, sin consumidor hoy) sincronizaba `categoryName` al aplicar un `ITEM_CATEGORY_RENAMED` pero no el icono — se agregó `toIcon` al tipo de cambio para que los dos viajen juntos, evitando que esa ruta dejara el icono desincronizado.
+4. **Framer Motion en general**: se reemplazó el `AnimatePresence`/`motion.div` interno completo por `<div>` planos sin ninguna animación (**sigue así en el código**, ver "Estado del código al cierre" abajo). El usuario probó en el navegador: **el bug persistió incluso sin ninguna animación de por medio**, descartando a Framer Motion como causa raíz.
 
-### Parte 2 — Tres correcciones sobre el mismo asistente
+5. **Montaje/estado de React**: se instrumentó `ScenarioInlineProductForm` con un banner visual temporal (`createPortal` a `document.body`, deliberadamente fuera del árbol animado para que la opacidad de un ancestro no pudiera ocultarlo). El usuario confirmó en el navegador: **el componente sí se monta en el primer clic, con el `categoryId` correcto** — descarta de raíz cualquier bug de lógica de estado, `useEffect`, memoización o dato stale de React Query en ese componente puntual.
 
-1. **Crear categoría sin salir del formulario**: tile "+" al final de `ScenarioCategoryGallery` (disponible en ambos flujos, no solo "Nuevo producto", porque la galería es compartida) abre `ScenarioInlineCategoryForm` (nuevo, sin modal) en el mismo slot. Al crear, selecciona la categoría automáticamente. El fix real para "conservar los datos ya escritos" fue mover el `useForm()` de `ScenarioInlineProductForm` hacia `ScenarioItemsSection` (que nunca se desmonta) — antes, cambiar de categoría a mitad de tipeo ya perdía lo escrito, no solo el desvío a crear categoría.
+6. **Estado compartido entre escenarios vía React Router** (hallazgo real, no descartado — se corrigió): `ScenarioDetailPage` se monta en `<Route path=":id" element={<ScenarioDetailPage />} />` sin `key`. React Router **nunca desmonta `ScenarioItemsSection` al cambiar de escenario** por el sidebar (`<Link to={`/scenarios/${id}`}>` solo cambia el param; el componente es el mismo, solo cambia el prop `scenario`). Esto significa que todo el estado del asistente (`mode`, `categoryId`, `creatingCategory`, el `useForm` de "Nuevo producto") podía quedar "abierto" de un escenario a otro si el usuario cambiaba de escenario sin tocar "Volver" primero — un bug de UX real e independiente del de "primer clic". Se corrigió con `key={scenario.id}` en `<ScenarioItemsSection>` (`ScenarioDetailPage.tsx`), forzando un remount limpio por escenario. **Se mantiene en el código** porque es correcto en sí mismo, pero **no se confirmó si cambió el patrón cross-escenario que motivó la hipótesis** (el usuario había reportado que visitar un escenario específico "arreglaba" a todos los demás sin recargar — coherente con este bug, pero no se llegó a re-probar explícitamente antes de pasar al punto 7).
 
-2. **Elegir frecuencia al agregar desde categorías**: `POST /scenarios/:id/items` acepta `frequency` opcional; `ScenarioProductChecklist` muestra un selector inline solo para productos recién marcados (no para los ya incluidos — editar la frecuencia de un producto ya incluido es el flujo de edición del producto, no este). Esto exigió el campo `frequencyOverride` descrito arriba: sin él, cualquier sync financiero futuro habría revertido la elección del usuario en silencio.
+7. **Render por componente** (última hipótesis, en curso, sin resultado): se instrumentaron los 5 componentes del flujo (`ScenarioItemsSection`, `ScenarioCategoryGallery`, `ScenarioInlineProductForm`, `ScenarioInlineCategoryForm`, `ScenarioProductChecklist`) con contadores de render visibles — incrementan en cada render (no solo al montar), mostrados como barras fijas apiladas arriba de la pantalla vía `createPortal`, cada una con sus props/estado relevante (`mode`, `categoryId`, `creatingCategory`, `isLoading` según el componente). El usuario probó y reportó "sigue sin funcionar" **sin llegar a comunicar los números/valores exactos de cada barra antes y después del primer clic** — la instrumentación quedó lista y sin explotar. Es la pista más prometedora para retomar (ver "Sigue").
 
-3. **Bug de navegación entre "Nuevo producto" y "Nueva categoría"**: causado por dos `AnimatePresence` con `mode="wait"` anidados (el externo idle/browse/create, uno interno controlado solo por `categoryId`) — agregar "crear categoría" como una segunda condición independiente sobre el mismo slot dejaba que dos actualizaciones de estado compitieran por la misma salida, de ahí que a veces hiciera falta un segundo clic. Se colapsó a un único `AnimatePresence` con una sola clave computada (`creatingCategory` → `categoryId` → nada), y `handleCategoryCreated` actualiza `categoryId`/`creatingCategory` en el mismo handler para que React los bachee en un solo render.
+### Estado del código al cierre de la sesión (importante para retomar)
 
-### Verificación
+**Cambios reales, no son debug, se mantienen**:
 
-`pnpm typecheck`, `pnpm lint` y `pnpm build` en verde en todo el workspace después de cada parte (los 3 warnings de `packages/ui` son preexistentes; 2 warnings nuevos del mismo tipo — `react-refresh/only-export-components` — en `ScenarioInlineProductForm.tsx` por exportar el schema junto al componente, mismo patrón ya tolerado). Dos migraciones aplicadas contra `vectra_dev` (`add_scenario_item_category_icon`, `add_scenario_item_frequency_override`) y verificadas por consulta directa: backfill de `categoryIcon` correcto en las 20 filas existentes (join contra `expense_items`/`categories`, no por nombre), y las 37 filas de `scenario_items` en `frequencyOverride: false` tras la segunda migración.
+- `ScenarioItemsSection.tsx`: `AnimatePresence` externo en `mode="popLayout"` (antes `"wait"`).
+- `ScenarioDetailPage.tsx`: `<ScenarioItemsSection key={scenario.id} scenario={scenario} />` — corrige el bug de estado-compartido-entre-escenarios del punto 6.
 
-**No se corrió el navegador** — sin herramienta de automatización disponible en este entorno, igual que en la sesión anterior. Ninguno de los cambios de esta sesión (rejilla, categoría inline, selector de frecuencia, fix de la carrera de animación) fue validado visualmente. Ver "Sigue".
+**Debug temporal, todavía activo, pendiente de decisión (removerlo o seguir usándolo)**:
+
+- `ScenarioItemsSection.tsx`: el `AnimatePresence` interno fue reemplazado por `<div>` planos sin animación — no es el diseño final. Buscar el comentario `TEMPORARY` para ubicarlo y, eventualmente, restaurar el `AnimatePresence` (con `mode="popLayout"`, no `"wait"`, ya que ese cambio sí se quiere mantener).
+- Los 5 componentes listados en el punto 7 tienen un `useRef` contador de render (`debugRenderCountRef`) y una barra de color vía `createPortal(..., document.body)`. Buscar `DEBUG INSTRUMENTATION` en cada archivo para ubicarlas y removerlas cuando ya no hagan falta.
+
+**No se corrió `pnpm lint`/`pnpm build`/migraciones** — solo `pnpm typecheck` en verde después de cada cambio (no hubo cambios de backend ni de schema esta sesión). Sin herramienta de navegador en este entorno: todo lo confirmado en esta sesión fue reportado manualmente por el usuario tras cada cambio.
 
 ## Sigue — próximos pasos y mejoras
 
-### Bloqueante antes de seguir
+### Bug documentado para la próxima sesión (bloqueante, sin resolver)
+
+**Síntoma**: en el asistente de "Productos" de un escenario, al entrar a "Nuevo producto" o "Desde categorías" y hacer clic en el icono de una categoría **por primera vez**, el panel esperado debajo de la galería no aparece. Un segundo clic (misma categoría u otra) sí lo muestra, y el resto de la sesión de navegador funciona con normalidad. 100% reproducible según el usuario.
+
+**Dato adicional sin explotar**: tras refrescar la página, el bug apareció en varios escenarios, pero visitar uno específico "arregló" a todos los demás sin recargar — llevó a encontrar el bug de `key={scenario.id}` (ver "Qué se hizo en esta sesión", punto 6), que se corrigió pero **no se reconfirmó si cambió este patrón**.
+
+**Descartado con evidencia real** (no solo hipótesis, ver detalle completo en "Qué se hizo en esta sesión"): `AnimatePresence` externo, `AnimatePresence` interno, Framer Motion en general (probado sin ninguna animación), overlays/z-index/pointer-events/foco, y montaje de React en `ScenarioInlineProductForm` (confirmado que monta correctamente con el `categoryId` correcto en el primer clic, vía banner fuera del árbol animado).
+
+**Cómo retomar, en orden**:
+
+1. La instrumentación de contadores de render por componente **ya está en el código** (5 componentes, ver "Estado del código al cierre" arriba) — falta el paso de leerla con atención: anotar los 5 números/valores antes del primer clic, hacer el clic, y anotar los 5 de nuevo. El objetivo puntual es encontrar cuál componente NO sube su contador (o sube con una prop desactualizada) cuando su padre sí lo hizo — eso marca el punto exacto donde el árbol se corta.
+2. Si los 5 contadores suben correctamente con los valores esperados (React pintó todo bien), el problema deja de ser de render/JS y pasa a ser puramente visual — inspeccionar con el Elements panel del navegador qué hay en las coordenadas exactas del formulario justo después del primer clic, comparado con el segundo.
+3. Instalar Playwright (deuda técnica ya anotada, ver punto correspondiente más abajo) — después de una sesión entera depurando interacción de UI sin poder ver el navegador, es el cuello de botella real de esta investigación.
+4. Una vez resuelto: decidir si se restaura el `AnimatePresence` interno (con `mode="popLayout"`) o se deja como `<div>` plano si resulta que la animación ahí no aportaba nada, y remover toda la instrumentación de debug de los 5 componentes.
+
+### Bloqueante antes de seguir (heredado, sigue pendiente además de lo de arriba)
 
 1. **Validación visual manual en navegador — acumulada de las últimas dos sesiones (RFC-0025 y esta continuación)**:
    - Reiniciar el dev server de la API (contrato nuevo: `categoryIcon` en `ScenarioItemPublic`, `frequency` opcional en `addScenarioItemBodySchema`).

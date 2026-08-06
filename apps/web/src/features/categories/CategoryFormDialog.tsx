@@ -1,11 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  createCategoryBodySchema,
-  DEFAULT_CATEGORY_ICON,
-  type CategoryIcon,
-  type CategoryPublic,
-  type CategoryType,
-} from "@vectra/types";
+import { createCategoryBodySchema, type CategoryPublic, type CategoryType } from "@vectra/types";
 import {
   FormControl,
   FormDialog,
@@ -25,7 +19,6 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { applyConflictError } from "../../lib/form-errors.js";
-import { CategoryIconPicker } from "./CategoryIconPicker.js";
 import { useCreateCategory, useUpdateCategory } from "./use-categories.js";
 
 const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
@@ -36,7 +29,6 @@ const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
 interface CategoryFormValues {
   name: string;
   type: CategoryType;
-  icon: CategoryIcon;
 }
 
 interface CategoryFormDialogProps {
@@ -65,7 +57,7 @@ export function CategoryFormDialog({
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(createCategoryBodySchema),
-    defaultValues: { name: "", type: forcedType ?? "EXPENSE", icon: DEFAULT_CATEGORY_ICON },
+    defaultValues: { name: "", type: forcedType ?? "EXPENSE" },
   });
 
   useEffect(() => {
@@ -73,7 +65,6 @@ export function CategoryFormDialog({
       form.reset({
         name: category?.name ?? "",
         type: category?.type ?? forcedType ?? "EXPENSE",
-        icon: category?.icon ?? DEFAULT_CATEGORY_ICON,
       });
     }
   }, [open, category, forcedType, form]);
@@ -81,14 +72,10 @@ export function CategoryFormDialog({
   async function onSubmit(values: CategoryFormValues) {
     try {
       if (isEditing) {
-        // `type` is immutable server-side. A system category rejects a rename
-        // but accepts an icon, so only the icon travels in that case.
-        await updateCategory.mutateAsync({
-          id: category.id,
-          body: category.isSystem
-            ? { icon: values.icon }
-            : { name: values.name, icon: values.icon },
-        });
+        // The name is the only editable field: `type` is immutable server-side
+        // and a system category rejects a rename outright, which is why every
+        // entry point disables "Editar" for one.
+        await updateCategory.mutateAsync({ id: category.id, body: { name: values.name } });
       } else {
         const created = await createCategory.mutateAsync(values);
         onCreated?.(created);
@@ -127,19 +114,6 @@ export function CategoryFormDialog({
             <FormLabel>Nombre</FormLabel>
             <FormControl>
               <Input autoComplete="off" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="icon"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Icono</FormLabel>
-            <FormControl>
-              <CategoryIconPicker value={field.value} onChange={field.onChange} />
             </FormControl>
             <FormMessage />
           </FormItem>

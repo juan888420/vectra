@@ -1,4 +1,3 @@
-import { categoryIconSchema } from "@vectra/types";
 import { z } from "zod";
 
 import {
@@ -15,9 +14,6 @@ export const categoryPublicSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   type: categoryTypeSchema,
-  // The one enum not restated here: it holds 40+ icon ids, so it is imported
-  // from @vectra/types rather than hand-mirrored like categoryTypeSchema.
-  icon: categoryIconSchema,
   isSystem: z.boolean(),
   archivedAt: z.date().nullable(),
   createdAt: z.date(),
@@ -27,20 +23,14 @@ export const categoryPublicSchema = z.object({
 export const createCategoryBodySchema = z.object({
   name: z.string().trim().min(1).max(50),
   type: categoryTypeSchema,
-  icon: categoryIconSchema,
 });
 
 // `type` is immutable: changing it on a category with history has no clear
-// semantics (its transactions would contradict the new type). `name` and
-// `icon` are independently optional because a system category accepts an icon
-// change but never a rename (see updateCategory).
-export const updateCategoryBodySchema = z
-  .object({
-    name: z.string().trim().min(1).max(50),
-    icon: categoryIconSchema,
-  })
-  .partial()
-  .refine((body) => Object.keys(body).length > 0, { message: "At least one field is required" });
+// semantics (its transactions would contradict the new type), which leaves the
+// name as the only editable field.
+export const updateCategoryBodySchema = z.object({
+  name: z.string().trim().min(1).max(50),
+});
 
 export const listCategoriesQuerySchema = paginationQuerySchema
   .extend(sortQuerySchema(["name", "createdAt"], "name").shape)
