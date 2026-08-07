@@ -62,14 +62,19 @@ export function CategoryFormDialog({
 
   useEffect(() => {
     if (open) {
-      form.reset({ name: category?.name ?? "", type: category?.type ?? forcedType ?? "EXPENSE" });
+      form.reset({
+        name: category?.name ?? "",
+        type: category?.type ?? forcedType ?? "EXPENSE",
+      });
     }
   }, [open, category, forcedType, form]);
 
   async function onSubmit(values: CategoryFormValues) {
     try {
       if (isEditing) {
-        // `type` is immutable server-side, so only `name` is ever sent.
+        // The name is the only editable field: `type` is immutable server-side
+        // and a system category rejects a rename outright, which is why every
+        // entry point disables "Editar" for one.
         await updateCategory.mutateAsync({ id: category.id, body: { name: values.name } });
       } else {
         const created = await createCategory.mutateAsync(values);

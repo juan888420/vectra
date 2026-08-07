@@ -26,7 +26,8 @@ export const createCategoryBodySchema = z.object({
 });
 
 // `type` is immutable: changing it on a category with history has no clear
-// semantics (its transactions would contradict the new type).
+// semantics (its transactions would contradict the new type), which leaves the
+// name as the only editable field.
 export const updateCategoryBodySchema = z.object({
   name: z.string().trim().min(1).max(50),
 });
@@ -36,6 +37,7 @@ export const listCategoriesQuerySchema = paginationQuerySchema
   .extend({
     type: categoryTypeSchema.optional(),
     includeArchived: queryBooleanSchema,
+    search: z.string().trim().min(1).optional(),
   });
 
 export const categoryListResponseSchema = paginatedResponseSchema(categoryPublicSchema);

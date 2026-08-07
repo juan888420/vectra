@@ -48,10 +48,11 @@ export function useScenario(id: string) {
   });
 }
 
-export function useScenarioSummary(id: string) {
+export function useScenarioSummary(id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: scenariosKeys.summary(id),
     queryFn: () => getScenarioSummaryRequest(id),
+    enabled: options?.enabled,
   });
 }
 
@@ -114,10 +115,11 @@ export function useDeleteScenario() {
 
 // --- Items -------------------------------------------------------------
 
-export function useScenarioItems(scenarioId: string) {
+export function useScenarioItems(scenarioId: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: scenariosKeys.items(scenarioId),
     queryFn: () => listScenarioItemsRequest(scenarioId),
+    enabled: options?.enabled,
   });
 }
 
@@ -147,10 +149,11 @@ export function useRemoveScenarioItem(scenarioId: string) {
 
 // --- Incomes -------------------------------------------------------------
 
-export function useScenarioIncomes(scenarioId: string) {
+export function useScenarioIncomes(scenarioId: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: scenariosKeys.incomes(scenarioId),
     queryFn: () => listScenarioIncomesRequest(scenarioId),
+    enabled: options?.enabled,
   });
 }
 

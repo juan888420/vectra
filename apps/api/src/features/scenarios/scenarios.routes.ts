@@ -263,6 +263,7 @@ export const scenariosRoutes: FastifyPluginAsyncZod = async (app) => {
         request.user.sub,
         request.params.id,
         request.body.expenseItemId,
+        request.body.frequency,
       );
       return reply.status(201).send(item);
     },

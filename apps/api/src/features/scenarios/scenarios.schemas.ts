@@ -63,6 +63,10 @@ export const scenarioItemPublicSchema = z.object({
 
 export const addScenarioItemBodySchema = z.object({
   expenseItemId: z.uuid(),
+  // Pins this scenario's snapshot to a frequency other than the product's own
+  // — e.g. simulating an annual-billed subscription here while the real
+  // product stays monthly. Omitted keeps the product's current frequency.
+  frequency: expenseItemFrequencySchema.optional(),
 });
 
 export const scenarioIncomePublicSchema = z.object({

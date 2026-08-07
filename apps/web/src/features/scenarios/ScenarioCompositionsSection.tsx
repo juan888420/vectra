@@ -1,6 +1,5 @@
 import type { ScenarioPublic } from "@vectra/types";
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -14,12 +13,12 @@ import {
   SelectValue,
   Skeleton,
 } from "@vectra/ui";
-import { Layers, X } from "lucide-react";
-import { useState } from "react";
-import { Link } from "react-router";
+import { Layers } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
+import { ScenarioCompositionCard } from "./ScenarioCompositionCard.js";
 import {
   useAddScenarioComposition,
   useRemoveScenarioComposition,
@@ -29,14 +28,27 @@ import {
 
 interface ScenarioCompositionsSectionProps {
   scenario: ScenarioPublic;
+  currency: string;
 }
 
-export function ScenarioCompositionsSection({ scenario }: ScenarioCompositionsSectionProps) {
+export function ScenarioCompositionsSection({
+  scenario,
+  currency,
+}: ScenarioCompositionsSectionProps) {
   const [selectedId, setSelectedId] = useState("");
   const { data: compositions, isLoading } = useScenarioCompositions(scenario.id);
   const { data: scenariosData } = useScenarios({ pageSize: 100, sortBy: "name" });
   const addComposition = useAddScenarioComposition(scenario.id);
   const removeComposition = useRemoveScenarioComposition(scenario.id);
+
+  // `GET /scenarios` already carries `monthly` per row (ADR-0006's
+  // persistent scenario list) — reused here so each composed scenario's
+  // headline number costs zero extra requests instead of one summary call
+  // per row.
+  const monthlyById = useMemo(
+    () => new Map((scenariosData?.data ?? []).map((entry) => [entry.id, entry.monthly])),
+    [scenariosData],
+  );
 
   const includedIds = new Set(
     (compositions ?? []).map((composition) => composition.childScenarioId),
@@ -99,48 +111,39 @@ export function ScenarioCompositionsSection({ scenario }: ScenarioCompositionsSe
           </div>
         ) : null}
 
-        {isLoading ? (
-          <Skeleton className="h-16 w-full" />
-        ) : (compositions ?? []).length === 0 ? (
-          <EmptyState
-            icon={Layers}
-            title="Sin escenarios incluidos"
-            description="Combina otro escenario completo dentro de este."
-          />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {(compositions ?? []).map((composition) => (
-              <li
-                key={composition.id}
-                className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
-              >
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <Link
-                    to={`/scenarios/${composition.childScenarioId}`}
-                    className="truncate font-medium hover:underline"
-                  >
-                    {composition.childScenarioName}
-                  </Link>
-                  {composition.outdated ? (
-                    <Badge className="shrink-0 border-transparent bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                      Desactualizado
-                    </Badge>
-                  ) : null}
-                </div>
-                {canEdit ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Quitar ${composition.childScenarioName}`}
-                    onClick={() => void handleRemove(composition.id)}
-                  >
-                    <X />
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* min-h keeps this area from collapsing when it goes from empty to a
+            single card — same treatment as Productos and Ingresos, so the
+            panel reads as a prepared workspace instead of resizing on first
+            add. */}
+        <div className="min-h-40">
+          {isLoading ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+              <Skeleton className="h-28 w-full rounded-xl" />
+              <Skeleton className="h-28 w-full rounded-xl" />
+              <Skeleton className="h-28 w-full rounded-xl" />
+            </div>
+          ) : (compositions ?? []).length === 0 ? (
+            <EmptyState
+              icon={Layers}
+              title="Sin escenarios incluidos"
+              description="Combina otro escenario completo dentro de este."
+            />
+          ) : (
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+              {(compositions ?? []).map((composition) => (
+                <li key={composition.id} className="flex">
+                  <ScenarioCompositionCard
+                    composition={composition}
+                    monthly={monthlyById.get(composition.childScenarioId)}
+                    currency={currency}
+                    canEdit={canEdit}
+                    onRemove={() => void handleRemove(composition.id)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

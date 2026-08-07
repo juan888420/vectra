@@ -84,13 +84,16 @@ export async function updateCategory(
   input: { name: string },
 ): Promise<Category> {
   const category = await findOwnedOrFail(prisma.category, id, userId, "Category");
+
+  // "Sin categorizar" must keep its name — other flows fall back to it.
   assertNotSystem(category, "renamed");
   await assertNameAvailable(prisma, userId, input.name, category.type, id);
+
   const updated = await prisma.category.update({ where: { id }, data: input });
 
-  // A rename never carries financial impact, so it always syncs into every
-  // scenario snapshot right away — never a "would you like to update"
-  // decision (RFC-0023.3).
+  // A rename carries no financial impact, so it syncs into every live scenario
+  // snapshot right away — never a "would you like to update" decision
+  // (RFC-0023.3), which stays reserved for changes that move a total.
   await syncCategoryNameInScenarios(prisma, id, updated.name);
 
   return updated;

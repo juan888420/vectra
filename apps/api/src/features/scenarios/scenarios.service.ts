@@ -7,6 +7,7 @@ import type { ScenarioImpactChange } from "../../lib/schemas.js";
 import type {
   Category,
   ExpenseItem,
+  ExpenseItemFrequency,
   Income,
   Prisma,
   PrismaClient,
@@ -229,6 +230,7 @@ export async function addScenarioItem(
   userId: string,
   scenarioId: string,
   expenseItemId: string,
+  frequency?: ExpenseItemFrequency,
 ) {
   const scenario = await findOwnedOrFail(prisma.scenario, scenarioId, userId, "Scenario");
   assertNotArchived(scenario, "add items to");
@@ -256,7 +258,8 @@ export async function addScenarioItem(
       name: expenseItem.name,
       amount: expenseItem.amount,
       currency: expenseItem.currency,
-      frequency: expenseItem.frequency,
+      frequency: frequency ?? expenseItem.frequency,
+      frequencyOverride: frequency !== undefined,
       categoryName: expenseItem.category.name,
     },
   });
@@ -497,7 +500,11 @@ function diffItemKinds(item: ScenarioItem, expenseItem: ExpenseItemWithCategory)
   if (item.name !== expenseItem.name) kinds.push("renamed");
   if (item.categoryName !== expenseItem.category.name) kinds.push("categoryRenamed");
   if (Number(item.amount) !== Number(expenseItem.amount)) kinds.push("priceChanged");
-  if (item.frequency !== expenseItem.frequency) kinds.push("frequencyChanged");
+  // Pinned on purpose (frequencyOverride) — never drift, or every sync path
+  // would silently overwrite the user's chosen frequency back to the source's.
+  if (!item.frequencyOverride && item.frequency !== expenseItem.frequency) {
+    kinds.push("frequencyChanged");
+  }
   return kinds;
 }
 
@@ -1097,9 +1104,9 @@ function toScenarioImpactChange(change: ScenarioChange): ScenarioImpactChange | 
   }
 }
 
-// Called right after a Category rename. A category only ever has a name
-// (unlike ExpenseItem/Income), so this drift is never financial — it always
-// syncs immediately, for every live ScenarioItem snapshot under it, no
+// Called right after a Category rename. A category only ever carries display
+// data (unlike ExpenseItem/Income), so this drift is never financial — it
+// always syncs immediately, for every live ScenarioItem snapshot under it, no
 // confirmation needed.
 export async function syncCategoryNameInScenarios(
   prisma: PrismaClient,
@@ -1140,7 +1147,10 @@ export async function reconcileExpenseItemScenarios(
       visualUpdates.push(
         prisma.scenarioItem.update({
           where: { id: row.id },
-          data: { name: expenseItem.name, categoryName: expenseItem.category.name },
+          data: {
+            name: expenseItem.name,
+            categoryName: expenseItem.category.name,
+          },
         }),
       );
     }
@@ -1203,7 +1213,10 @@ export async function syncExpenseItemScenarios(
               name: expenseItem.name,
               categoryName: expenseItem.category.name,
               amount: expenseItem.amount,
-              frequency: expenseItem.frequency,
+              // A pinned frequency is never drift (diffItemKinds already
+              // excludes it above), so a sync triggered by the price alone
+              // must not overwrite it back to the source's.
+              frequency: row.frequencyOverride ? row.frequency : expenseItem.frequency,
               lastSyncedAt: now,
             },
           }),
@@ -1347,7 +1360,7 @@ export async function syncScenario(
               name: item.expenseItem.name,
               categoryName: item.expenseItem.category.name,
               amount: item.expenseItem.amount,
-              frequency: item.expenseItem.frequency,
+              frequency: item.frequencyOverride ? item.frequency : item.expenseItem.frequency,
               lastSyncedAt: now,
             },
           }),

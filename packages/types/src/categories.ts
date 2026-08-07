@@ -31,7 +31,8 @@ export const createCategoryBodySchema = z.object({
 export type CreateCategoryBody = z.infer<typeof createCategoryBodySchema>;
 
 // `type` is immutable: changing it on a category with history has no clear
-// semantics (its transactions would contradict the new type).
+// semantics (its transactions would contradict the new type), which leaves the
+// name as the only editable field.
 export const updateCategoryBodySchema = z.object({
   name: z.string().trim().min(1).max(50),
 });

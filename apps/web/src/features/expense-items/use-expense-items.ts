@@ -14,10 +14,11 @@ import {
 } from "./expense-items.api.js";
 import { expenseItemsKeys } from "./expense-items.keys.js";
 
-export function useExpenseItems(query: ListExpenseItemsQuery) {
+export function useExpenseItems(query: ListExpenseItemsQuery, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: expenseItemsKeys.list(query),
     queryFn: () => listExpenseItemsRequest(query),
+    enabled: options?.enabled,
   });
 }
 

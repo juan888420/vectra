@@ -9,7 +9,11 @@ import type { Prisma, TransactionType } from "../../generated/prisma/client.js";
 // require a category (resolved open question 3). They are system categories:
 // protected from rename/archive/delete because future flows use them as the
 // re-categorization fallback.
-export const DEFAULT_CATEGORIES: { name: string; type: TransactionType; isSystem?: boolean }[] = [
+export const DEFAULT_CATEGORIES: {
+  name: string;
+  type: TransactionType;
+  isSystem?: boolean;
+}[] = [
   { name: "Sin categorizar", type: "EXPENSE", isSystem: true },
   { name: "Sin categorizar", type: "INCOME", isSystem: true },
   { name: "Comida", type: "EXPENSE" },
