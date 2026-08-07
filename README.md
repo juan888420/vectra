@@ -1,7 +1,7 @@
 # Vectra
 
 <div align="center">
-  <img src="apps/web/src/assets/vectra.png" alt="Vectra" width="400" height="auto" />
+  <img src="apps/web/src/assets/vectra.png" alt="Vectra" width="800" height="auto" />
 </div>
 
 Vectra is a personal finance tracker that helps individuals log expenses and income, organize them by category, and keep their budgets under control.
