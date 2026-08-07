@@ -12,6 +12,7 @@ import { formatMoney } from "@vectra/utils";
 import { Archive, ArchiveRestore, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 
+import { useAuth } from "../auth/useAuth.js";
 import { categoryColor } from "./category-color.js";
 import { useCategorySummary } from "./use-categories.js";
 
@@ -51,8 +52,9 @@ export function CategoryCard({
   isCheckingDelete,
 }: CategoryCardProps) {
   const { data: summary } = useCategorySummary(category.id);
+  const { user } = useAuth();
   const color = categoryColor(category.name);
-  const currency = summary?.items[0]?.currency ?? "USD";
+  const currency = user?.defaultCurrency ?? "USD";
 
   return (
     <div

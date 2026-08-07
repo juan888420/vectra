@@ -327,7 +327,7 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
               selectedId={categoryId}
               onSelect={selectCategory}
               creatingCategory={creatingCategory}
-              onCreateCategory={() => setCreatingCategory(true)}
+              onCreateCategory={mode === "create" ? () => setCreatingCategory(true) : undefined}
             />
 
             {/* One AnimatePresence, one key, three mutually-exclusive

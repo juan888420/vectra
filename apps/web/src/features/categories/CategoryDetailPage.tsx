@@ -38,6 +38,7 @@ import { toast } from "sonner";
 
 import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
 import { ApiError } from "../../lib/api-client.js";
+import { useAuth } from "../auth/useAuth.js";
 import { ExpenseItemCard } from "../expense-items/ExpenseItemCard.js";
 import { ExpenseItemFormDialog } from "../expense-items/ExpenseItemFormDialog.js";
 import { CategoryFormDialog } from "./CategoryFormDialog.js";
@@ -62,6 +63,7 @@ export function CategoryDetailPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const { data: summary, isLoading, error } = useCategorySummary(id ?? "");
+  const { user } = useAuth();
   const archiveCategory = useArchiveCategory();
   const unarchiveCategory = useUnarchiveCategory();
   const deleteCategory = useDeleteCategory();
@@ -150,14 +152,14 @@ export function CategoryDetailPage() {
         monthly={summary.totals.monthly}
         sixMonths={summary.totals.sixMonths}
         twelveMonths={summary.totals.twelveMonths}
-        currency={items[0]?.currency ?? "USD"}
+        currency={user?.defaultCurrency ?? "USD"}
         isLoading={false}
       />
 
       {summary.oneTimeTotal > 0 ? (
         <p className="text-sm text-muted-foreground">
-          + {formatMoney(summary.oneTimeTotal, items[0]?.currency ?? "USD")} en gastos esporádicos
-          (no incluidos en las proyecciones)
+          + {formatMoney(summary.oneTimeTotal, user?.defaultCurrency ?? "USD")} en gastos
+          esporádicos (no incluidos en las proyecciones)
         </p>
       ) : null}
 
