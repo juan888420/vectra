@@ -11,6 +11,7 @@ import {
 } from "@vectra/ui";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
@@ -29,6 +30,7 @@ interface ScenarioFormDialogProps {
 
 export function ScenarioFormDialog({ open, onOpenChange, scenario }: ScenarioFormDialogProps) {
   const isEditing = scenario !== undefined;
+  const navigate = useNavigate();
   const createScenario = useCreateScenario();
   const updateScenario = useUpdateScenario();
 
@@ -47,10 +49,15 @@ export function ScenarioFormDialog({ open, onOpenChange, scenario }: ScenarioFor
     try {
       if (isEditing) {
         await updateScenario.mutateAsync({ id: scenario.id, body: values });
+        onOpenChange(false);
       } else {
-        await createScenario.mutateAsync(values);
+        // Land directly on the new scenario instead of leaving the user on
+        // whatever screen they opened this dialog from — nothing to search
+        // for in the sidebar, it's already the one selected.
+        const created = await createScenario.mutateAsync(values);
+        onOpenChange(false);
+        navigate(`/scenarios/${created.id}`);
       }
-      onOpenChange(false);
     } catch (error) {
       if (!applyConflictError(error, form, "name")) {
         toast.error(

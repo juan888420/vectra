@@ -1,6 +1,5 @@
-import type { IncomeFrequency, ScenarioPublic } from "@vectra/types";
+import type { ScenarioPublic } from "@vectra/types";
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -15,25 +14,19 @@ import {
   Skeleton,
 } from "@vectra/ui";
 import { formatMoney } from "@vectra/utils";
-import { Banknote, Plus, X } from "lucide-react";
+import { Banknote, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
 import { IncomeFormDialog } from "../incomes/IncomeFormDialog.js";
 import { useIncomes } from "../incomes/use-incomes.js";
+import { ScenarioIncomeCard } from "./ScenarioIncomeCard.js";
 import {
   useAddScenarioIncome,
   useRemoveScenarioIncome,
   useScenarioIncomes,
 } from "./use-scenarios.js";
-
-const FREQUENCY_LABELS: Record<IncomeFrequency, string> = {
-  WEEKLY: "Semanal",
-  MONTHLY: "Mensual",
-  YEARLY: "Anual",
-  ONE_TIME: "Esporádico",
-};
 
 interface ScenarioIncomesSectionProps {
   scenario: ScenarioPublic;
@@ -108,49 +101,36 @@ export function ScenarioIncomesSection({ scenario }: ScenarioIncomesSectionProps
           </div>
         ) : null}
 
-        {isLoading ? (
-          <Skeleton className="h-16 w-full" />
-        ) : (scenarioIncomes ?? []).length === 0 ? (
-          <EmptyState
-            icon={Banknote}
-            title="Sin ingresos vinculados"
-            description="Vincula un ingreso para ver la cobertura de este escenario."
-          />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {(scenarioIncomes ?? []).map((income) => (
-              <li
-                key={income.id}
-                className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className="font-medium">{income.name}</span>
-                  <Badge variant="outline">{FREQUENCY_LABELS[income.frequency]}</Badge>
-                  {income.outdated ? (
-                    <Badge className="border-transparent bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                      Desactualizado
-                    </Badge>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                    {formatMoney(income.amount, income.currency)}
-                  </span>
-                  {canEdit ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Quitar ${income.name}`}
-                      onClick={() => void handleRemove(income.id)}
-                    >
-                      <X />
-                    </Button>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* min-h keeps this area from collapsing when it goes from empty to a
+            single card — same treatment as Productos and Escenarios
+            incluidos, so all three sections read as one system. */}
+        <div className="min-h-40">
+          {isLoading ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+              <Skeleton className="h-28 w-full rounded-xl" />
+              <Skeleton className="h-28 w-full rounded-xl" />
+              <Skeleton className="h-28 w-full rounded-xl" />
+            </div>
+          ) : (scenarioIncomes ?? []).length === 0 ? (
+            <EmptyState
+              icon={Banknote}
+              title="Sin ingresos vinculados"
+              description="Vincula un ingreso para ver la cobertura de este escenario."
+            />
+          ) : (
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+              {(scenarioIncomes ?? []).map((income) => (
+                <li key={income.id} className="flex">
+                  <ScenarioIncomeCard
+                    income={income}
+                    canEdit={canEdit}
+                    onRemove={() => void handleRemove(income.id)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </CardContent>
 
       <IncomeFormDialog

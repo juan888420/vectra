@@ -3,7 +3,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@vec
 import { formatMoney } from "@vectra/utils";
 import { AlertTriangle } from "lucide-react";
 
-import { StatCard } from "../dashboard/StatCard.js";
+import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
 import { describeScenarioChange } from "./describe-scenario-change.js";
 
 interface ScenarioSummaryCardsProps {
@@ -29,7 +29,7 @@ export function ScenarioSummaryCards({
           Described with the exact same function as ScenarioImpactDialog, so
           this list and that dialog never disagree on wording. */}
       {summary?.hasUpdates ? (
-        <div className="flex flex-col gap-2 rounded-md border border-amber-500/30 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        <div className="flex flex-col gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
           <div className="flex items-center gap-2">
             <AlertTriangle className="size-4 shrink-0" />
             Cambios pendientes
@@ -51,23 +51,13 @@ export function ScenarioSummaryCards({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          label="Total mensual"
-          value={isLoading ? undefined : formatMoney(summary?.totals.monthly ?? 0, currency)}
-          isLoading={isLoading}
-        />
-        <StatCard
-          label="Proyección a 6 meses"
-          value={isLoading ? undefined : formatMoney(summary?.totals.sixMonths ?? 0, currency)}
-          isLoading={isLoading}
-        />
-        <StatCard
-          label="Proyección a 12 meses"
-          value={isLoading ? undefined : formatMoney(summary?.totals.twelveMonths ?? 0, currency)}
-          isLoading={isLoading}
-        />
-      </div>
+      <ProjectionStatCards
+        monthly={summary?.totals.monthly}
+        sixMonths={summary?.totals.sixMonths}
+        twelveMonths={summary?.totals.twelveMonths}
+        currency={currency}
+        isLoading={isLoading}
+      />
 
       {summary && summary.incomeCoverage ? (
         <Card>

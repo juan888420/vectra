@@ -1,6 +1,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { CategoryPublic, ExpenseItemFrequency, ScenarioPublic } from "@vectra/types";
-import { Button, Card, CardContent, CardHeader, CardTitle, EmptyState, Skeleton } from "@vectra/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  Skeleton,
+} from "@vectra/ui";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, LayoutGrid, Plus, ShoppingBag } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -60,6 +69,13 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
   const items = useMemo(() => scenarioItems ?? [], [scenarioItems]);
   const categories = categoriesData?.data ?? [];
   const canEdit = scenario.status !== "ARCHIVED";
+
+  // Surfaces as a heading above the checklist/form it labels (not in the
+  // panel title) — orients the user on which category's contents they're
+  // looking at without it competing with the section's own title.
+  const selectedCategoryName = categoryId
+    ? categories.find((category) => category.id === categoryId)?.name
+    : undefined;
 
   // Maps the product a ScenarioItem points at back to the ScenarioItem row,
   // which is what the remove endpoint takes.
@@ -194,7 +210,7 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
         ) : null}
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-6 pb-8">
         {/* Deliberately NOT wrapped in AnimatePresence. Wrapping this swap
             broke category selection outright: after setCategoryId committed,
             AnimatePresence re-rendered its cached copy of the previous
@@ -215,7 +231,7 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.15 }}
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-6"
           >
             {canEdit ? (
               <div className="grid gap-2 sm:grid-cols-2">
@@ -248,39 +264,46 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
               </div>
             ) : null}
 
-            {isLoading ? (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
-                <Skeleton className="h-36 w-full rounded-xl" />
-                <Skeleton className="h-36 w-full rounded-xl" />
-                <Skeleton className="h-36 w-full rounded-xl" />
-                <Skeleton className="h-36 w-full rounded-xl" />
-              </div>
-            ) : items.length === 0 ? (
-              <EmptyState
-                icon={ShoppingBag}
-                title="Sin productos"
-                description="Agrega productos para incluirlos en este escenario."
-              />
-            ) : (
-              <ul className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
-                {items.map((item, index) => (
-                  <motion.li
-                    key={item.id}
-                    layout
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18, delay: Math.min(index, 8) * 0.025 }}
-                    className="flex"
-                  >
-                    <ScenarioItemCard
-                      item={item}
-                      canEdit={canEdit}
-                      onRemove={() => void handleRemove(item.id)}
-                    />
-                  </motion.li>
-                ))}
-              </ul>
-            )}
+            {/* min-h keeps this area from reading as an afterthought when
+                there are only a couple of cards — the grid still grows past
+                it freely once there's enough content to fill it. */}
+            <div className="min-h-40">
+              {isLoading ? (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
+                  <Skeleton className="h-24 w-full rounded-xl" />
+                  <Skeleton className="h-24 w-full rounded-xl" />
+                  <Skeleton className="h-24 w-full rounded-xl" />
+                  <Skeleton className="h-24 w-full rounded-xl" />
+                  <Skeleton className="h-24 w-full rounded-xl" />
+                  <Skeleton className="h-24 w-full rounded-xl" />
+                </div>
+              ) : items.length === 0 ? (
+                <EmptyState
+                  icon={ShoppingBag}
+                  title="Sin productos"
+                  description="Agrega productos para incluirlos en este escenario."
+                />
+              ) : (
+                <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
+                  {items.map((item, index) => (
+                    <motion.li
+                      key={item.id}
+                      layout
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.18, delay: Math.min(index, 8) * 0.025 }}
+                      className="flex"
+                    >
+                      <ScenarioItemCard
+                        item={item}
+                        canEdit={canEdit}
+                        onRemove={() => void handleRemove(item.id)}
+                      />
+                    </motion.li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </motion.div>
         ) : (
           <motion.div
@@ -288,7 +311,7 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.18 }}
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-6"
           >
             <ScenarioCategoryChips
               categories={categories}
@@ -325,7 +348,13 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.18 }}
+                  className="flex flex-col gap-3"
                 >
+                  {selectedCategoryName ? (
+                    <Badge variant="secondary" className="w-fit">
+                      {selectedCategoryName}
+                    </Badge>
+                  ) : null}
                   {mode === "browse" ? (
                     <ScenarioProductChecklist
                       categoryId={categoryId}

@@ -187,7 +187,7 @@ export function ScenarioDetailPage() {
       <ScenarioItemsSection key={scenario.id} scenario={scenario} />
       <ScenarioIncomesSection scenario={scenario} />
 
-      <ScenarioCompositionsSection scenario={scenario} />
+      <ScenarioCompositionsSection scenario={scenario} currency={user?.defaultCurrency ?? "USD"} />
 
       <ScenarioFormDialog open={renaming} onOpenChange={setRenaming} scenario={scenario} />
 
