@@ -1,5 +1,7 @@
 # Vectra
 
+<img src="apps/web/dist/assets/vectra.png" alt="Vectra logo" width="120" />
+
 Vectra is a personal finance tracker that helps individuals log expenses and income, organize them by category, and keep their budgets under control.
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
