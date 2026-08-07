@@ -58,9 +58,17 @@ export const listIncomesQuerySchema = paginationQuerySchema
 
 export const incomeListResponseSchema = paginatedResponseSchema(incomePublicSchema);
 
+// Duplicated literal rather than importing from scenarios.schemas.ts: that
+// module already imports from this one (incomeFrequencySchema), so importing
+// back would create a cycle over a 3-value enum that never changes. Same
+// reasoning as expense-items.schemas.ts's scenarioUsageStatusSchema.
+const scenarioUsageStatusSchema = z.enum(["ACTIVE", "INACTIVE", "ARCHIVED"]);
+
 // "¿Cuánto dinero genera este ingreso?" (ADR-0006) — derived, never stored.
 // `ONE_TIME` incomes have no period to project (business rule from ADR-0005
 // §14), so `totals` is null rather than a misleading zeroed-out projection.
+// `scenarios` answers "en qué escenarios se usa" (same business question as
+// expense-items' summary) — ScenarioIncome isn't queryable from the client.
 export const incomeSummarySchema = z.object({
   income: incomePublicSchema,
   totals: z
@@ -70,6 +78,9 @@ export const incomeSummarySchema = z.object({
       twelveMonths: z.number(),
     })
     .nullable(),
+  scenarios: z.array(
+    z.object({ id: z.uuid(), name: z.string(), status: scenarioUsageStatusSchema }),
+  ),
 });
 
 export type CreateIncomeBody = z.infer<typeof createIncomeBodySchema>;

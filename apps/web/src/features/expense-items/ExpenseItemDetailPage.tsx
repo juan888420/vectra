@@ -1,4 +1,4 @@
-import type { ExpenseItemFrequency, ScenarioStatus } from "@vectra/types";
+import type { ExpenseItemFrequency } from "@vectra/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,31 +10,19 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  EmptyState,
   Skeleton,
 } from "@vectra/ui";
-import {
-  Archive,
-  ArchiveRestore,
-  ChevronLeft,
-  Layers,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { Archive, ArchiveRestore, ChevronLeft, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
+import { ScenarioUsageList } from "../../components/ScenarioUsageList.js";
 import { ApiError } from "../../lib/api-client.js";
 import { useCategories } from "../categories/use-categories.js";
 import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
@@ -52,12 +40,6 @@ const FREQUENCY_LABELS: Record<ExpenseItemFrequency, string> = {
   MONTHLY: "Mensual",
   YEARLY: "Anual",
   ONE_TIME: "Esporádico",
-};
-
-const SCENARIO_STATUS_LABELS: Record<ScenarioStatus, string> = {
-  ACTIVE: "Activo",
-  INACTIVE: "Inactivo",
-  ARCHIVED: "Archivado",
 };
 
 export function ExpenseItemDetailPage() {
@@ -168,36 +150,7 @@ export function ExpenseItemDetailPage() {
         isLoading={false}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Usado en estos escenarios</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {scenarios.length === 0 ? (
-            <EmptyState
-              icon={Layers}
-              title="No se usa en ningún escenario todavía"
-              description="Agrégalo a un escenario para ver cuánto pesa en tus simulaciones."
-            />
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {scenarios.map((scenario) => (
-                <li key={scenario.id}>
-                  <Link
-                    to={`/scenarios/${scenario.id}`}
-                    className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent"
-                  >
-                    <span className="font-medium">{scenario.name}</span>
-                    <Badge variant={scenario.status === "ACTIVE" ? "default" : "outline"}>
-                      {SCENARIO_STATUS_LABELS[scenario.status]}
-                    </Badge>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <ScenarioUsageList scenarios={scenarios} />
 
       <ExpenseItemFormDialog
         open={editing}

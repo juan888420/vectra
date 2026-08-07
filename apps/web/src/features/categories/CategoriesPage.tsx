@@ -1,4 +1,4 @@
-import type { CategoryPublic, CategoryType } from "@vectra/types";
+import type { CategoryPublic } from "@vectra/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,30 +8,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Badge,
   Button,
-  DataTable,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   EmptyState,
+  Skeleton,
 } from "@vectra/ui";
-import {
-  Archive,
-  ArchiveRestore,
-  Loader2,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Tags,
-  Trash2,
-} from "lucide-react";
+import { Plus, Tags } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
+import { CategoryCard } from "./CategoryCard.js";
 import { CategoryFormDialog } from "./CategoryFormDialog.js";
 import { MoveItemsAndDeleteCategoryDialog } from "./MoveItemsAndDeleteCategoryDialog.js";
 import {
@@ -41,11 +27,6 @@ import {
   useDeleteCategory,
   useUnarchiveCategory,
 } from "./use-categories.js";
-
-const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
-  EXPENSE: "Gasto",
-  INCOME: "Ingreso",
-};
 
 const PAGE_SIZE = 20;
 
@@ -118,89 +99,39 @@ export function CategoriesPage() {
         </Button>
       </div>
 
-      <DataTable
-        columns={[
-          {
-            id: "name",
-            header: "Nombre",
-            cell: (category) => (
-              <Link to={`/categories/${category.id}`} className="font-medium hover:underline">
-                {category.name}
-              </Link>
-            ),
-          },
-          { id: "type", header: "Tipo", cell: (category) => CATEGORY_TYPE_LABELS[category.type] },
-          {
-            id: "status",
-            header: "Estado",
-            cell: (category) => (
-              <div className="flex gap-1.5">
-                {category.isSystem ? <Badge variant="outline">Sistema</Badge> : null}
-                {category.archivedAt ? <Badge variant="secondary">Archivada</Badge> : null}
-              </div>
-            ),
-          },
-          {
-            id: "actions",
-            header: "",
-            className: "text-right",
-            cell: (category) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label={`Acciones para ${category.name}`}>
-                    <MoreHorizontal />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    disabled={category.isSystem}
-                    onSelect={() => setFormDialog({ mode: "edit", category })}
-                  >
-                    <Pencil /> Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={category.isSystem}
-                    onSelect={() => void handleToggleArchive(category)}
-                  >
-                    {category.archivedAt ? <ArchiveRestore /> : <Archive />}
-                    {category.archivedAt ? "Desarchivar" : "Archivar"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={
-                      category.isSystem ||
-                      (isCheckingPendingDelete && pendingDelete?.id === category.id)
-                    }
-                    className="text-destructive focus:text-destructive"
-                    onSelect={() => setPendingDelete(category)}
-                  >
-                    {isCheckingPendingDelete && pendingDelete?.id === category.id ? (
-                      <Loader2 className="animate-spin" />
-                    ) : (
-                      <Trash2 />
-                    )}
-                    Eliminar
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ),
-          },
-        ]}
-        data={categories}
-        rowKey={(category) => category.id}
-        isLoading={isLoading}
-        emptyState={
-          <EmptyState
-            icon={Tags}
-            title="Todavía no hay categorías"
-            description="Crea tu primera categoría para empezar a organizar transacciones."
-            action={
-              <Button onClick={() => setFormDialog({ mode: "create" })}>
-                <Plus /> Nueva categoría
-              </Button>
-            }
-          />
-        }
-      />
+      {isLoading ? (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+        </div>
+      ) : categories.length === 0 ? (
+        <EmptyState
+          icon={Tags}
+          title="Todavía no hay categorías"
+          description="Crea tu primera categoría para empezar a organizar transacciones."
+          action={
+            <Button onClick={() => setFormDialog({ mode: "create" })}>
+              <Plus /> Nueva categoría
+            </Button>
+          }
+        />
+      ) : (
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+          {categories.map((category) => (
+            <li key={category.id} className="flex">
+              <CategoryCard
+                category={category}
+                onEdit={() => setFormDialog({ mode: "edit", category })}
+                onToggleArchive={() => void handleToggleArchive(category)}
+                onDelete={() => setPendingDelete(category)}
+                isCheckingDelete={isCheckingPendingDelete && pendingDelete?.id === category.id}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
 
       {data && data.meta.totalPages > 1 ? (
         <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">

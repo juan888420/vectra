@@ -38,6 +38,8 @@ import { toast } from "sonner";
 
 import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
 import { ApiError } from "../../lib/api-client.js";
+import { useAuth } from "../auth/useAuth.js";
+import { ExpenseItemCard } from "../expense-items/ExpenseItemCard.js";
 import { ExpenseItemFormDialog } from "../expense-items/ExpenseItemFormDialog.js";
 import { CategoryFormDialog } from "./CategoryFormDialog.js";
 import { MoveItemsAndDeleteCategoryDialog } from "./MoveItemsAndDeleteCategoryDialog.js";
@@ -61,6 +63,7 @@ export function CategoryDetailPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const { data: summary, isLoading, error } = useCategorySummary(id ?? "");
+  const { user } = useAuth();
   const archiveCategory = useArchiveCategory();
   const unarchiveCategory = useUnarchiveCategory();
   const deleteCategory = useDeleteCategory();
@@ -149,14 +152,14 @@ export function CategoryDetailPage() {
         monthly={summary.totals.monthly}
         sixMonths={summary.totals.sixMonths}
         twelveMonths={summary.totals.twelveMonths}
-        currency={items[0]?.currency ?? "USD"}
+        currency={user?.defaultCurrency ?? "USD"}
         isLoading={false}
       />
 
       {summary.oneTimeTotal > 0 ? (
         <p className="text-sm text-muted-foreground">
-          + {formatMoney(summary.oneTimeTotal, items[0]?.currency ?? "USD")} en gastos esporádicos
-          (no incluidos en las proyecciones)
+          + {formatMoney(summary.oneTimeTotal, user?.defaultCurrency ?? "USD")} en gastos
+          esporádicos (no incluidos en las proyecciones)
         </p>
       ) : null}
 
@@ -177,18 +180,13 @@ export function CategoryDetailPage() {
               description="Todavía no hay productos en esta categoría."
             />
           ) : (
-            <ul className="flex flex-col gap-2">
+            // Same ExpenseItemCard as the Productos list, read-only
+            // (canEdit={false}) — a product never gets a second look
+            // depending on where you're viewing it from.
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
               {items.map((item) => (
-                <li key={item.id}>
-                  <Link
-                    to={`/expense-items/${item.id}`}
-                    className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent"
-                  >
-                    <span className="font-medium">{item.name}</span>
-                    <span className="text-muted-foreground">
-                      {formatMoney(item.amount, item.currency)}
-                    </span>
-                  </Link>
+                <li key={item.id} className="flex">
+                  <ExpenseItemCard item={item} categoryName={category.name} canEdit={false} />
                 </li>
               ))}
             </ul>

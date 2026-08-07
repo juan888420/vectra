@@ -1,4 +1,4 @@
-import type { ExpenseItemFrequency, ExpenseItemPublic } from "@vectra/types";
+import type { ExpenseItemPublic } from "@vectra/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,38 +8,24 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Badge,
   Button,
-  DataTable,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   EmptyState,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Skeleton,
 } from "@vectra/ui";
-import { formatMoney } from "@vectra/utils";
-import {
-  Archive,
-  ArchiveRestore,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  ShoppingBag,
-  Trash2,
-} from "lucide-react";
+import { Plus, ShoppingBag } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
 import { useCategories } from "../categories/use-categories.js";
 import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
 import { useScenarioImpact } from "../scenarios/use-scenario-impact.js";
+import { ExpenseItemCard } from "./ExpenseItemCard.js";
 import { syncExpenseItemScenariosRequest } from "./expense-items.api.js";
 import { ExpenseItemFormDialog } from "./ExpenseItemFormDialog.js";
 import {
@@ -48,12 +34,6 @@ import {
   useExpenseItems,
   useUnarchiveExpenseItem,
 } from "./use-expense-items.js";
-
-const FREQUENCY_LABELS: Record<ExpenseItemFrequency, string> = {
-  MONTHLY: "Mensual",
-  YEARLY: "Anual",
-  ONE_TIME: "Esporádico",
-};
 
 const PAGE_SIZE = 20;
 const ALL = "ALL";
@@ -160,96 +140,51 @@ export function ExpenseItemsPage() {
         </Button>
       </div>
 
-      <DataTable
-        columns={[
-          {
-            id: "name",
-            header: "Nombre",
-            cell: (item) => (
-              <Link to={`/expense-items/${item.id}`} className="font-medium hover:underline">
-                {item.name}
-              </Link>
-            ),
-          },
-          {
-            id: "category",
-            header: "Categoría",
-            cell: (item) => categoriesById.get(item.categoryId)?.name ?? "—",
-          },
-          {
-            id: "frequency",
-            header: "Frecuencia",
-            cell: (item) => <Badge variant="outline">{FREQUENCY_LABELS[item.frequency]}</Badge>,
-          },
-          {
-            id: "amount",
-            header: "Precio",
-            className: "text-right",
-            cell: (item) => (
-              <span className="font-medium">{formatMoney(item.amount, item.currency)}</span>
-            ),
-          },
-          {
-            id: "status",
-            header: "Estado",
-            cell: (item) => (item.archivedAt ? <Badge variant="secondary">Archivado</Badge> : null),
-          },
-          {
-            id: "actions",
-            header: "",
-            className: "text-right",
-            cell: (item) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label={`Acciones para ${item.name}`}>
-                    <MoreHorizontal />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => setFormDialog({ mode: "edit", item })}>
-                    <Pencil /> Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => void handleToggleArchive(item)}>
-                    {item.archivedAt ? <ArchiveRestore /> : <Archive />}
-                    {item.archivedAt ? "Desarchivar" : "Archivar"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onSelect={() => setPendingDelete(item)}
-                  >
-                    <Trash2 /> Eliminar
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ),
-          },
-        ]}
-        data={items}
-        rowKey={(item) => item.id}
-        isLoading={isLoading}
-        emptyState={
-          <EmptyState
-            icon={ShoppingBag}
-            title={
-              hasActiveFilters
-                ? "Ningún producto coincide con este filtro"
-                : "Todavía no hay productos"
-            }
-            description={
-              hasActiveFilters
-                ? "Prueba otra categoría o quita el filtro para ver todos."
-                : "Crea tu primer producto para empezar a armar escenarios."
-            }
-            action={
-              hasActiveFilters ? undefined : (
-                <Button onClick={() => setFormDialog({ mode: "create" })}>
-                  <Plus /> Nuevo producto
-                </Button>
-              )
-            }
-          />
-        }
-      />
+      {isLoading ? (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon={ShoppingBag}
+          title={
+            hasActiveFilters
+              ? "Ningún producto coincide con este filtro"
+              : "Todavía no hay productos"
+          }
+          description={
+            hasActiveFilters
+              ? "Prueba otra categoría o quita el filtro para ver todos."
+              : "Crea tu primer producto para empezar a armar escenarios."
+          }
+          action={
+            hasActiveFilters ? undefined : (
+              <Button onClick={() => setFormDialog({ mode: "create" })}>
+                <Plus /> Nuevo producto
+              </Button>
+            )
+          }
+        />
+      ) : (
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
+          {items.map((item) => (
+            <li key={item.id} className="flex">
+              <ExpenseItemCard
+                item={item}
+                categoryName={categoriesById.get(item.categoryId)?.name ?? "—"}
+                onEdit={() => setFormDialog({ mode: "edit", item })}
+                onToggleArchive={() => void handleToggleArchive(item)}
+                onDelete={() => setPendingDelete(item)}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
 
       {data && data.meta.totalPages > 1 ? (
         <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">

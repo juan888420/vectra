@@ -59,8 +59,11 @@ export interface ListIncomesQuery {
   includeArchived?: boolean;
 }
 
+const scenarioUsageStatusSchema = z.enum(["ACTIVE", "INACTIVE", "ARCHIVED"]);
+
 // "¿Cuánto dinero genera este ingreso?" (ADR-0006) — derived, never stored.
-// `totals` is null for ONE_TIME incomes (no period to project).
+// `totals` is null for ONE_TIME incomes (no period to project). `scenarios`
+// answers "en qué escenarios se usa" (same shape as ExpenseItemSummary's).
 export const incomeSummarySchema = z.object({
   income: incomePublicSchema,
   totals: z
@@ -70,6 +73,9 @@ export const incomeSummarySchema = z.object({
       twelveMonths: z.number(),
     })
     .nullable(),
+  scenarios: z.array(
+    z.object({ id: z.uuid(), name: z.string(), status: scenarioUsageStatusSchema }),
+  ),
 });
 
 export type IncomeSummary = z.infer<typeof incomeSummarySchema>;

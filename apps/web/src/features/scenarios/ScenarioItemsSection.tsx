@@ -147,6 +147,15 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
     setCreatingCategory(false);
   }
 
+  // Picking an existing category while "Nueva categoría" is open must cancel
+  // that mode in the same event, not just change categoryId — otherwise the
+  // creatingCategory branch keeps winning the ternary below and the panel
+  // never leaves ScenarioInlineCategoryForm even though categoryId did change.
+  function selectCategory(id: string) {
+    setCreatingCategory(false);
+    setCategoryId(id);
+  }
+
   const toAdd = [...stagedIds].filter((id) => !currentIds.has(id));
   const toRemove = [...currentIds].filter((id) => !stagedIds.has(id));
   const pendingCount = toAdd.length + toRemove.length;
@@ -316,9 +325,9 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
             <ScenarioCategoryChips
               categories={categories}
               selectedId={categoryId}
-              onSelect={setCategoryId}
+              onSelect={selectCategory}
               creatingCategory={creatingCategory}
-              onCreateCategory={() => setCreatingCategory(true)}
+              onCreateCategory={mode === "create" ? () => setCreatingCategory(true) : undefined}
             />
 
             {/* One AnimatePresence, one key, three mutually-exclusive

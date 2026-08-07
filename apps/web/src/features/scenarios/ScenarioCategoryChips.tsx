@@ -12,7 +12,10 @@ interface ScenarioCategoryChipsProps {
    * chip like any other selection, so the row keeps reading as "this is what's
    * active" instead of looking like nothing is picked. */
   creatingCategory?: boolean;
-  onCreateCategory: () => void;
+  /** Omit to hide the "Nueva categoría" chip entirely — used by the "desde
+   * categorías" flow, where a freshly created category would have no
+   * products to check off and can't behave like the others in that list. */
+  onCreateCategory?: () => void;
 }
 
 /** Step one of both composer flows: pick a category by name. Chips rather than
@@ -49,19 +52,21 @@ export function ScenarioCategoryChips({
         );
       })}
 
-      <button
-        type="button"
-        onClick={onCreateCategory}
-        aria-pressed={creatingCategory}
-        className={cn(
-          "flex items-center gap-1 rounded-full border border-dashed px-3 py-1.5 text-sm font-medium transition-colors",
-          creatingCategory
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground",
-        )}
-      >
-        <Plus className="size-3.5" /> Nueva
-      </button>
+      {onCreateCategory ? (
+        <button
+          type="button"
+          onClick={onCreateCategory}
+          aria-pressed={creatingCategory}
+          className={cn(
+            "flex items-center gap-1 rounded-full border border-dashed px-3 py-1.5 text-xs font-normal transition-colors",
+            creatingCategory
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          <Plus className="size-3" /> Nueva categoría
+        </button>
+      ) : null}
     </div>
   );
 }
