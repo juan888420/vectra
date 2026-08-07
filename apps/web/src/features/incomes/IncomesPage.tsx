@@ -1,4 +1,4 @@
-import type { IncomeFrequency, IncomePublic } from "@vectra/types";
+import type { IncomePublic } from "@vectra/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,32 +8,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Badge,
   Button,
-  DataTable,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   EmptyState,
+  Skeleton,
 } from "@vectra/ui";
-import { formatMoney } from "@vectra/utils";
-import {
-  Archive,
-  ArchiveRestore,
-  Banknote,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { Banknote, Plus } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { ApiError } from "../../lib/api-client.js";
 import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
 import { useScenarioImpact } from "../scenarios/use-scenario-impact.js";
+import { IncomeCard } from "./IncomeCard.js";
 import { IncomeFormDialog } from "./IncomeFormDialog.js";
 import { syncIncomeScenariosRequest } from "./incomes.api.js";
 import {
@@ -42,13 +28,6 @@ import {
   useIncomes,
   useUnarchiveIncome,
 } from "./use-incomes.js";
-
-const FREQUENCY_LABELS: Record<IncomeFrequency, string> = {
-  WEEKLY: "Semanal",
-  MONTHLY: "Mensual",
-  YEARLY: "Anual",
-  ONE_TIME: "Esporádico",
-};
 
 const PAGE_SIZE = 20;
 
@@ -116,84 +95,37 @@ export function IncomesPage() {
         </Button>
       </div>
 
-      <DataTable
-        columns={[
-          {
-            id: "name",
-            header: "Nombre",
-            cell: (income) => (
-              <Link to={`/incomes/${income.id}`} className="font-medium hover:underline">
-                {income.name}
-              </Link>
-            ),
-          },
-          {
-            id: "frequency",
-            header: "Frecuencia",
-            cell: (income) => <Badge variant="outline">{FREQUENCY_LABELS[income.frequency]}</Badge>,
-          },
-          {
-            id: "amount",
-            header: "Monto",
-            className: "text-right",
-            cell: (income) => (
-              <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                {formatMoney(income.amount, income.currency)}
-              </span>
-            ),
-          },
-          {
-            id: "status",
-            header: "Estado",
-            cell: (income) =>
-              income.archivedAt ? <Badge variant="secondary">Archivado</Badge> : null,
-          },
-          {
-            id: "actions",
-            header: "",
-            className: "text-right",
-            cell: (income) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label={`Acciones para ${income.name}`}>
-                    <MoreHorizontal />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => setFormDialog({ mode: "edit", income })}>
-                    <Pencil /> Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => void handleToggleArchive(income)}>
-                    {income.archivedAt ? <ArchiveRestore /> : <Archive />}
-                    {income.archivedAt ? "Desarchivar" : "Archivar"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onSelect={() => setPendingDelete(income)}
-                  >
-                    <Trash2 /> Eliminar
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ),
-          },
-        ]}
-        data={incomes}
-        rowKey={(income) => income.id}
-        isLoading={isLoading}
-        emptyState={
-          <EmptyState
-            icon={Banknote}
-            title="Todavía no hay ingresos"
-            description="Registra tu primer ingreso para calcular la cobertura de tus escenarios."
-            action={
-              <Button onClick={() => setFormDialog({ mode: "create" })}>
-                <Plus /> Nuevo ingreso
-              </Button>
-            }
-          />
-        }
-      />
+      {isLoading ? (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-32 w-full rounded-xl" />
+        </div>
+      ) : incomes.length === 0 ? (
+        <EmptyState
+          icon={Banknote}
+          title="Todavía no hay ingresos"
+          description="Registra tu primer ingreso para calcular la cobertura de tus escenarios."
+          action={
+            <Button onClick={() => setFormDialog({ mode: "create" })}>
+              <Plus /> Nuevo ingreso
+            </Button>
+          }
+        />
+      ) : (
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+          {incomes.map((income) => (
+            <li key={income.id} className="flex">
+              <IncomeCard
+                income={income}
+                onEdit={() => setFormDialog({ mode: "edit", income })}
+                onToggleArchive={() => void handleToggleArchive(income)}
+                onDelete={() => setPendingDelete(income)}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
 
       {data && data.meta.totalPages > 1 ? (
         <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">

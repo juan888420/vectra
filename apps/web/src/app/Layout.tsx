@@ -11,6 +11,7 @@ import {
 import { ChevronDown, LogOut, User } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
 
+import vectraLogo from "../assets/vectra-logo.png";
 import { useAuth } from "../features/auth/useAuth.js";
 
 // Primary nav answers a financial question each (ADR-0006); the ledger
@@ -38,7 +39,10 @@ export function Layout() {
     <div className="flex min-h-dvh flex-col">
       <header className="flex items-center justify-between border-b px-6 py-3">
         <div className="flex items-center gap-6">
-          <span className="text-sm font-semibold tracking-tight">Vectra</span>
+          <div className="flex items-center gap-2">
+            <img src={vectraLogo} alt="Vectra" className="size-7 rounded-md" />
+            <span className="text-sm font-semibold tracking-tight">Vectra</span>
+          </div>
           <nav className="flex items-center gap-4">
             {PRIMARY_NAV_LINKS.map((link) => (
               <NavLink

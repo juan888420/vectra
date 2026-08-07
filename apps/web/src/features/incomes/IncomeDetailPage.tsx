@@ -23,6 +23,7 @@ import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
+import { ScenarioUsageList } from "../../components/ScenarioUsageList.js";
 import { ApiError } from "../../lib/api-client.js";
 import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
 import { useScenarioImpact } from "../scenarios/use-scenario-impact.js";
@@ -90,7 +91,7 @@ export function IncomeDetailPage() {
     );
   }
 
-  const { income, totals } = summary;
+  const { income, totals, scenarios } = summary;
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
@@ -146,6 +147,8 @@ export function IncomeDetailPage() {
           proyecciones recurrentes.
         </p>
       )}
+
+      <ScenarioUsageList scenarios={scenarios} />
 
       <IncomeFormDialog
         open={editing}

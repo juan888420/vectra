@@ -167,13 +167,29 @@ export async function deleteIncome(
 }
 
 // "¿Cuánto dinero genera este ingreso?" (ADR-0006) — derived, never stored.
+// The scenario list answers "en qué escenarios se usa": ScenarioIncome isn't
+// queryable client-side, same reasoning as getExpenseItemSummary.
 export async function getIncomeSummary(prisma: PrismaClient, userId: string, id: string) {
   const income = await findOwnedOrFail(prisma.income, id, userId, "Income");
+
+  const scenarioIncomes = await prisma.scenarioIncome.findMany({
+    where: { incomeId: id, scenario: { userId } },
+    include: { scenario: true },
+    orderBy: { scenario: { name: "asc" } },
+  });
 
   const totals =
     income.frequency === "ONE_TIME"
       ? null
       : toProjection(toMonthlyEquivalent(Number(income.amount), income.frequency));
 
-  return { income: toPublic(income), totals };
+  return {
+    income: toPublic(income),
+    totals,
+    scenarios: scenarioIncomes.map((scenarioIncome) => ({
+      id: scenarioIncome.scenario.id,
+      name: scenarioIncome.scenario.name,
+      status: scenarioIncome.scenario.status,
+    })),
+  };
 }
