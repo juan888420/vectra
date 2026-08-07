@@ -2,7 +2,7 @@
 
 ## Estado
 
-`accepted` — complementa a [ADR-0005](0005-financial-scenarios.md) (no cambia el modelo de datos ni lo supersede; formaliza cómo se presenta).
+`partially superseded` por [ADR-0007](0007-retire-ledger-surface.md) en la sección "Ledger histórico: se queda, sin cambios de alcance" — esa sección ya no aplica: el ledger se retira de la experiencia de producto y del backend expuesto (RFC-0027). El resto de esta ADR (las cuatro preguntas, la jerarquía visual, la ruta principal) sigue vigente y complementa a [ADR-0005](0005-financial-scenarios.md).
 
 ## Contexto
 

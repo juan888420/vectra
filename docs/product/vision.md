@@ -1,6 +1,6 @@
 # Visión de producto — Vectra
 
-> Actualizada tras [ADR-0005](../decisions/0005-financial-scenarios.md): los escenarios financieros son el eje del producto. El ledger de transacciones reales queda como vista de registro histórico.
+> Actualizada tras [ADR-0005](../decisions/0005-financial-scenarios.md): los escenarios financieros son el eje del producto. Actualizada de nuevo tras [ADR-0007](../decisions/0007-retire-ledger-surface.md): el ledger de transacciones reales se retiró por completo del producto — Vectra es únicamente el simulador de escenarios.
 
 ## Problema
 
@@ -54,11 +54,10 @@ Vectra es un **simulador de escenarios financieros personales**: en vez de regis
 
 - Picos reales de cobros anuales en la proyección (mes exacto de cobro).
 - Conexión automática con bancos, multi-moneda simultáneo, multi-usuario.
-- Convertir un escenario en transacciones reales del ledger automáticamente.
 
-## Feature secundaria: ledger de transacciones
+## Ledger de transacciones: retirado del producto
 
-El registro manual de transacciones reales (cuentas, categorías, transacciones, presupuestos, recurrencias) ya está construido y se conserva funcional como **vista de registro histórico**, agrupado como sección secundaria en la navegación. A futuro puede alimentar los escenarios (ej. sugerir un escenario a partir del gasto real registrado).
+Vectra tuvo en su origen un registro manual de transacciones reales (cuentas, transacciones, presupuestos, recurrencias) construido antes del giro a simulador de escenarios (ADR-0004/0005). Se mantuvo un tiempo como sección secundaria de "registro histórico" (ADR-0006), pero se retiró por completo de la experiencia de producto y del backend expuesto ([ADR-0007](../decisions/0007-retire-ledger-surface.md)): nunca se usaba, y no había plan real de invertir en rediseñarlo. El modelo de datos subyacente se conserva sin exponerse, por si en el futuro se retoma la idea de alimentar escenarios a partir de gasto real registrado — pero eso sería una feature nueva, no una reactivación de esta.
 
 ## Métricas de éxito (cualitativas)
 

@@ -4,6 +4,8 @@ Documento de diseño de dominio de Vectra. Precede a cualquier decisión de base
 
 Ver también [`vision.md`](../product/vision.md) (alcance de producto) y [`roadmap.md`](../product/roadmap.md) (fases).
 
+> **Nota (RFC-0027 / [ADR-0007](../decisions/0007-retire-ledger-surface.md))**: `Account`, `Transaction`, `Budget` y `RecurringTransaction`, descritos abajo, siguen existiendo en el schema de Prisma pero ya no son parte del producto expuesto — no tienen endpoint ni pantalla. Se documentan aquí como diseño histórico, no como superficie vigente.
+
 ## 1. Resumen del dominio
 
 Vectra gestiona el dinero personal de un usuario a través de tres conceptos centrales: **dónde** está el dinero (`Account`), **qué se hizo** con él (`Transaction`, clasificada por `Category`), y **qué tan bien se está cumpliendo un plan** (`Budget`). Todo lo demás —transacciones recurrentes, metas de ahorro— son variaciones o agregados sobre esos tres conceptos.
