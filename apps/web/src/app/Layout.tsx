@@ -8,15 +8,14 @@ import {
   DropdownMenuTrigger,
   ThemeToggle,
 } from "@vectra/ui";
-import { ChevronDown, LogOut, User } from "lucide-react";
-import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { LogOut, User } from "lucide-react";
+import { NavLink, Outlet } from "react-router";
 
 import vectraLogo from "../assets/vectra-logo.png";
 import { useAuth } from "../features/auth/useAuth.js";
 
-// Primary nav answers a financial question each (ADR-0006); the ledger
-// (registro histórico, ADR-0005) is secondary and grouped under "Historial"
-// instead of competing for the same visual weight.
+// Vectra's product surface (RFC-0027): the ledger (Cuentas/Transacciones/
+// Dashboard) was retired from the UI, so the primary nav is the whole nav.
 const PRIMARY_NAV_LINKS = [
   { to: "/scenarios", label: "Escenarios" },
   { to: "/categories", label: "Categorías" },
@@ -24,16 +23,8 @@ const PRIMARY_NAV_LINKS = [
   { to: "/incomes", label: "Ingresos" },
 ];
 
-const HISTORIAL_LINKS = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/accounts", label: "Cuentas" },
-  { to: "/transactions", label: "Transacciones" },
-];
-
 export function Layout() {
   const { user, logout } = useAuth();
-  const location = useLocation();
-  const isHistorialActive = HISTORIAL_LINKS.some((link) => location.pathname.startsWith(link.to));
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -58,28 +49,6 @@ export function Layout() {
                 {link.label}
               </NavLink>
             ))}
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground",
-                    isHistorialActive && "font-medium text-foreground",
-                  )}
-                >
-                  Historial
-                  <ChevronDown className="size-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {HISTORIAL_LINKS.map((link) => (
-                  <DropdownMenuItem key={link.to} asChild>
-                    <Link to={link.to}>{link.label}</Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </nav>
         </div>
         <div className="flex items-center gap-2">
