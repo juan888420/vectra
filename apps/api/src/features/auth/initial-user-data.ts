@@ -28,18 +28,11 @@ export const DEFAULT_CATEGORIES: {
   { name: "Otros ingresos", type: "INCOME" },
 ];
 
-export const DEFAULT_ACCOUNT_NAME = "Efectivo";
-
 export async function createInitialUserData(
   tx: Prisma.TransactionClient,
   userId: string,
-  currency: string,
 ): Promise<void> {
   await tx.category.createMany({
     data: DEFAULT_CATEGORIES.map((category) => ({ ...category, userId })),
-  });
-
-  await tx.account.create({
-    data: { userId, name: DEFAULT_ACCOUNT_NAME, type: "CASH", currency },
   });
 }

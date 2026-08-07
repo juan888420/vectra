@@ -1,6 +1,6 @@
 import { formatMoney } from "@vectra/utils";
 
-import { StatCard } from "../features/dashboard/StatCard.js";
+import { StatCard } from "./StatCard.js";
 
 interface ProjectionStatCardsProps {
   monthly?: number;

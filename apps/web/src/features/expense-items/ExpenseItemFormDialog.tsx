@@ -43,8 +43,8 @@ const FREQUENCY_LABELS: Record<ExpenseItemFrequency, string> = {
 // categoría" flow (ADR-0005 §3) instead of picking an existing one.
 const CREATE_CATEGORY_OPTION = "__create_category__";
 
-// Same reasoning as TransactionFormDialog: `amount` stays a string in the
-// form and is validated with the real `moneyAmountSchema` at submit time.
+// `amount` stays a string in the form and is validated with the real
+// `moneyAmountSchema` at submit time.
 // `frequency` is re-declared without its `.default(...)` — keeping it would
 // make the resolver's input/output types diverge (optional vs required).
 const expenseItemFormSchema = createExpenseItemBodySchema
@@ -91,7 +91,7 @@ export function ExpenseItemFormDialog({
   });
 
   // Only EXPENSE categories are valid destinations; archived ones stay out
-  // unless they're the item's current category (same pattern as Transactions).
+  // unless they're the item's current category.
   const { data: categoriesData, isLoading: isLoadingCategories } = useCategories({
     type: "EXPENSE",
     includeArchived: true,

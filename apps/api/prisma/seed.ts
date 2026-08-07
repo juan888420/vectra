@@ -3,10 +3,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcrypt";
 
-import {
-  DEFAULT_CATEGORIES,
-  DEFAULT_ACCOUNT_NAME,
-} from "../src/features/auth/initial-user-data.js";
+import { DEFAULT_CATEGORIES } from "../src/features/auth/initial-user-data.js";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 
 // Development seed: a dev user with the same initial data that production
@@ -42,15 +39,6 @@ async function main(): Promise<void> {
         data: { ...category, userId: user.id },
       });
     }
-  }
-
-  const existingAccount = await prisma.account.findFirst({
-    where: { userId: user.id, name: DEFAULT_ACCOUNT_NAME },
-  });
-  if (!existingAccount) {
-    await prisma.account.create({
-      data: { userId: user.id, name: DEFAULT_ACCOUNT_NAME, type: "CASH", currency: "USD" },
-    });
   }
 
   const categoryCount = await prisma.category.count({ where: { userId: user.id } });

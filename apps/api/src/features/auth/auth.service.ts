@@ -50,7 +50,7 @@ export async function registerUser(
         },
       });
 
-      await createInitialUserData(tx, user.id, user.defaultCurrency);
+      await createInitialUserData(tx, user.id);
       const refreshToken = await issueRefreshToken(tx, user.id);
 
       return { user, refreshToken };

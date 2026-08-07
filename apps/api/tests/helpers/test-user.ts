@@ -3,7 +3,6 @@ import type { FastifyInstance } from "fastify";
 export interface TestUser {
   userId: string;
   accessToken: string;
-  accountId: string;
   expenseCategoryId: string;
   incomeCategoryId: string;
 }
@@ -12,10 +11,10 @@ let counter = 0;
 
 // Goes through the real /auth/register and list endpoints instead of
 // touching Prisma directly, so tests exercise the same setup a real client
-// would (and pick up the default account/categories from RFC-0010).
+// would (and pick up the default categories from RFC-0010).
 export async function registerTestUser(app: FastifyInstance): Promise<TestUser> {
   counter += 1;
-  const email = `transactions-test-${Date.now()}-${counter}@example.com`;
+  const email = `test-${Date.now()}-${counter}@example.com`;
 
   const registerRes = await app.inject({
     method: "POST",
@@ -25,9 +24,6 @@ export async function registerTestUser(app: FastifyInstance): Promise<TestUser> 
   const { user, accessToken } = registerRes.json();
 
   const authHeader = { authorization: `Bearer ${accessToken}` };
-
-  const accountsRes = await app.inject({ method: "GET", url: "/accounts", headers: authHeader });
-  const { data: accounts } = accountsRes.json();
 
   const categoriesRes = await app.inject({
     method: "GET",
@@ -48,20 +44,16 @@ export async function registerTestUser(app: FastifyInstance): Promise<TestUser> 
   return {
     userId: user.id,
     accessToken,
-    accountId: accounts[0].id,
     expenseCategoryId: expenseCategory.id,
     incomeCategoryId: incomeCategory.id,
   };
 }
 
 export async function cleanupTestUser(app: FastifyInstance, userId: string): Promise<void> {
-  // Transactions, recurring templates and expense items reference
-  // Account/Category with onDelete: Restrict, so the User's cascade delete
-  // (RefreshToken/Account/Category/...) fails unless they're removed first.
-  // Scenarios must go before expenseItem/income: ScenarioItem/ScenarioIncome
-  // reference them with onDelete: Restrict too.
-  await app.prisma.transaction.deleteMany({ where: { account: { userId } } });
-  await app.prisma.recurringTransaction.deleteMany({ where: { userId } });
+  // expenseItem references Category with onDelete: Restrict, so the User's
+  // cascade delete (RefreshToken/Account/Category/...) fails unless it's
+  // removed first. Scenarios must go before expenseItem/income:
+  // ScenarioItem/ScenarioIncome reference them with onDelete: Restrict too.
   await app.prisma.scenario.deleteMany({ where: { userId } });
   await app.prisma.expenseItem.deleteMany({ where: { userId } });
   await app.prisma.user.delete({ where: { id: userId } });
