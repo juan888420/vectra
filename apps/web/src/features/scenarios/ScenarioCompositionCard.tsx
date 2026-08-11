@@ -1,6 +1,6 @@
 import type { ScenarioCompositionPublic } from "@vectra/types";
 import { Button, cn } from "@vectra/ui";
-import { formatMoney } from "@vectra/utils";
+import { formatMoney, formatMoneyCompact } from "@vectra/utils";
 import { X } from "lucide-react";
 import { useState } from "react";
 
@@ -62,14 +62,17 @@ export function ScenarioCompositionCard({
         <button
           type="button"
           onClick={() => setDetailOpen(true)}
-          className="flex w-full flex-col items-center gap-1.5"
+          className="flex w-full flex-col items-center gap-1.5 rounded-md focus-ring"
         >
           <span className="line-clamp-2 min-h-[2.5rem] w-full text-sm font-medium leading-5">
             {composition.childScenarioName}
           </span>
 
-          <span className="truncate text-base font-bold tabular-nums">
-            {monthly === undefined ? "…" : formatMoney(monthly, currency)}
+          <span
+            className="w-full truncate text-base font-bold tabular-nums"
+            title={monthly === undefined ? undefined : formatMoney(monthly, currency)}
+          >
+            {monthly === undefined ? "…" : formatMoneyCompact(monthly, currency)}
           </span>
 
           <span className="text-xs text-muted-foreground">
@@ -83,7 +86,7 @@ export function ScenarioCompositionCard({
             variant="ghost"
             size="icon"
             className={cn(
-              "absolute right-1.5 top-1.5 size-6 rounded-md text-muted-foreground opacity-0 transition-opacity",
+              "absolute right-1.5 top-1.5 size-7 rounded-md text-muted-foreground opacity-0 transition-opacity",
               "hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
               "pointer-coarse:opacity-100 [&_svg]:size-3.5",
             )}

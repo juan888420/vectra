@@ -16,6 +16,10 @@ import { Plus, Tags } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { CardGrid } from "../../components/CardGrid.js";
+import { ListPageHeader } from "../../components/ListPageHeader.js";
+import { PageContainer } from "../../components/PageContainer.js";
+import { Pagination } from "../../components/Pagination.js";
 import { ApiError } from "../../lib/api-client.js";
 import { CategoryCard } from "./CategoryCard.js";
 import { CategoryFormDialog } from "./CategoryFormDialog.js";
@@ -73,20 +77,18 @@ export function CategoriesPage() {
   const categories = data?.data ?? [];
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Categorías</h1>
-          <p className="text-sm text-muted-foreground">
-            Agrupa tus transacciones para presupuestos y reportes.
-          </p>
-        </div>
-        <Button onClick={() => setFormDialog({ mode: "create" })}>
-          <Plus /> Nueva categoría
-        </Button>
-      </div>
+    <PageContainer>
+      <ListPageHeader
+        title="Categorías"
+        description="Agrupa tus productos por área de tu vida y mira cuánto pesa cada una."
+        action={
+          <Button onClick={() => setFormDialog({ mode: "create" })}>
+            <Plus /> Nueva categoría
+          </Button>
+        }
+      />
 
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end lg:mb-6">
         <Button
           variant={includeArchived ? "secondary" : "outline"}
           size="sm"
@@ -100,17 +102,18 @@ export function CategoriesPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
-          <Skeleton className="h-28 w-full rounded-xl" />
-          <Skeleton className="h-28 w-full rounded-xl" />
-          <Skeleton className="h-28 w-full rounded-xl" />
-          <Skeleton className="h-28 w-full rounded-xl" />
-        </div>
+        <CardGrid density="card">
+          {Array.from({ length: 6 }, (_, index) => (
+            <li key={index}>
+              <Skeleton className="h-36 w-full rounded-xl" />
+            </li>
+          ))}
+        </CardGrid>
       ) : categories.length === 0 ? (
         <EmptyState
           icon={Tags}
           title="Todavía no hay categorías"
-          description="Crea tu primera categoría para empezar a organizar transacciones."
+          description="Crea tu primera categoría para empezar a organizar tus productos."
           action={
             <Button onClick={() => setFormDialog({ mode: "create" })}>
               <Plus /> Nueva categoría
@@ -118,7 +121,7 @@ export function CategoriesPage() {
           }
         />
       ) : (
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+        <CardGrid density="card">
           {categories.map((category) => (
             <li key={category.id} className="flex">
               <CategoryCard
@@ -130,34 +133,14 @@ export function CategoriesPage() {
               />
             </li>
           ))}
-        </ul>
+        </CardGrid>
       )}
 
-      {data && data.meta.totalPages > 1 ? (
-        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            Página {data.meta.page} de {data.meta.totalPages}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((value) => value - 1)}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= data.meta.totalPages}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <Pagination
+        page={data?.meta.page ?? 1}
+        totalPages={data?.meta.totalPages ?? 1}
+        onPageChange={setPage}
+      />
 
       <CategoryFormDialog
         open={formDialog !== null}
@@ -188,17 +171,19 @@ export function CategoriesPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>¿Eliminar &quot;{pendingDelete?.name}&quot;?</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta acción no se puede deshacer. Las categorías con transacciones o presupuestos no
-                se pueden eliminar, archívalas en su lugar.
+                Esta categoría no tiene productos, así que se eliminará por completo. Esta acción no
+                se puede deshacer: si prefieres conservarla fuera de tu vista, archívala.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
+              <AlertDialogAction variant="destructive" onClick={() => void handleDelete()}>
+                Eliminar
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       )}
-    </div>
+    </PageContainer>
   );
 }

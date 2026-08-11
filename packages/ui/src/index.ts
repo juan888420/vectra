@@ -68,6 +68,16 @@ export {
   SelectContent,
   SelectItem,
 } from "./components/ui/select.js";
+export {
+  Sheet,
+  SheetTrigger,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  type SheetContentProps,
+} from "./components/ui/sheet.js";
 export { DataTable, type DataTableColumn, type DataTableProps } from "./components/data-table.js";
 export { EmptyState, type EmptyStateProps } from "./components/empty-state.js";
 export { FormDialog, type FormDialogProps } from "./components/form-dialog.js";

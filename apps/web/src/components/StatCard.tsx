@@ -19,21 +19,40 @@ export interface StatCardProps {
   icon?: ComponentType<{ className?: string }>;
   badge?: { label: string; tone: StatTone };
   isLoading?: boolean;
+  /** Exact figure behind an abbreviated `value`, surfaced on hover. */
+  valueTitle?: string;
 }
 
-export function StatCard({ label, value, icon: Icon, badge, isLoading }: StatCardProps) {
+export function StatCard({
+  label,
+  value,
+  icon: Icon,
+  badge,
+  isLoading,
+  valueTitle,
+}: StatCardProps) {
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-        {Icon ? <Icon className="size-4 text-muted-foreground" /> : null}
+        <CardTitle className="truncate text-sm font-medium text-muted-foreground">
+          {label}
+        </CardTitle>
+        {Icon ? <Icon className="size-4 shrink-0 text-muted-foreground" /> : null}
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <Skeleton className="h-8 w-24" />
         ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-semibold tracking-tight">{value}</span>
+          // Wraps rather than overflows: three of these sit side by side from
+          // sm up, which leaves each one about 200px for a figure that can be
+          // eight digits long.
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span
+              className="min-w-0 text-xl font-semibold tracking-tight tabular-nums sm:text-2xl"
+              title={valueTitle}
+            >
+              {value}
+            </span>
             {badge ? (
               <Badge className={TONE_BADGE_CLASSNAME[badge.tone]}>{badge.label}</Badge>
             ) : null}

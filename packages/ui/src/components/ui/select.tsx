@@ -16,7 +16,14 @@ export function SelectTrigger({
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        "flex h-9 w-full items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 shadow-sm disabled:cursor-not-allowed disabled:opacity-50",
+        // 16px on touch viewports: Safari iOS zooms into any control with a
+        // smaller font and never zooms back out.
+        "text-base md:text-sm",
+        // The value can be a long category or scenario name — let it clip
+        // rather than push the chevron out of the trigger.
+        "[&>span]:min-w-0 [&>span]:truncate",
+        "focus-ring",
         className,
       )}
       {...props}
@@ -41,18 +48,26 @@ export function SelectContent({
         position={position}
         className={cn(
           "relative z-50 min-w-32 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          // Every list in the app is fetched with `pageSize: 100`, so an
+          // uncapped dropdown can run past the bottom of the viewport with no
+          // way to reach the last option. Radix measures the room actually
+          // available and exposes it here; 24rem keeps it from swallowing a
+          // tall desktop screen.
+          "max-h-[min(24rem,var(--radix-select-content-available-height))] overflow-y-auto",
+          "data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1",
           className,
         )}
         {...props}
       >
+        {/* No `h-[--radix-select-trigger-height]` here: that pins the list to
+            the trigger's own height (~36px) instead of letting it size to its
+            options. The width floor is the useful half of that pairing. */}
         <SelectPrimitive.Viewport
           className={cn(
             "p-1",
-            position === "popper" &&
-              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]",
+            position === "popper" && "w-full min-w-[var(--radix-select-trigger-width)]",
           )}
         >
           {children}
@@ -70,7 +85,9 @@ export function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        // py-2 rather than py-1.5: ~36px rows are comfortably tappable in a
+        // list that is often scrolled with a thumb.
+        "relative flex w-full cursor-default select-none items-center rounded-sm py-2 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,
       )}
       {...props}

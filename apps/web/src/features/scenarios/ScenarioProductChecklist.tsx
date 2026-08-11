@@ -88,7 +88,7 @@ export function ScenarioProductChecklist({
               onClick={() => onToggle(item.id)}
               aria-pressed={isStaged}
               className={cn(
-                "flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+                "flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors focus-ring",
                 isStaged ? "border-primary/40 bg-primary/5" : "border-border hover:bg-muted/60",
               )}
             >
@@ -128,9 +128,12 @@ export function ScenarioProductChecklist({
                   transition={{ duration: 0.15 }}
                   className="overflow-hidden"
                 >
-                  <div className="ml-8 mt-1.5 flex items-center gap-1.5">
+                  {/* Wraps at both levels: the label above the chips, and the
+                      chips among themselves. Four labels plus the indent came
+                      to ~340px, wider than the card that contains them. */}
+                  <div className="ml-8 mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
                     <span className="text-xs text-muted-foreground">Frecuencia:</span>
-                    <div className="flex gap-1 rounded-md bg-muted/60 p-0.5">
+                    <div className="flex flex-wrap gap-1 rounded-md bg-muted/60 p-0.5">
                       {FREQUENCY_CHOICES.map((choice) => {
                         const isSelected = choice === currentChoice;
                         return (
@@ -143,7 +146,7 @@ export function ScenarioProductChecklist({
                             }}
                             aria-pressed={isSelected}
                             className={cn(
-                              "rounded px-2 py-0.5 text-xs font-medium transition-colors",
+                              "rounded px-2 py-1 text-xs font-medium transition-colors focus-ring",
                               isSelected
                                 ? "bg-background text-foreground shadow-sm"
                                 : "text-muted-foreground hover:text-foreground",

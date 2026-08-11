@@ -145,7 +145,7 @@ export function ScenarioInlineProductForm({
                         onClick={() => field.onChange(value)}
                         aria-pressed={isSelected}
                         className={cn(
-                          "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                          "rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-ring",
                           isSelected
                             ? "bg-background text-foreground shadow-sm"
                             : "text-muted-foreground hover:text-foreground",

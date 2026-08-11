@@ -1,4 +1,4 @@
-import { Button, EmptyState } from "@vectra/ui";
+import { Button, EmptyState, Skeleton } from "@vectra/ui";
 import { Layers, Plus } from "lucide-react";
 import { Navigate, useOutletContext } from "react-router";
 
@@ -13,7 +13,14 @@ export function ScenariosIndexPage() {
   const { openCreateDialog } = useOutletContext<ScenariosOutletContext>();
 
   if (isLoading) {
-    return null;
+    // Was `return null`, i.e. a blank panel until the request landed — the
+    // one surface in the app that showed nothing at all while loading.
+    return (
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 sm:p-6">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </div>
+    );
   }
 
   const scenarios = data?.data ?? [];
@@ -23,8 +30,9 @@ export function ScenariosIndexPage() {
   }
 
   return (
-    <div className="flex h-full items-center justify-center p-6">
+    <div className="flex h-full items-center justify-center p-4 sm:p-6">
       <EmptyState
+        className="w-full max-w-md"
         icon={Layers}
         title={scenarios.length === 0 ? "Todavía no hay escenarios" : "Ningún escenario activo"}
         description={

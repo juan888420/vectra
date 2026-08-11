@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@vectra/ui";
-import { formatMoney } from "@vectra/utils";
+import { formatMoney, formatMoneyCompact } from "@vectra/utils";
 import { Archive, ArchiveRestore, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 
@@ -59,7 +59,7 @@ export function CategoryCard({
   return (
     <div
       className={cn(
-        "group relative flex w-full flex-col items-center justify-center gap-1.5 overflow-hidden rounded-xl border p-4 text-center transition-colors",
+        "group relative flex w-full flex-col items-center justify-center gap-1.5 overflow-hidden rounded-xl border p-4 text-center transition-colors lg:gap-2 lg:p-5",
         color.wash,
         "hover:brightness-95 dark:hover:brightness-110",
       )}
@@ -78,8 +78,11 @@ export function CategoryCard({
           {CATEGORY_TYPE_LABELS[category.type]}
         </span>
 
-        <span className="truncate text-base font-bold tabular-nums">
-          {summary === undefined ? "…" : formatMoney(summary.totals.monthly, currency)}
+        <span
+          className="w-full truncate text-base font-bold tabular-nums"
+          title={summary === undefined ? undefined : formatMoney(summary.totals.monthly, currency)}
+        >
+          {summary === undefined ? "…" : formatMoneyCompact(summary.totals.monthly, currency)}
         </span>
 
         <span className="text-xs text-muted-foreground">
@@ -100,7 +103,7 @@ export function CategoryCard({
             variant="ghost"
             size="icon"
             className={cn(
-              "absolute right-1.5 top-1.5 size-6 rounded-md text-muted-foreground opacity-0 transition-opacity",
+              "absolute right-1.5 top-1.5 size-7 rounded-md text-muted-foreground opacity-0 transition-opacity",
               "hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
               "pointer-coarse:opacity-100 [&_svg]:size-3.5",
             )}

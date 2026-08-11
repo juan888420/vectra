@@ -1,4 +1,4 @@
-import { formatMoney } from "@vectra/utils";
+import { formatMoney, formatMoneyCompact } from "@vectra/utils";
 
 import { StatCard } from "./StatCard.js";
 
@@ -21,23 +21,26 @@ export function ProjectionStatCards({
   currency,
   isLoading,
 }: ProjectionStatCardsProps) {
+  // The 12-month figure is an order of magnitude above the monthly one, so
+  // these abbreviate past a million and keep the exact value on hover — the
+  // full number stays one hop away on whichever detail page owns it.
+  const cards = [
+    { label: "Mensual", amount: monthly ?? 0 },
+    { label: "6 meses", amount: sixMonths ?? 0 },
+    { label: "Anual", amount: twelveMonths ?? 0 },
+  ];
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      <StatCard
-        label="Mensual"
-        value={isLoading ? undefined : formatMoney(monthly ?? 0, currency)}
-        isLoading={isLoading}
-      />
-      <StatCard
-        label="6 meses"
-        value={isLoading ? undefined : formatMoney(sixMonths ?? 0, currency)}
-        isLoading={isLoading}
-      />
-      <StatCard
-        label="Anual"
-        value={isLoading ? undefined : formatMoney(twelveMonths ?? 0, currency)}
-        isLoading={isLoading}
-      />
+      {cards.map((card) => (
+        <StatCard
+          key={card.label}
+          label={card.label}
+          value={isLoading ? undefined : formatMoneyCompact(card.amount, currency)}
+          valueTitle={isLoading ? undefined : formatMoney(card.amount, currency)}
+          isLoading={isLoading}
+        />
+      ))}
     </div>
   );
 }

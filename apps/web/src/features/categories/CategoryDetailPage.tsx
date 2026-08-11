@@ -14,28 +14,19 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   EmptyState,
   Skeleton,
 } from "@vectra/ui";
 import { formatMoney } from "@vectra/utils";
-import {
-  Archive,
-  ArchiveRestore,
-  ChevronLeft,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  ShoppingBag,
-  Trash2,
-} from "lucide-react";
+import { Archive, ArchiveRestore, Pencil, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router";
+import { Navigate, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
+import { CardGrid } from "../../components/CardGrid.js";
+import { DetailPageHeader } from "../../components/DetailPageHeader.js";
+import { PageContainer } from "../../components/PageContainer.js";
 import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
 import { ApiError } from "../../lib/api-client.js";
 import { useAuth } from "../auth/useAuth.js";
@@ -98,55 +89,54 @@ export function CategoryDetailPage() {
 
   if (isLoading || !summary) {
     return (
-      <div className="mx-auto max-w-4xl">
-        <Skeleton className="h-24 w-full" />
-      </div>
+      <PageContainer className="flex flex-col gap-6 lg:gap-8">
+        <Skeleton className="h-8 w-56" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </PageContainer>
     );
   }
 
   const { category, items } = summary;
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <div>
-        <Link
-          to="/categories"
-          className="mb-2 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" /> Categorías
-        </Link>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">{category.name}</h1>
+    <PageContainer className="flex flex-col gap-6 lg:gap-8">
+      <DetailPageHeader
+        backTo="/categories"
+        backLabel="Categorías"
+        title={category.name}
+        actionsLabel="Acciones de la categoría"
+        badges={
+          <>
             <Badge variant="outline">{CATEGORY_TYPE_LABELS[category.type]}</Badge>
             {category.archivedAt ? <Badge variant="secondary">Archivada</Badge> : null}
-          </div>
-          {!category.isSystem ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Acciones de la categoría">
-                  <MoreHorizontal />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => setRenaming(true)}>
-                  <Pencil /> Renombrar
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => void handleToggleArchive()}>
-                  {category.archivedAt ? <ArchiveRestore /> : <Archive />}
-                  {category.archivedAt ? "Desarchivar" : "Archivar"}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onSelect={() => setConfirmingDelete(true)}
-                >
-                  <Trash2 /> Eliminar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-        </div>
-      </div>
+          </>
+        }
+        // System categories expose no menu at all — same rule as before.
+        actions={
+          category.isSystem ? undefined : (
+            <>
+              <DropdownMenuItem onSelect={() => setRenaming(true)}>
+                <Pencil /> Renombrar
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleToggleArchive()}>
+                {category.archivedAt ? <ArchiveRestore /> : <Archive />}
+                {category.archivedAt ? "Desarchivar" : "Archivar"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onSelect={() => setConfirmingDelete(true)}
+              >
+                <Trash2 /> Eliminar
+              </DropdownMenuItem>
+            </>
+          )
+        }
+      />
 
       <ProjectionStatCards
         monthly={summary.totals.monthly}
@@ -164,7 +154,7 @@ export function CategoryDetailPage() {
       ) : null}
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <CardTitle>Productos</CardTitle>
           {category.type === "EXPENSE" && !category.archivedAt ? (
             <Button size="sm" onClick={() => setCreatingItem(true)}>
@@ -183,13 +173,13 @@ export function CategoryDetailPage() {
             // Same ExpenseItemCard as the Productos list, read-only
             // (canEdit={false}) — a product never gets a second look
             // depending on where you're viewing it from.
-            <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
+            <CardGrid density="tile">
               {items.map((item) => (
                 <li key={item.id} className="flex">
                   <ExpenseItemCard item={item} categoryName={category.name} canEdit={false} />
                 </li>
               ))}
-            </ul>
+            </CardGrid>
           )}
         </CardContent>
       </Card>
@@ -216,17 +206,19 @@ export function CategoryDetailPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>¿Eliminar &quot;{category.name}&quot;?</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta acción no se puede deshacer. Las categorías con transacciones o presupuestos no
-                se pueden eliminar, archívalas en su lugar.
+                Esta categoría no tiene productos, así que se eliminará por completo. Esta acción no
+                se puede deshacer: si prefieres conservarla fuera de tu vista, archívala.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
+              <AlertDialogAction variant="destructive" onClick={() => void handleDelete()}>
+                Eliminar
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -1,6 +1,6 @@
 import type { IncomeFrequency, ScenarioIncomePublic } from "@vectra/types";
 import { Badge, Button, cn } from "@vectra/ui";
-import { formatMoney } from "@vectra/utils";
+import { formatMoney, formatMoneyCompact } from "@vectra/utils";
 import { X } from "lucide-react";
 
 import { ScenarioOutdatedIndicator, scenarioRowClassName } from "./ScenarioOutdatedIndicator.js";
@@ -43,8 +43,11 @@ export function ScenarioIncomeCard({ income, canEdit, onRemove }: ScenarioIncome
 
       <Badge variant="outline">{FREQUENCY_LABELS[income.frequency]}</Badge>
 
-      <span className="truncate text-base font-bold tabular-nums">
-        {formatMoney(income.amount, income.currency)}
+      <span
+        className="w-full truncate text-base font-bold tabular-nums"
+        title={formatMoney(income.amount, income.currency)}
+      >
+        {formatMoneyCompact(income.amount, income.currency)}
       </span>
 
       {canEdit ? (
@@ -52,7 +55,7 @@ export function ScenarioIncomeCard({ income, canEdit, onRemove }: ScenarioIncome
           variant="ghost"
           size="icon"
           className={cn(
-            "absolute right-1.5 top-1.5 size-6 rounded-md text-muted-foreground opacity-0 transition-opacity",
+            "absolute right-1.5 top-1.5 size-7 rounded-md text-muted-foreground opacity-0 transition-opacity",
             "hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
             "pointer-coarse:opacity-100 [&_svg]:size-3.5",
           )}

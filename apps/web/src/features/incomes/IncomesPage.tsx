@@ -16,6 +16,10 @@ import { Banknote, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { CardGrid } from "../../components/CardGrid.js";
+import { ListPageHeader } from "../../components/ListPageHeader.js";
+import { PageContainer } from "../../components/PageContainer.js";
+import { Pagination } from "../../components/Pagination.js";
 import { ApiError } from "../../lib/api-client.js";
 import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
 import { useScenarioImpact } from "../scenarios/use-scenario-impact.js";
@@ -69,20 +73,18 @@ export function IncomesPage() {
   const incomes = data?.data ?? [];
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Ingresos</h1>
-          <p className="text-sm text-muted-foreground">
-            Sueldo, freelance, dividendos... y su cobertura frente a tus escenarios.
-          </p>
-        </div>
-        <Button onClick={() => setFormDialog({ mode: "create" })}>
-          <Plus /> Nuevo ingreso
-        </Button>
-      </div>
+    <PageContainer>
+      <ListPageHeader
+        title="Ingresos"
+        description="Sueldo, freelance, dividendos... y su cobertura frente a tus escenarios."
+        action={
+          <Button onClick={() => setFormDialog({ mode: "create" })}>
+            <Plus /> Nuevo ingreso
+          </Button>
+        }
+      />
 
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end lg:mb-6">
         <Button
           variant={includeArchived ? "secondary" : "outline"}
           size="sm"
@@ -96,11 +98,13 @@ export function IncomesPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
-          <Skeleton className="h-32 w-full rounded-xl" />
-          <Skeleton className="h-32 w-full rounded-xl" />
-          <Skeleton className="h-32 w-full rounded-xl" />
-        </div>
+        <CardGrid density="card">
+          {Array.from({ length: 6 }, (_, index) => (
+            <li key={index}>
+              <Skeleton className="h-36 w-full rounded-xl" />
+            </li>
+          ))}
+        </CardGrid>
       ) : incomes.length === 0 ? (
         <EmptyState
           icon={Banknote}
@@ -113,7 +117,7 @@ export function IncomesPage() {
           }
         />
       ) : (
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+        <CardGrid density="card">
           {incomes.map((income) => (
             <li key={income.id} className="flex">
               <IncomeCard
@@ -124,34 +128,14 @@ export function IncomesPage() {
               />
             </li>
           ))}
-        </ul>
+        </CardGrid>
       )}
 
-      {data && data.meta.totalPages > 1 ? (
-        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            Página {data.meta.page} de {data.meta.totalPages}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((value) => value - 1)}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= data.meta.totalPages}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <Pagination
+        page={data?.meta.page ?? 1}
+        totalPages={data?.meta.totalPages ?? 1}
+        onPageChange={setPage}
+      />
 
       <IncomeFormDialog
         open={formDialog !== null}
@@ -180,10 +164,12 @@ export function IncomesPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={() => void handleDelete()}>
+              Eliminar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

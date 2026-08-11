@@ -36,10 +36,13 @@ export function ScenarioUsageList({ scenarios }: ScenarioUsageListProps) {
               <li key={scenario.id}>
                 <Link
                   to={`/scenarios/${scenario.id}`}
-                  className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent"
+                  className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent focus-ring"
                 >
-                  <span className="font-medium">{scenario.name}</span>
-                  <Badge variant={scenario.status === "ACTIVE" ? "default" : "outline"}>
+                  <span className="min-w-0 truncate font-medium">{scenario.name}</span>
+                  <Badge
+                    variant={scenario.status === "ACTIVE" ? "default" : "outline"}
+                    className="shrink-0"
+                  >
                     {SCENARIO_STATUS_LABELS[scenario.status]}
                   </Badge>
                 </Link>

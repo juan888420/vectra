@@ -129,25 +129,36 @@ export function ScenarioDetailPage() {
 
   if (isLoading || !scenario) {
     return (
-      <div className="mx-auto max-w-4xl p-6">
-        <Skeleton className="h-24 w-full" />
+      <div className="mx-auto flex max-w-4xl flex-col gap-6 p-4 sm:p-6">
+        <Skeleton className="h-8 w-56" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
+        <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 sm:p-6">
       <div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">{scenario.name}</h1>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight break-words">{scenario.name}</h1>
             <Badge variant={scenario.status === "ACTIVE" ? "default" : "outline"}>
               {STATUS_LABELS[scenario.status]}
             </Badge>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Acciones del escenario">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                aria-label="Acciones del escenario"
+              >
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
@@ -202,7 +213,9 @@ export function ScenarioDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={() => void handleDelete()}>
+              Eliminar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

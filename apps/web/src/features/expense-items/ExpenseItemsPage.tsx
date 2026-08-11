@@ -21,6 +21,10 @@ import { Plus, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { CardGrid } from "../../components/CardGrid.js";
+import { ListPageHeader } from "../../components/ListPageHeader.js";
+import { PageContainer } from "../../components/PageContainer.js";
+import { Pagination } from "../../components/Pagination.js";
 import { ApiError } from "../../lib/api-client.js";
 import { useCategories } from "../categories/use-categories.js";
 import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
@@ -94,20 +98,18 @@ export function ExpenseItemsPage() {
   const hasActiveFilters = categoryFilter !== ALL;
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Productos</h1>
-          <p className="text-sm text-muted-foreground">
-            Gastos reutilizables que puedes combinar en cualquier escenario.
-          </p>
-        </div>
-        <Button onClick={() => setFormDialog({ mode: "create" })}>
-          <Plus /> Nuevo producto
-        </Button>
-      </div>
+    <PageContainer>
+      <ListPageHeader
+        title="Productos"
+        description="Gastos reutilizables que puedes combinar en cualquier escenario."
+        action={
+          <Button onClick={() => setFormDialog({ mode: "create" })}>
+            <Plus /> Nuevo producto
+          </Button>
+        }
+      />
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 lg:mb-6">
         <Select
           value={categoryFilter}
           onValueChange={(value) => {
@@ -115,7 +117,9 @@ export function ExpenseItemsPage() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-48">
+          {/* Grows to fill the row on a phone instead of sitting at a fixed
+              12rem next to a wrapped button. */}
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -141,14 +145,13 @@ export function ExpenseItemsPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
-          <Skeleton className="h-24 w-full rounded-xl" />
-          <Skeleton className="h-24 w-full rounded-xl" />
-          <Skeleton className="h-24 w-full rounded-xl" />
-          <Skeleton className="h-24 w-full rounded-xl" />
-          <Skeleton className="h-24 w-full rounded-xl" />
-          <Skeleton className="h-24 w-full rounded-xl" />
-        </div>
+        <CardGrid density="tile">
+          {Array.from({ length: 8 }, (_, index) => (
+            <li key={index}>
+              <Skeleton className="h-28 w-full rounded-xl" />
+            </li>
+          ))}
+        </CardGrid>
       ) : items.length === 0 ? (
         <EmptyState
           icon={ShoppingBag}
@@ -171,7 +174,7 @@ export function ExpenseItemsPage() {
           }
         />
       ) : (
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
+        <CardGrid density="tile">
           {items.map((item) => (
             <li key={item.id} className="flex">
               <ExpenseItemCard
@@ -183,34 +186,14 @@ export function ExpenseItemsPage() {
               />
             </li>
           ))}
-        </ul>
+        </CardGrid>
       )}
 
-      {data && data.meta.totalPages > 1 ? (
-        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            Página {data.meta.page} de {data.meta.totalPages}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((value) => value - 1)}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= data.meta.totalPages}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <Pagination
+        page={data?.meta.page ?? 1}
+        totalPages={data?.meta.totalPages ?? 1}
+        onPageChange={setPage}
+      />
 
       <ExpenseItemFormDialog
         open={formDialog !== null}
@@ -239,10 +222,12 @@ export function ExpenseItemsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={() => void handleDelete()}>
+              Eliminar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }
