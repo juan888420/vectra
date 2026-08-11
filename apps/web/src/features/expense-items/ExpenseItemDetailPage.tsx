@@ -9,18 +9,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Badge,
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   Skeleton,
 } from "@vectra/ui";
-import { Archive, ArchiveRestore, ChevronLeft, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
+import { DetailPageHeader } from "../../components/DetailPageHeader.js";
+import { PageContainer } from "../../components/PageContainer.js";
 import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
 import { ScenarioUsageList } from "../../components/ScenarioUsageList.js";
 import { ApiError } from "../../lib/api-client.js";
@@ -85,9 +83,15 @@ export function ExpenseItemDetailPage() {
 
   if (isLoading || !summary) {
     return (
-      <div className="mx-auto max-w-4xl">
-        <Skeleton className="h-24 w-full" />
-      </div>
+      <PageContainer className="flex flex-col gap-6 lg:gap-8">
+        <Skeleton className="h-8 w-56" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </PageContainer>
     );
   }
 
@@ -95,52 +99,45 @@ export function ExpenseItemDetailPage() {
   const category = (categoriesData?.data ?? []).find((entry) => entry.id === item.categoryId);
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <div>
-        <Link
-          to="/expense-items"
-          className="mb-2 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" /> Productos
-        </Link>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">{item.name}</h1>
+    <PageContainer className="flex flex-col gap-6 lg:gap-8">
+      <DetailPageHeader
+        backTo="/expense-items"
+        backLabel="Productos"
+        title={item.name}
+        actionsLabel="Acciones del producto"
+        badges={
+          <>
             <Badge variant="outline">{FREQUENCY_LABELS[item.frequency]}</Badge>
             {item.archivedAt ? <Badge variant="secondary">Archivado</Badge> : null}
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Acciones del producto">
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setEditing(true)}>
-                <Pencil /> Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleToggleArchive()}>
-                {item.archivedAt ? <ArchiveRestore /> : <Archive />}
-                {item.archivedAt ? "Desarchivar" : "Archivar"}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onSelect={() => setConfirmingDelete(true)}
-              >
-                <Trash2 /> Eliminar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+          </>
+        }
+        actions={
+          <>
+            <DropdownMenuItem onSelect={() => setEditing(true)}>
+              <Pencil /> Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void handleToggleArchive()}>
+              {item.archivedAt ? <ArchiveRestore /> : <Archive />}
+              {item.archivedAt ? "Desarchivar" : "Archivar"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onSelect={() => setConfirmingDelete(true)}
+            >
+              <Trash2 /> Eliminar
+            </DropdownMenuItem>
+          </>
+        }
+      >
         {category ? (
           <Link
             to={`/categories/${category.id}`}
-            className="mt-1 inline-block text-sm text-muted-foreground hover:text-foreground hover:underline"
+            className="mt-1 inline-block rounded-md text-sm text-muted-foreground hover:text-foreground hover:underline focus-ring"
           >
             {category.name}
           </Link>
         ) : null}
-      </div>
+      </DetailPageHeader>
 
       <ProjectionStatCards
         monthly={summary.totals.monthly}
@@ -172,10 +169,12 @@ export function ExpenseItemDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={() => void handleDelete()}>
+              Eliminar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

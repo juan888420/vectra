@@ -210,7 +210,7 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
         <CardTitle>Productos</CardTitle>
         {mode !== "idle" ? (
           <Button variant="ghost" size="sm" onClick={backToIdle}>
@@ -247,7 +247,7 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
                 <button
                   type="button"
                   onClick={openCreate}
-                  className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-left transition-colors hover:bg-muted/60"
+                  className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-left transition-colors hover:bg-muted/60 focus-ring"
                 >
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Plus className="size-4" />
@@ -260,7 +260,7 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
                 <button
                   type="button"
                   onClick={openBrowse}
-                  className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-left transition-colors hover:bg-muted/60"
+                  className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-left transition-colors hover:bg-muted/60 focus-ring"
                 >
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <LayoutGrid className="size-4" />
@@ -386,13 +386,14 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
             </AnimatePresence>
 
             {mode === "browse" ? (
-              <div className="flex items-center justify-between gap-2 border-t pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
                 <span className="text-sm text-muted-foreground">
                   {pendingCount === 0
                     ? "Sin cambios pendientes"
                     : `${pendingCount} ${pendingCount === 1 ? "cambio" : "cambios"} por aplicar`}
                 </span>
                 <Button
+                  className="ml-auto"
                   onClick={() => void handleApply()}
                   disabled={pendingCount === 0 || isApplying}
                 >

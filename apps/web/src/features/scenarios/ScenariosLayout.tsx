@@ -1,6 +1,23 @@
 import type { ScenarioListItem } from "@vectra/types";
-import { Badge, Button, cn } from "@vectra/ui";
-import { Archive, ChevronLeft, ChevronRight, Layers, Plus, Sparkles } from "lucide-react";
+import {
+  Badge,
+  Button,
+  cn,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  Skeleton,
+} from "@vectra/ui";
+import {
+  Archive,
+  ChevronLeft,
+  ChevronRight,
+  Layers,
+  PanelLeft,
+  Plus,
+  Sparkles,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, Outlet, useParams } from "react-router";
 
@@ -24,9 +41,17 @@ interface ScenarioSidebarRowProps {
    * feel "lost") but read at lower emphasis than the primary list — same
    * row, same interaction, just dimmer. */
   muted?: boolean;
+  /** Lets the mobile drawer close itself the moment a scenario is picked;
+   * the desktop column passes nothing and stays put. */
+  onNavigate?: () => void;
 }
 
-function ScenarioSidebarRow({ scenario, isCurrent, muted = false }: ScenarioSidebarRowProps) {
+function ScenarioSidebarRow({
+  scenario,
+  isCurrent,
+  muted = false,
+  onNavigate,
+}: ScenarioSidebarRowProps) {
   const IconComponent = STATUS_ICONS[scenario.status];
   const isGloballyActive = scenario.status === "ACTIVE";
 
@@ -34,8 +59,9 @@ function ScenarioSidebarRow({ scenario, isCurrent, muted = false }: ScenarioSide
     <li>
       <Link
         to={`/scenarios/${scenario.id}`}
+        onClick={onNavigate}
         className={cn(
-          "flex items-center justify-between gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+          "flex items-center justify-between gap-2 rounded-md px-3 py-2 text-sm transition-colors focus-ring",
           isCurrent
             ? "bg-accent font-medium text-accent-foreground"
             : cn(
@@ -70,15 +96,88 @@ function ScenarioSidebarRow({ scenario, isCurrent, muted = false }: ScenarioSide
   );
 }
 
+interface ScenarioListProps {
+  isLoading: boolean;
+  current: ScenarioListItem[];
+  archived: ScenarioListItem[];
+  currentId: string | undefined;
+  onNavigate?: () => void;
+}
+
+/** The list itself, rendered identically by the desktop column and the mobile
+ * drawer — one implementation, so the two can't drift apart. */
+function ScenarioList({ isLoading, current, archived, currentId, onNavigate }: ScenarioListProps) {
+  if (isLoading) {
+    // Skeleton rows rather than a "Cargando…" line: the sidebar is the only
+    // place that used a text loader, which read as an error next to the
+    // skeletons every other surface shows.
+    return (
+      <div className="flex flex-col gap-1 p-2" aria-busy="true">
+        <Skeleton className="h-9 w-full rounded-md" />
+        <Skeleton className="h-9 w-full rounded-md" />
+        <Skeleton className="h-9 w-full rounded-md" />
+      </div>
+    );
+  }
+
+  if (current.length === 0 && archived.length === 0) {
+    return <p className="p-3 text-sm text-muted-foreground">Todavía no hay escenarios.</p>;
+  }
+
+  return (
+    <div className="p-2">
+      {current.length > 0 ? (
+        <ul className="flex flex-col gap-1">
+          {current.map((scenario) => (
+            <ScenarioSidebarRow
+              key={scenario.id}
+              scenario={scenario}
+              isCurrent={scenario.id === currentId}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="p-3 text-sm text-muted-foreground">Sin escenarios activos.</p>
+      )}
+
+      {archived.length > 0 ? (
+        <>
+          <div className="px-3 pb-1 pt-3 text-[11px] font-semibold tracking-wide text-muted-foreground/60 uppercase">
+            Archivados
+          </div>
+          <ul className="flex flex-col gap-1">
+            {archived.map((scenario) => (
+              <ScenarioSidebarRow
+                key={scenario.id}
+                scenario={scenario}
+                isCurrent={scenario.id === currentId}
+                muted
+                onNavigate={onNavigate}
+              />
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 // The main screen of the product (ADR-0006): a persistent list + detail
 // split, not a CRUD list you navigate away from — closer to Linear/Notion
 // than to Categories/Products/Incomes' simple list→detail navigation. Uses
 // the same design tokens as the rest of the app (bg-card/border/accent, the
 // one indigo --primary), not a bespoke dark palette — a nested panel should
 // still read as Vectra, not as a different product bolted on.
+//
+// Below `md` that split stops working: a fixed 16rem column against a 320px
+// viewport leaves nothing for the detail panel it exists to navigate. So the
+// list moves into a drawer (Sheet) and the detail takes the full width, with
+// a toolbar carrying the affordance to open it (RFC-0028).
 export function ScenariosLayout() {
   const { id } = useParams<{ id: string }>();
   const [creating, setCreating] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     try {
       return localStorage.getItem("scenarios_sidebar_collapsed") === "true";
@@ -125,10 +224,13 @@ export function ScenariosLayout() {
   };
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] gap-4">
+    <div className="flex min-h-0 flex-1 gap-4">
+      {/* Desktop column. Hidden outright below md — the drawer below covers
+          that range, and rendering both would duplicate the list in the a11y
+          tree. */}
       <aside
         className={cn(
-          "flex shrink-0 flex-col overflow-hidden rounded-lg border bg-card shadow-sm transition-all duration-300 ease-in-out",
+          "hidden shrink-0 flex-col overflow-hidden rounded-lg border bg-card shadow-sm transition-all duration-300 ease-in-out md:flex",
           isCollapsed ? "w-0 border-none opacity-0" : "w-64 opacity-100",
         )}
       >
@@ -154,72 +256,84 @@ export function ScenariosLayout() {
               variant="ghost"
               className="size-7"
               onClick={toggleSidebar}
-              aria-label="Colapsar sidebar"
+              aria-label="Colapsar lista de escenarios"
             >
               <ChevronLeft className="size-4" />
             </Button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2">
-          {isLoading ? (
-            <p className="p-3 text-sm text-muted-foreground">Cargando…</p>
-          ) : scenarios.length === 0 ? (
-            <p className="p-3 text-sm text-muted-foreground">Todavía no hay escenarios.</p>
-          ) : (
-            <>
-              {currentScenarios.length > 0 ? (
-                <ul className="flex flex-col gap-1">
-                  {currentScenarios.map((scenario) => (
-                    <ScenarioSidebarRow
-                      key={scenario.id}
-                      scenario={scenario}
-                      isCurrent={scenario.id === id}
-                    />
-                  ))}
-                </ul>
-              ) : (
-                <p className="p-3 text-sm text-muted-foreground">Sin escenarios activos.</p>
-              )}
-
-              {archivedScenarios.length > 0 ? (
-                <>
-                  <div className="px-3 pb-1 pt-3 text-[11px] font-semibold tracking-wide text-muted-foreground/60 uppercase">
-                    Archivados
-                  </div>
-                  <ul className="flex flex-col gap-1">
-                    {archivedScenarios.map((scenario) => (
-                      <ScenarioSidebarRow
-                        key={scenario.id}
-                        scenario={scenario}
-                        isCurrent={scenario.id === id}
-                        muted
-                      />
-                    ))}
-                  </ul>
-                </>
-              ) : null}
-            </>
-          )}
+        <div className="flex-1 overflow-y-auto">
+          <ScenarioList
+            isLoading={isLoading}
+            current={currentScenarios}
+            archived={archivedScenarios}
+            currentId={id}
+          />
         </div>
       </aside>
 
-      <div className="relative min-w-0 flex-1 overflow-y-auto rounded-lg border shadow-sm">
-        {isCollapsed && (
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border shadow-sm">
+        {/* Mobile toolbar: without it the list would be unreachable below md,
+            since the column above is hidden there. */}
+        <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2 md:hidden">
+          <Button variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
+            <PanelLeft /> Escenarios
+          </Button>
+          <Button size="sm" className="ml-auto" onClick={() => setCreating(true)}>
+            <Plus /> Nuevo
+          </Button>
+        </div>
+
+        {isCollapsed ? (
           <Button
             size="icon"
             variant="outline"
-            className="absolute left-3 top-3 z-40"
+            className="absolute left-3 top-3 z-40 hidden md:inline-flex"
             onClick={toggleSidebar}
-            aria-label="Expandir sidebar"
+            aria-label="Expandir lista de escenarios"
           >
             <ChevronRight className="size-4" />
           </Button>
-        )}
-        <Outlet
-          context={{ openCreateDialog: () => setCreating(true) } satisfies ScenariosOutletContext}
-        />
+        ) : null}
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <Outlet
+            context={{ openCreateDialog: () => setCreating(true) } satisfies ScenariosOutletContext}
+          />
+        </div>
       </div>
+
+      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <SheetContent className="md:hidden">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Layers className="size-4 text-primary" />
+              Escenarios
+            </SheetTitle>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <ScenarioList
+              isLoading={isLoading}
+              current={currentScenarios}
+              archived={archivedScenarios}
+              currentId={id}
+              onNavigate={() => setDrawerOpen(false)}
+            />
+          </div>
+          <div className="shrink-0 border-t p-3">
+            <Button
+              className="w-full"
+              onClick={() => {
+                setDrawerOpen(false);
+                setCreating(true);
+              }}
+            >
+              <Plus /> Nuevo escenario
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <ScenarioFormDialog open={creating} onOpenChange={setCreating} />
     </div>

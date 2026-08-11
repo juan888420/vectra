@@ -57,7 +57,110 @@
   --ring: oklch(0.673 0.182 276.935);
 }
 
+/* Overlay/panel motion. The primitives were written against
+   `tailwindcss-animate`'s composable classes (`animate-in fade-in-0
+   zoom-in-95`), but that plugin was never installed — those class names
+   compiled to nothing, so every dialog, select and dropdown appeared and
+   vanished with no transition at all. These are the few named animations
+   those components actually needed, defined here so no dependency is added.
+   The dialog keyframes carry the centering `translate(-50%,-50%)` inside
+   them: the element is centred with a transform, so an animation that set
+   `transform` without it would yank the panel to the corner mid-tween. */
+@keyframes vectra-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes vectra-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* Scale only — the centering is NOT repeated here on purpose.
+   Tailwind v4 compiles `-translate-x-1/2 -translate-y-1/2` to the independent
+   `translate` property (`translate: -50% -50%`), not to `transform`. Per spec
+   the individual `translate`/`rotate`/`scale` properties apply *before*
+   `transform`, so a keyframe that also said `transform: translate(-50%,-50%)`
+   composed on top of the centering instead of replacing it: the panel spent
+   the whole animation offset by an extra half its own width and height (left
+   192 instead of 416 at 1280px wide, top clipped above the viewport), then
+   snapped 224px sideways the instant the animation ended and `transform`
+   reverted to `none`. That snap was the "entra desde la izquierda y pega un
+   tirón". Scaling alone composes correctly, and scales about the element's
+   own centre. */
+@keyframes vectra-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes vectra-dialog-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+/* Opacity only, deliberately. Radix positions poppers (select, dropdown) with
+   its own inline transform and the components add `data-[side=…]:translate-y-1`
+   on top; animating `transform` here would override both while the tween runs
+   and snap the panel into place at the end. */
+@keyframes vectra-popover-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes vectra-popover-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vectra-sheet-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes vectra-sheet-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
 @theme inline {
+  --animate-overlay-in: vectra-overlay-in 150ms ease-out;
+  --animate-overlay-out: vectra-overlay-out 150ms ease-in;
+  --animate-dialog-in: vectra-dialog-in 160ms ease-out;
+  --animate-dialog-out: vectra-dialog-out 130ms ease-in;
+  --animate-popover-in: vectra-popover-in 120ms ease-out;
+  --animate-popover-out: vectra-popover-out 100ms ease-in;
+  --animate-sheet-in-left: vectra-sheet-in-left 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-sheet-out-left: vectra-sheet-out-left 180ms ease-in;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -84,11 +187,34 @@
   --color-ring: var(--ring);
 }
 
+/* One keyboard-focus treatment for the whole app. Primitives (Button, Input,
+   SelectTrigger) had three slightly different rings, and the plain <button>s
+   written inside features — category chips, checklist rows, the composer's
+   two entry tiles — had none at all, falling back to the browser default on
+   top of colored backgrounds. `ring-offset-background` matters here: without
+   it the offset renders transparent and the ring bleeds into a tinted chip. */
+@utility focus-ring {
+  @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Radix keeps an exiting panel mounted until its animation ends, so these
+     have to run to *some* duration rather than being removed outright. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

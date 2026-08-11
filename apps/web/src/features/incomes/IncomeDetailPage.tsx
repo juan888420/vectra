@@ -9,19 +9,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Badge,
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   Skeleton,
 } from "@vectra/ui";
 import { formatMoney } from "@vectra/utils";
-import { Archive, ArchiveRestore, ChevronLeft, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router";
+import { Navigate, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
+import { DetailPageHeader } from "../../components/DetailPageHeader.js";
+import { PageContainer } from "../../components/PageContainer.js";
 import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
 import { ScenarioUsageList } from "../../components/ScenarioUsageList.js";
 import { ApiError } from "../../lib/api-client.js";
@@ -85,53 +83,51 @@ export function IncomeDetailPage() {
 
   if (isLoading || !summary) {
     return (
-      <div className="mx-auto max-w-4xl">
-        <Skeleton className="h-24 w-full" />
-      </div>
+      <PageContainer className="flex flex-col gap-6 lg:gap-8">
+        <Skeleton className="h-8 w-56" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </PageContainer>
     );
   }
 
   const { income, totals, scenarios } = summary;
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <div>
-        <Link
-          to="/incomes"
-          className="mb-2 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" /> Ingresos
-        </Link>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">{income.name}</h1>
+    <PageContainer className="flex flex-col gap-6 lg:gap-8">
+      <DetailPageHeader
+        backTo="/incomes"
+        backLabel="Ingresos"
+        title={income.name}
+        actionsLabel="Acciones del ingreso"
+        badges={
+          <>
             <Badge variant="outline">{FREQUENCY_LABELS[income.frequency]}</Badge>
             {income.archivedAt ? <Badge variant="secondary">Archivado</Badge> : null}
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Acciones del ingreso">
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setEditing(true)}>
-                <Pencil /> Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleToggleArchive()}>
-                {income.archivedAt ? <ArchiveRestore /> : <Archive />}
-                {income.archivedAt ? "Desarchivar" : "Archivar"}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onSelect={() => setConfirmingDelete(true)}
-              >
-                <Trash2 /> Eliminar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            <DropdownMenuItem onSelect={() => setEditing(true)}>
+              <Pencil /> Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void handleToggleArchive()}>
+              {income.archivedAt ? <ArchiveRestore /> : <Archive />}
+              {income.archivedAt ? "Desarchivar" : "Archivar"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onSelect={() => setConfirmingDelete(true)}
+            >
+              <Trash2 /> Eliminar
+            </DropdownMenuItem>
+          </>
+        }
+      />
 
       {totals ? (
         <ProjectionStatCards
@@ -170,10 +166,12 @@ export function IncomeDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>Eliminar</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={() => void handleDelete()}>
+              Eliminar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageContainer>
   );
 }

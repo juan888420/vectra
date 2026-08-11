@@ -43,7 +43,7 @@ export function ScenarioCategoryChips({
             onClick={() => onSelect(category.id)}
             aria-pressed={isSelected}
             className={cn(
-              "max-w-52 truncate rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+              "max-w-52 truncate rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus-ring",
               isSelected ? color.solid : cn(color.soft, "hover:brightness-95"),
             )}
           >
@@ -58,7 +58,7 @@ export function ScenarioCategoryChips({
           onClick={onCreateCategory}
           aria-pressed={creatingCategory}
           className={cn(
-            "flex items-center gap-1 rounded-full border border-dashed px-3 py-1.5 text-xs font-normal transition-colors",
+            "flex items-center gap-1 rounded-full border border-dashed px-3 py-1.5 text-xs font-normal transition-colors focus-ring",
             creatingCategory
               ? "border-primary bg-primary text-primary-foreground"
               : "border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground",

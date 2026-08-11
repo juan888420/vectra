@@ -67,12 +67,14 @@ export function ScenarioSummaryCards({
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">
+            {/* Two currency figures plus a percentage on one line is more
+                than a phone has room for — wrap instead of overflowing. */}
+            <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 text-sm">
+              <span className="font-medium tabular-nums">
                 {formatMoney(summary.totals.monthly, currency)} de{" "}
                 {formatMoney(summary.incomeCoverage.totalIncomeMonthly, currency)}
               </span>
-              <span className="text-muted-foreground">
+              <span className="text-muted-foreground tabular-nums">
                 {summary.incomeCoverage.consumedPercentage.toFixed(0)}% consumido
               </span>
             </div>
@@ -99,15 +101,17 @@ export function ScenarioSummaryCards({
           <CardContent>
             <ul className="flex flex-col gap-1.5 text-sm">
               {summary.oneTime.items.map((item) => (
-                <li key={item.id} className="flex items-center justify-between">
-                  <span>{item.name}</span>
-                  <span className="font-medium">{formatMoney(item.amount, currency)}</span>
+                <li key={item.id} className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate">{item.name}</span>
+                  <span className="shrink-0 font-medium tabular-nums">
+                    {formatMoney(item.amount, currency)}
+                  </span>
                 </li>
               ))}
             </ul>
-            <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm font-medium">
+            <div className="mt-2 flex items-center justify-between gap-2 border-t pt-2 text-sm font-medium">
               <span>Total</span>
-              <span>{formatMoney(summary.oneTime.total, currency)}</span>
+              <span className="tabular-nums">{formatMoney(summary.oneTime.total, currency)}</span>
             </div>
           </CardContent>
         </Card>

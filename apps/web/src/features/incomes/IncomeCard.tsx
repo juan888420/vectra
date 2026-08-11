@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@vectra/ui";
-import { formatMoney } from "@vectra/utils";
+import { formatMoney, formatMoneyCompact } from "@vectra/utils";
 import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 
@@ -36,7 +36,7 @@ interface IncomeCardProps {
  * features/scenarios — same visual recipe, independent component. */
 export function IncomeCard({ income, onEdit, onToggleArchive, onDelete }: IncomeCardProps) {
   return (
-    <div className="group relative flex w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border p-5 text-center transition-colors hover:bg-muted/50">
+    <div className="group relative flex w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border p-5 text-center transition-colors hover:bg-muted/50 lg:gap-2.5 lg:p-6">
       {income.archivedAt ? (
         <span className="absolute left-2 top-2">
           <Badge variant="secondary" className="px-1.5 py-0 text-[10px] leading-tight">
@@ -50,8 +50,11 @@ export function IncomeCard({ income, onEdit, onToggleArchive, onDelete }: Income
           {income.name}
         </span>
 
-        <span className="truncate text-xl font-bold tabular-nums">
-          {formatMoney(income.amount, income.currency)}
+        <span
+          className="w-full truncate text-xl font-bold tabular-nums"
+          title={formatMoney(income.amount, income.currency)}
+        >
+          {formatMoneyCompact(income.amount, income.currency)}
         </span>
 
         <Badge variant="outline">{FREQUENCY_LABELS[income.frequency]}</Badge>
@@ -63,7 +66,7 @@ export function IncomeCard({ income, onEdit, onToggleArchive, onDelete }: Income
             variant="ghost"
             size="icon"
             className={cn(
-              "absolute right-1.5 top-1.5 size-6 rounded-md text-muted-foreground opacity-0 transition-opacity",
+              "absolute right-1.5 top-1.5 size-7 rounded-md text-muted-foreground opacity-0 transition-opacity",
               "hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
               "pointer-coarse:opacity-100 [&_svg]:size-3.5",
             )}

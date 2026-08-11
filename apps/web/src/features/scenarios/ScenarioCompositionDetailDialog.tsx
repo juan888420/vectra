@@ -42,7 +42,9 @@ export function ScenarioCompositionDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      {/* max-h/overflow now come from DialogContent itself (RFC-0028); this
+          only widens the panel, since it shows a grid rather than a form. */}
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{scenarioName}</DialogTitle>
           <DialogDescription className="sr-only">

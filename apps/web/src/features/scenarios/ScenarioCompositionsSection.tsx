@@ -89,9 +89,9 @@ export function ScenarioCompositionsSection({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {canEdit ? (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Select value={selectedId} onValueChange={setSelectedId}>
-              <SelectTrigger className="flex-1">
+              <SelectTrigger className="w-full flex-1 sm:w-auto sm:min-w-56">
                 <SelectValue placeholder="Selecciona un escenario para incluir" />
               </SelectTrigger>
               <SelectContent>

@@ -1,6 +1,6 @@
 import type { ExpenseItemFrequency, ScenarioItemPublic } from "@vectra/types";
 import { Button, cn } from "@vectra/ui";
-import { formatMoney } from "@vectra/utils";
+import { formatMoney, formatMoneyCompact } from "@vectra/utils";
 import { X } from "lucide-react";
 
 import { categoryColor } from "../categories/category-color.js";
@@ -59,8 +59,11 @@ export function ScenarioItemCard({ item, canEdit, onRemove }: ScenarioItemCardPr
       </span>
 
       <span className="flex w-full flex-col leading-tight">
-        <span className="truncate text-sm font-bold tabular-nums">
-          {formatMoney(item.amount, item.currency)}
+        <span
+          className="truncate text-sm font-bold tabular-nums"
+          title={formatMoney(item.amount, item.currency)}
+        >
+          {formatMoneyCompact(item.amount, item.currency)}
         </span>
         <span className="truncate text-[10px] text-muted-foreground">
           {FREQUENCY_LABELS[item.frequency]}
@@ -75,7 +78,7 @@ export function ScenarioItemCard({ item, canEdit, onRemove }: ScenarioItemCardPr
           // content, not as a wall of delete buttons — but always there
           // without a hover to rely on.
           className={cn(
-            "absolute right-1 top-1 size-5 rounded-md text-muted-foreground opacity-0 transition-opacity",
+            "absolute right-1 top-1 size-7 rounded-md text-muted-foreground opacity-0 transition-opacity",
             "hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
             "pointer-coarse:opacity-100 [&_svg]:size-3",
           )}

@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@vectra/ui";
-import { formatMoney } from "@vectra/utils";
+import { formatMoney, formatMoneyCompact } from "@vectra/utils";
 import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 
@@ -51,7 +51,10 @@ export function ExpenseItemCard({
   const color = categoryColor(categoryName);
 
   return (
-    <div className="group relative flex w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-xl border p-2 text-center transition-colors hover:bg-muted/50">
+    // Padding and type step up with the grid's own column minimum (CardGrid
+    // "tile"): at lg the columns are ~168px rather than ~104px, and keeping
+    // the phone-sized interior there just produced a lot of empty tile.
+    <div className="group relative flex w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-xl border p-2 text-center transition-colors hover:bg-muted/50 lg:gap-1.5 lg:p-3">
       {item.archivedAt ? (
         <span className="absolute left-1.5 top-1.5">
           <Badge variant="secondary" className="px-1 py-0 text-[9px] leading-tight">
@@ -61,13 +64,13 @@ export function ExpenseItemCard({
       ) : null}
 
       <Link to={`/expense-items/${item.id}`} className="flex w-full flex-col items-center gap-1">
-        <span className="line-clamp-2 min-h-[2rem] w-full text-xs font-medium leading-4">
+        <span className="line-clamp-2 min-h-[2rem] w-full text-xs leading-4 font-medium lg:min-h-[2.5rem] lg:text-sm lg:leading-5">
           {item.name}
         </span>
 
         <span
           className={cn(
-            "max-w-full truncate rounded-full border px-1.5 py-px text-[10px] font-medium leading-tight",
+            "max-w-full truncate rounded-full border px-1.5 py-px text-[10px] leading-tight font-medium lg:px-2 lg:text-xs",
             color.soft,
           )}
         >
@@ -75,10 +78,16 @@ export function ExpenseItemCard({
         </span>
 
         <span className="flex w-full flex-col leading-tight">
-          <span className="truncate text-sm font-bold tabular-nums">
-            {formatMoney(item.amount, item.currency)}
+          {/* Compact at tile width, exact on hover and one click away on the
+              detail page — the amount is the point of the card, so it can't
+              be silently clipped. */}
+          <span
+            className="truncate text-sm font-bold tabular-nums lg:text-base"
+            title={formatMoney(item.amount, item.currency)}
+          >
+            {formatMoneyCompact(item.amount, item.currency)}
           </span>
-          <span className="truncate text-[10px] text-muted-foreground">
+          <span className="truncate text-[10px] text-muted-foreground lg:text-xs">
             {FREQUENCY_LABELS[item.frequency]}
           </span>
         </span>
@@ -93,7 +102,7 @@ export function ExpenseItemCard({
               // Hidden until the tile is engaged, same as ScenarioItemCard's
               // remove button — but always there without a hover to rely on.
               className={cn(
-                "absolute right-1 top-1 size-5 rounded-md text-muted-foreground opacity-0 transition-opacity",
+                "absolute right-1 top-1 size-7 rounded-md text-muted-foreground opacity-0 transition-opacity",
                 "hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
                 "pointer-coarse:opacity-100 [&_svg]:size-3",
               )}
