@@ -53,7 +53,14 @@ export function FormDialog<TFieldValues extends FieldValues>({
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+          {/* `noValidate`: Zod (via zodResolver) is the single source of
+              validation copy. Without it the browser's own constraint check
+              (`type="number"` + `step`, `required`, ...) runs first and blocks
+              submit with a native bubble whose text follows the *browser's*
+              locale, not ours — so an invalid amount could surface in English
+              inside a Spanish UI (RFC-0029). Every field already carries the
+              same rule in its schema, so nothing goes unvalidated. */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4" noValidate>
             {children}
             {/* An explicit Cancel, not just the corner X: the other dialogs in
                 the app (MoveItemsAndDeleteCategory, every AlertDialog) all
