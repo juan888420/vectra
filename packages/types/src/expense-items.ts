@@ -8,7 +8,10 @@ import { withAffectedScenariosSchema } from "./scenario-impact.js";
 // `archivedAt`/`createdAt`/`updatedAt` are strings, not the backend's own
 // `z.date()`, for the same reason as accounts.ts: JSON never produces Dates.
 
-export const expenseItemFrequencySchema = z.enum(["MONTHLY", "YEARLY", "ONE_TIME"]);
+export const expenseItemFrequencySchema = z.enum(
+  ["MONTHLY", "YEARLY", "ONE_TIME"],
+  "Selecciona una frecuencia",
+);
 
 export type ExpenseItemFrequency = z.infer<typeof expenseItemFrequencySchema>;
 
@@ -29,8 +32,12 @@ export type ExpenseItemPublic = z.infer<typeof expenseItemPublicSchema>;
 // `currency` is never collected: the server always applies the user's default
 // currency (business rule 9), same as accounts and budgets.
 export const createExpenseItemBodySchema = z.object({
-  categoryId: z.uuid(),
-  name: z.string().trim().min(1).max(80),
+  categoryId: z.uuid("Selecciona una categoría"),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Ingresa un nombre para el producto")
+    .max(80, "El nombre no puede superar los 80 caracteres"),
   amount: moneyAmountSchema,
   frequency: expenseItemFrequencySchema.default("MONTHLY"),
 });
@@ -39,13 +46,17 @@ export type CreateExpenseItemBody = z.infer<typeof createExpenseItemBodySchema>;
 
 export const updateExpenseItemBodySchema = z
   .object({
-    categoryId: z.uuid(),
-    name: z.string().trim().min(1).max(80),
+    categoryId: z.uuid("Selecciona una categoría"),
+    name: z
+      .string()
+      .trim()
+      .min(1, "Ingresa un nombre para el producto")
+      .max(80, "El nombre no puede superar los 80 caracteres"),
     amount: moneyAmountSchema,
     frequency: expenseItemFrequencySchema,
   })
   .partial()
-  .refine((body) => Object.keys(body).length > 0, { message: "At least one field is required" });
+  .refine((body) => Object.keys(body).length > 0, { message: "Cambia al menos un campo" });
 
 export type UpdateExpenseItemBody = z.infer<typeof updateExpenseItemBodySchema>;
 

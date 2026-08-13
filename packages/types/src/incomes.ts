@@ -7,7 +7,10 @@ import { withAffectedScenariosSchema } from "./scenario-impact.js";
 // Hand-mirrored from apps/api/src/features/incomes/incomes.schemas.ts, same
 // string-dates caveat as expense-items.ts.
 
-export const incomeFrequencySchema = z.enum(["WEEKLY", "MONTHLY", "YEARLY", "ONE_TIME"]);
+export const incomeFrequencySchema = z.enum(
+  ["WEEKLY", "MONTHLY", "YEARLY", "ONE_TIME"],
+  "Selecciona una frecuencia",
+);
 
 export type IncomeFrequency = z.infer<typeof incomeFrequencySchema>;
 
@@ -25,7 +28,11 @@ export const incomePublicSchema = z.object({
 export type IncomePublic = z.infer<typeof incomePublicSchema>;
 
 export const createIncomeBodySchema = z.object({
-  name: z.string().trim().min(1).max(80),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Ingresa un nombre para el ingreso")
+    .max(80, "El nombre no puede superar los 80 caracteres"),
   amount: moneyAmountSchema,
   frequency: incomeFrequencySchema.default("MONTHLY"),
 });
@@ -34,12 +41,16 @@ export type CreateIncomeBody = z.infer<typeof createIncomeBodySchema>;
 
 export const updateIncomeBodySchema = z
   .object({
-    name: z.string().trim().min(1).max(80),
+    name: z
+      .string()
+      .trim()
+      .min(1, "Ingresa un nombre para el ingreso")
+      .max(80, "El nombre no puede superar los 80 caracteres"),
     amount: moneyAmountSchema,
     frequency: incomeFrequencySchema,
   })
   .partial()
-  .refine((body) => Object.keys(body).length > 0, { message: "At least one field is required" });
+  .refine((body) => Object.keys(body).length > 0, { message: "Cambia al menos un campo" });
 
 export type UpdateIncomeBody = z.infer<typeof updateIncomeBodySchema>;
 
