@@ -18,7 +18,7 @@ import { Banknote, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { IncomeFormDialog } from "../incomes/IncomeFormDialog.js";
 import { useIncomes } from "../incomes/use-incomes.js";
 import { ScenarioIncomeCard } from "./ScenarioIncomeCard.js";
@@ -52,7 +52,7 @@ export function ScenarioIncomesSection({ scenario }: ScenarioIncomesSectionProps
       await addIncome.mutateAsync({ incomeId: selectedId });
       setSelectedId("");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "income"));
     }
   }
 
@@ -60,7 +60,7 @@ export function ScenarioIncomesSection({ scenario }: ScenarioIncomesSectionProps
     try {
       await addIncome.mutateAsync({ incomeId });
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "income"));
     }
   }
 
@@ -68,7 +68,7 @@ export function ScenarioIncomesSection({ scenario }: ScenarioIncomesSectionProps
     try {
       await removeIncome.mutateAsync(scenarioIncomeId);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "income"));
     }
   }
 

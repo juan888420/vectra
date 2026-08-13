@@ -37,7 +37,7 @@ async function assertNameAvailable(
     },
   });
   if (duplicate) {
-    throw conflict(`An active expense item named "${name}" already exists`);
+    throw conflict("DUPLICATE_NAME", `An active expense item named "${name}" already exists`);
   }
 }
 
@@ -48,15 +48,15 @@ async function assertCategoryUsable(
 ): Promise<void> {
   const category = await prisma.category.findFirst({ where: { id: categoryId, userId } });
   if (!category) {
-    throw badRequest("Category not found");
+    throw badRequest("RESOURCE_NOT_FOUND", "Category not found");
   }
   if (category.archivedAt) {
-    throw badRequest("Cannot use an archived category");
+    throw badRequest("ARCHIVED_RESOURCE", "Cannot use an archived category");
   }
   // An expense item is a cost, so it can only live in an EXPENSE category
   // (same reasoning as budgets in RFC-0013).
   if (category.type !== "EXPENSE") {
-    throw badRequest("Expense items can only belong to expense categories");
+    throw badRequest("INVALID_CATEGORY", "Expense items can only belong to expense categories");
   }
 }
 
@@ -201,7 +201,10 @@ export async function deleteExpenseItem(
     select: { _count: { select: { scenarioItems: true } } },
   });
   if (counts._count.scenarioItems > 0) {
-    throw conflict("Expense item is referenced by a scenario; archive it instead");
+    throw conflict(
+      "RESOURCE_IN_USE",
+      "Expense item is referenced by a scenario; archive it instead",
+    );
   }
 
   await prisma.expenseItem.delete({ where: { id } });

@@ -20,7 +20,7 @@ import { CardGrid } from "../../components/CardGrid.js";
 import { ListPageHeader } from "../../components/ListPageHeader.js";
 import { PageContainer } from "../../components/PageContainer.js";
 import { Pagination } from "../../components/Pagination.js";
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { CategoryCard } from "./CategoryCard.js";
 import { CategoryFormDialog } from "./CategoryFormDialog.js";
 import { MoveItemsAndDeleteCategoryDialog } from "./MoveItemsAndDeleteCategoryDialog.js";
@@ -54,14 +54,16 @@ export function CategoriesPage() {
   );
 
   async function handleToggleArchive(category: CategoryPublic) {
+    const wasArchived = category.archivedAt !== null;
     try {
-      if (category.archivedAt) {
+      if (wasArchived) {
         await unarchiveCategory.mutateAsync(category.id);
       } else {
         await archiveCategory.mutateAsync(category.id);
       }
+      toast.success(wasArchived ? "Categoría restaurada." : "Categoría archivada.");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "category"));
     }
   }
 
@@ -69,8 +71,9 @@ export function CategoriesPage() {
     if (!pendingDelete) return;
     try {
       await deleteCategory.mutateAsync(pendingDelete.id);
+      toast.success("Categoría eliminada.");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "category"));
     }
   }
 

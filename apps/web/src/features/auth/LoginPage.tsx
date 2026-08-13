@@ -20,7 +20,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { useAuth } from "./useAuth.js";
 
 export function LoginPage() {
@@ -39,11 +39,7 @@ export function LoginPage() {
       await login(values);
       navigate("/", { replace: true });
     } catch (error) {
-      if (error instanceof ApiError && error.statusCode === 401) {
-        toast.error("Email o contraseña incorrectos");
-      } else {
-        toast.error("Algo salió mal. Intenta de nuevo.");
-      }
+      toast.error(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -58,7 +54,8 @@ export function LoginPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+            {/* noValidate: Zod owns validation copy — see FormDialog. */}
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4" noValidate>
               <FormField
                 control={form.control}
                 name="email"

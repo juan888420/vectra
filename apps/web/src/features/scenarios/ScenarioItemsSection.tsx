@@ -16,7 +16,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { useCategories } from "../categories/use-categories.js";
 import { ScenarioCategoryChips } from "./ScenarioCategoryChips.js";
 import { ScenarioInlineCategoryForm } from "./ScenarioInlineCategoryForm.js";
@@ -176,7 +176,7 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
       ]);
       backToIdle();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "expenseItem"));
     } finally {
       setIsApplying(false);
     }
@@ -187,7 +187,7 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
       await addItem.mutateAsync({ expenseItemId });
       backToIdle();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "expenseItem"));
     }
   }
 
@@ -195,7 +195,7 @@ export function ScenarioItemsSection({ scenario }: ScenarioItemsSectionProps) {
     try {
       await removeItem.mutateAsync(scenarioItemId);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "expenseItem"));
     }
   }
 

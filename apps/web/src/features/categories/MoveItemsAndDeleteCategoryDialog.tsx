@@ -17,7 +17,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { CategoryFormDialog } from "./CategoryFormDialog.js";
 import { useCategories, useDeleteCategoryWithReassignment } from "./use-categories.js";
 
@@ -72,7 +72,7 @@ export function MoveItemsAndDeleteCategoryDialog({
       onOpenChange(false);
       onDeleted?.();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal. Intenta de nuevo.");
+      toast.error(getErrorMessage(error, "category"));
     }
   }
 

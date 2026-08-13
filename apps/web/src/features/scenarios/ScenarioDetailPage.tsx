@@ -29,7 +29,7 @@ import { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { useAuth } from "../auth/useAuth.js";
 import { ScenarioCompositionsSection } from "./ScenarioCompositionsSection.js";
 import { ScenarioFormDialog } from "./ScenarioFormDialog.js";
@@ -79,27 +79,31 @@ export function ScenarioDetailPage() {
 
   async function handleToggleActive() {
     if (!scenario) return;
+    const wasActive = scenario.status === "ACTIVE";
     try {
-      if (scenario.status === "ACTIVE") {
+      if (wasActive) {
         await deactivateScenario.mutateAsync(scenario.id);
       } else {
         await activateScenario.mutateAsync(scenario.id);
       }
+      toast.success(wasActive ? "Escenario desactivado." : "Escenario activado.");
     } catch (thrown) {
-      toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
+      toast.error(getErrorMessage(thrown, "scenario"));
     }
   }
 
   async function handleToggleArchive() {
     if (!scenario) return;
+    const wasArchived = scenario.status === "ARCHIVED";
     try {
-      if (scenario.status === "ARCHIVED") {
+      if (wasArchived) {
         await unarchiveScenario.mutateAsync(scenario.id);
       } else {
         await archiveScenario.mutateAsync(scenario.id);
       }
+      toast.success(wasArchived ? "Escenario restaurado." : "Escenario archivado.");
     } catch (thrown) {
-      toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
+      toast.error(getErrorMessage(thrown, "scenario"));
     }
   }
 
@@ -107,9 +111,10 @@ export function ScenarioDetailPage() {
     if (!scenario) return;
     try {
       await deleteScenario.mutateAsync(scenario.id);
+      toast.success("Escenario eliminado.");
       navigate("/scenarios");
     } catch (thrown) {
-      toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
+      toast.error(getErrorMessage(thrown, "scenario"));
       setConfirmingDelete(false);
     }
   }
@@ -123,7 +128,7 @@ export function ScenarioDetailPage() {
           : `Se actualizaron ${syncedCount} elementos.`,
       );
     } catch (thrown) {
-      toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
+      toast.error(getErrorMessage(thrown, "scenario"));
     }
   }
 

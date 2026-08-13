@@ -20,7 +20,7 @@ import { CardGrid } from "../../components/CardGrid.js";
 import { ListPageHeader } from "../../components/ListPageHeader.js";
 import { PageContainer } from "../../components/PageContainer.js";
 import { Pagination } from "../../components/Pagination.js";
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
 import { useScenarioImpact } from "../scenarios/use-scenario-impact.js";
 import { IncomeCard } from "./IncomeCard.js";
@@ -50,14 +50,16 @@ export function IncomesPage() {
   const scenarioImpact = useScenarioImpact(syncIncomeScenariosRequest);
 
   async function handleToggleArchive(income: IncomePublic) {
+    const wasArchived = income.archivedAt !== null;
     try {
       scenarioImpact.report(
-        income.archivedAt
+        wasArchived
           ? await unarchiveIncome.mutateAsync(income.id)
           : await archiveIncome.mutateAsync(income.id),
       );
+      toast.success(wasArchived ? "Ingreso restaurado." : "Ingreso archivado.");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "income"));
     }
   }
 
@@ -65,8 +67,9 @@ export function IncomesPage() {
     if (!pendingDelete) return;
     try {
       await deleteIncome.mutateAsync(pendingDelete.id);
+      toast.success("Ingreso eliminado.");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "income"));
     }
   }
 

@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import type { z } from "zod";
 
 import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { useAuth } from "./useAuth.js";
 
 // `defaultCurrency`/`timezone` carry schema defaults, so the form's *input*
@@ -46,10 +47,11 @@ export function RegisterPage() {
       await register(values);
       navigate("/", { replace: true });
     } catch (error) {
-      if (error instanceof ApiError && error.statusCode === 409) {
-        form.setError("email", { message: "Este correo ya está registrado" });
+      // A taken email belongs under the field the user can fix, not in a toast.
+      if (error instanceof ApiError && error.code === "EMAIL_TAKEN") {
+        form.setError("email", { message: getErrorMessage(error) });
       } else {
-        toast.error("Algo salió mal. Intenta de nuevo.");
+        toast.error(getErrorMessage(error));
       }
     } finally {
       setIsSubmitting(false);
@@ -65,7 +67,8 @@ export function RegisterPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+            {/* noValidate: Zod owns validation copy — see FormDialog. */}
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4" noValidate>
               <FormField
                 control={form.control}
                 name="email"

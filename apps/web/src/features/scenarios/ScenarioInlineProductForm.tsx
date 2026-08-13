@@ -20,7 +20,7 @@ import type { UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { applyConflictError } from "../../lib/form-errors.js";
 import { useCreateExpenseItem } from "../expense-items/use-expense-items.js";
 
@@ -70,7 +70,7 @@ export function ScenarioInlineProductForm({
     const parsedAmount = moneyAmountSchema.safeParse(Number(values.amount));
     if (!parsedAmount.success) {
       form.setError("amount", {
-        message: parsedAmount.error.issues[0]?.message ?? "Monto inválido",
+        message: parsedAmount.error.issues[0]?.message ?? "Ingresa un monto válido",
       });
       return;
     }
@@ -83,15 +83,16 @@ export function ScenarioInlineProductForm({
       });
       onCreated(created);
     } catch (error) {
-      if (!applyConflictError(error, form, "name")) {
-        toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      if (!applyConflictError(error, form, "name", "expenseItem")) {
+        toast.error(getErrorMessage(error, "expenseItem"));
       }
     }
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      {/* noValidate: Zod owns validation copy — see FormDialog. */}
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}

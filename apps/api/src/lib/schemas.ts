@@ -1,3 +1,4 @@
+import { errorCodeSchema } from "@vectra/types";
 import { z } from "zod";
 
 // Cross-feature request/response schemas.
@@ -6,9 +7,14 @@ export const idParamsSchema = z.object({
   id: z.uuid(),
 });
 
+// `code` is the stable identifier the frontend maps to user-facing copy; it
+// comes from @vectra/types (not mirrored like the schemas below) precisely
+// because a drifting code list would silently break that mapping. `message`
+// stays an English technical detail — never user-facing.
 export const errorResponseSchema = z.object({
   statusCode: z.number(),
   error: z.string(),
+  code: errorCodeSchema,
   message: z.string(),
 });
 

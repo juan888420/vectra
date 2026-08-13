@@ -18,6 +18,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { applyConflictError } from "../../lib/form-errors.js";
 import { useCreateCategory, useUpdateCategory } from "./use-categories.js";
 
@@ -80,10 +81,11 @@ export function CategoryFormDialog({
         const created = await createCategory.mutateAsync(values);
         onCreated?.(created);
       }
+      toast.success(isEditing ? "Categoría actualizada." : "Categoría creada.");
       onOpenChange(false);
     } catch (error) {
-      if (!applyConflictError(error, form, "name")) {
-        toast.error("Algo salió mal. Intenta de nuevo.");
+      if (!applyConflictError(error, form, "name", "category")) {
+        toast.error(getErrorMessage(error, "category"));
       }
     }
   }
@@ -98,7 +100,7 @@ export function CategoryFormDialog({
       description={
         isEditing
           ? "El tipo de una categoría no puede cambiar una vez creada."
-          : "Las categorías agrupan tus transacciones para presupuestos y reportes."
+          : "Las categorías agrupan tus productos por área de tu vida."
       }
       form={form}
       onSubmit={onSubmit}

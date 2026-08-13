@@ -34,7 +34,7 @@ export const authPlugin = fp(async (app) => {
     try {
       await request.jwtVerify();
     } catch {
-      throw unauthorized("Missing or invalid access token");
+      throw unauthorized("UNAUTHENTICATED", "Missing or invalid access token");
     }
   });
 });
