@@ -22,7 +22,10 @@ export function ListPageHeader({ title, description, action }: ListPageHeaderPro
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
         <p className="text-sm text-muted-foreground text-pretty">{description}</p>
       </div>
-      {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
+      {/* `flex-wrap`: the slot now takes more than one control on Categorías
+          and Ingresos (the archived toggle moved in here), and two buttons
+          side by side do not fit a 320px row. */}
+      {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
     </div>
   );
 }

@@ -50,7 +50,20 @@ export function ScenarioCompositionCard({
       <div
         className={scenarioRowClassName(
           composition.outdated,
-          "group relative flex w-full flex-col items-center justify-center gap-1.5 overflow-hidden p-4 text-center",
+          cn(
+            "group relative flex w-full flex-col items-center justify-center gap-1.5 overflow-hidden p-4 text-center",
+            // The one card that gets a glass surface: a scenario nested inside
+            // another scenario is the literal layer the metaphor is about.
+            // Applied here rather than inside scenarioRowClassName because that
+            // helper is shared with ScenarioItemCard and ScenarioIncomeCard,
+            // which stay opaque.
+            //
+            // Skipped while outdated: `glass` and the amber drift tint both set
+            // background-color and border-color, so stacking them would leave
+            // the winner up to Tailwind's utility ordering — and the amber has
+            // to win, since it is the only signal that this snapshot drifted.
+            !composition.outdated && "glass",
+          ),
         )}
       >
         {composition.outdated ? (

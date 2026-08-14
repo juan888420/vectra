@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 
 import { AuthContext, type AuthContextValue } from "../src/features/auth/auth-context.js";
+import { CategoryColorProvider } from "../src/features/categories/CategoryColorProvider.js";
 
 // A fresh, retry-disabled QueryClient per test: retries would make failing
 // assertions slow instead of failing fast, and state must not leak between
@@ -34,6 +35,11 @@ const testUser: UserPublic = {
 
 // For component tests that render a feature page directly (bypassing
 // AuthProvider's real /auth/refresh boot flow, which is out of scope here).
+//
+// CategoryColorProvider is here for the same reason it sits in Layout: any
+// screen showing a category tint reads the app-wide assignment through it, and
+// the hook throws rather than silently falling back, so a page rendered
+// without it would fail on mount.
 export function withProviders(client: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
     const authValue: AuthContextValue = {
@@ -46,7 +52,9 @@ export function withProviders(client: QueryClient) {
     return (
       <QueryClientProvider client={client}>
         <AuthContext.Provider value={authValue}>
-          <MemoryRouter>{children}</MemoryRouter>
+          <MemoryRouter>
+            <CategoryColorProvider>{children}</CategoryColorProvider>
+          </MemoryRouter>
         </AuthContext.Provider>
       </QueryClientProvider>
     );

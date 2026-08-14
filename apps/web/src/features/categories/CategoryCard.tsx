@@ -13,7 +13,7 @@ import { Archive, ArchiveRestore, Loader2, MoreHorizontal, Pencil, Trash2 } from
 import { Link } from "react-router";
 
 import { useAuth } from "../auth/useAuth.js";
-import { categoryColor } from "./category-color.js";
+import { useCategoryColor } from "./useCategoryColor.js";
 import { useCategorySummary } from "./use-categories.js";
 
 const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
@@ -53,7 +53,7 @@ export function CategoryCard({
 }: CategoryCardProps) {
   const { data: summary } = useCategorySummary(category.id);
   const { user } = useAuth();
-  const color = categoryColor(category.name);
+  const color = useCategoryColor()(category.name);
   const currency = user?.defaultCurrency ?? "USD";
 
   return (

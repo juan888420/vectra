@@ -85,24 +85,25 @@ export function CategoriesPage() {
         title="Categorías"
         description="Agrupa tus productos por área de tu vida y mira cuánto pesa cada una."
         action={
-          <Button onClick={() => setFormDialog({ mode: "create" })}>
-            <Plus /> Nueva categoría
-          </Button>
+          <>
+            {/* Lives in the header rather than on a row of its own: alone on a
+                right-aligned line it read as an orphaned control, and the gap
+                grew with the container on wide screens. */}
+            <Button
+              variant={includeArchived ? "secondary" : "outline"}
+              onClick={() => {
+                setIncludeArchived((value) => !value);
+                setPage(1);
+              }}
+            >
+              {includeArchived ? "Ocultar archivadas" : "Mostrar archivadas"}
+            </Button>
+            <Button onClick={() => setFormDialog({ mode: "create" })}>
+              <Plus /> Nueva categoría
+            </Button>
+          </>
         }
       />
-
-      <div className="mb-4 flex justify-end lg:mb-6">
-        <Button
-          variant={includeArchived ? "secondary" : "outline"}
-          size="sm"
-          onClick={() => {
-            setIncludeArchived((value) => !value);
-            setPage(1);
-          }}
-        >
-          {includeArchived ? "Ocultar archivadas" : "Mostrar archivadas"}
-        </Button>
-      </div>
 
       {isLoading ? (
         <CardGrid density="card">

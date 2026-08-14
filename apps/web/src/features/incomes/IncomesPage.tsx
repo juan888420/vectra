@@ -81,24 +81,24 @@ export function IncomesPage() {
         title="Ingresos"
         description="Sueldo, freelance, dividendos... y su cobertura frente a tus escenarios."
         action={
-          <Button onClick={() => setFormDialog({ mode: "create" })}>
-            <Plus /> Nuevo ingreso
-          </Button>
+          <>
+            {/* Same move as Categorías: in the header, not alone on its own
+                right-aligned row. */}
+            <Button
+              variant={includeArchived ? "secondary" : "outline"}
+              onClick={() => {
+                setIncludeArchived((value) => !value);
+                setPage(1);
+              }}
+            >
+              {includeArchived ? "Ocultar archivados" : "Mostrar archivados"}
+            </Button>
+            <Button onClick={() => setFormDialog({ mode: "create" })}>
+              <Plus /> Nuevo ingreso
+            </Button>
+          </>
         }
       />
-
-      <div className="mb-4 flex justify-end lg:mb-6">
-        <Button
-          variant={includeArchived ? "secondary" : "outline"}
-          size="sm"
-          onClick={() => {
-            setIncludeArchived((value) => !value);
-            setPage(1);
-          }}
-        >
-          {includeArchived ? "Ocultar archivados" : "Mostrar archivados"}
-        </Button>
-      </div>
 
       {isLoading ? (
         <CardGrid density="card">

@@ -6,11 +6,18 @@ export type StatTone = "positive" | "warning" | "negative";
 // Badge only ships default/secondary/outline variants (no semantic color
 // scale), so tone is applied via className override here rather than
 // changing the shared primitive for a single consumer.
+//
+// These used to be Tailwind's named scales (emerald/amber/red), which meant
+// "positive" was a different green from the app's own `--success` — the very
+// collision the category palette excludes those hues to avoid. They now read
+// from the semantic tokens, so there is one green, one amber and one red in
+// the product. The `-ink` pairing is required, not decorative: the tint
+// darkens the ground, so the base colour on top of it falls under 4.5:1.
+// No `dark:` variants — the tokens are redefined per theme.
 const TONE_BADGE_CLASSNAME: Record<StatTone, string> = {
-  positive:
-    "border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
-  warning: "border-transparent bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
-  negative: "border-transparent bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400",
+  positive: "border-transparent bg-success/15 text-success-ink",
+  warning: "border-transparent bg-warning/15 text-warning-ink",
+  negative: "border-transparent bg-destructive/15 text-destructive-ink",
 };
 
 export interface StatCardProps {
