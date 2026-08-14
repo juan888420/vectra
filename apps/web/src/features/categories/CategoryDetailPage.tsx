@@ -28,7 +28,7 @@ import { CardGrid } from "../../components/CardGrid.js";
 import { DetailPageHeader } from "../../components/DetailPageHeader.js";
 import { PageContainer } from "../../components/PageContainer.js";
 import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { useAuth } from "../auth/useAuth.js";
 import { ExpenseItemCard } from "../expense-items/ExpenseItemCard.js";
 import { ExpenseItemFormDialog } from "../expense-items/ExpenseItemFormDialog.js";
@@ -65,14 +65,16 @@ export function CategoryDetailPage() {
 
   async function handleToggleArchive() {
     if (!summary) return;
+    const wasArchived = summary.category.archivedAt !== null;
     try {
-      if (summary.category.archivedAt) {
+      if (wasArchived) {
         await unarchiveCategory.mutateAsync(summary.category.id);
       } else {
         await archiveCategory.mutateAsync(summary.category.id);
       }
+      toast.success(wasArchived ? "Categoría restaurada." : "Categoría archivada.");
     } catch (thrown) {
-      toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
+      toast.error(getErrorMessage(thrown, "category"));
     }
   }
 
@@ -80,9 +82,10 @@ export function CategoryDetailPage() {
     if (!summary) return;
     try {
       await deleteCategory.mutateAsync(summary.category.id);
+      toast.success("Categoría eliminada.");
       navigate("/categories");
     } catch (thrown) {
-      toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
+      toast.error(getErrorMessage(thrown, "category"));
       setConfirmingDelete(false);
     }
   }

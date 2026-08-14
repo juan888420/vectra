@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { CategoryPublic } from "@vectra/types";
+import { createCategoryBodySchema, type CategoryPublic } from "@vectra/types";
 import {
   Button,
   Form,
@@ -14,12 +14,13 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { applyConflictError } from "../../lib/form-errors.js";
 import { useCreateCategory } from "../categories/use-categories.js";
 
-const inlineCategorySchema = z.object({
-  name: z.string().trim().min(1, "El nombre es obligatorio").max(50),
-});
+// Reuses the shared category rules (and their copy) instead of restating
+// them: this form collects the same name, minus the always-EXPENSE type.
+const inlineCategorySchema = createCategoryBodySchema.omit({ type: true });
 
 type InlineCategoryValues = z.infer<typeof inlineCategorySchema>;
 
@@ -49,15 +50,16 @@ export function ScenarioInlineCategoryForm({
       const created = await createCategory.mutateAsync({ ...values, type: "EXPENSE" });
       onCreated(created);
     } catch (error) {
-      if (!applyConflictError(error, form, "name")) {
-        toast.error("Algo salió mal. Intenta de nuevo.");
+      if (!applyConflictError(error, form, "name", "category")) {
+        toast.error(getErrorMessage(error, "category"));
       }
     }
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      {/* noValidate: Zod owns validation copy — see FormDialog. */}
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
         <FormField
           control={form.control}
           name="name"

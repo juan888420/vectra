@@ -230,7 +230,7 @@ export function ScenariosLayout() {
           tree. */}
       <aside
         className={cn(
-          "hidden shrink-0 flex-col overflow-hidden rounded-lg border bg-card shadow-sm transition-all duration-300 ease-in-out md:flex",
+          "hidden shrink-0 flex-col overflow-hidden rounded-lg border glass shadow-surface transition-all duration-300 ease-in-out md:flex",
           isCollapsed ? "w-0 border-none opacity-0" : "w-64 opacity-100",
         )}
       >

@@ -21,8 +21,11 @@ export const userPublicSchema = z.object({
 export type UserPublic = z.infer<typeof userPublicSchema>;
 
 export const registerBodySchema = z.object({
-  email: z.email().toLowerCase(),
-  password: z.string().min(8).max(72),
+  email: z.email("Ingresa un correo válido").toLowerCase(),
+  password: z
+    .string()
+    .min(8, "La contraseña debe tener al menos 8 caracteres")
+    .max(72, "La contraseña no puede superar los 72 caracteres"),
   defaultCurrency: z
     .string()
     .length(3)
@@ -35,8 +38,8 @@ export const registerBodySchema = z.object({
 export type RegisterBody = z.infer<typeof registerBodySchema>;
 
 export const loginBodySchema = z.object({
-  email: z.email().toLowerCase(),
-  password: z.string().min(1),
+  email: z.email("Ingresa un correo válido").toLowerCase(),
+  password: z.string().min(1, "Ingresa tu contraseña"),
 });
 
 export type LoginBody = z.infer<typeof loginBodySchema>;

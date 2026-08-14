@@ -27,7 +27,7 @@ function setRefreshCookie(reply: FastifyReply, token: string, expiresAt: Date): 
 function readRefreshCookie(request: FastifyRequest): string {
   const token = request.cookies[REFRESH_COOKIE];
   if (!token) {
-    throw unauthorized("Missing refresh token");
+    throw unauthorized("UNAUTHENTICATED", "Missing refresh token");
   }
   return token;
 }

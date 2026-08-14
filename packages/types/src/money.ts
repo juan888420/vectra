@@ -6,12 +6,14 @@ import { z } from "zod";
 // instead of duplicating it per feature schema file.
 const MAX_MONEY_AMOUNT = 9_999_999_999.99;
 
+// User-facing copy: these messages surface under the "Precio"/"Monto" field
+// of every product and income form (the forms call safeParse directly).
 export const moneyAmountSchema = z
   .number()
-  .positive()
-  .max(MAX_MONEY_AMOUNT, "Amount exceeds the maximum allowed")
+  .positive("Ingresa un monto mayor que cero")
+  .max(MAX_MONEY_AMOUNT, "El monto es demasiado alto")
   .refine((value) => Math.round(value * 100) / 100 === value, {
-    message: "Amount must have at most 2 decimal places",
+    message: "Usa como máximo 2 decimales",
   });
 
 // Mirrors apps/api/src/lib/schemas.ts's periodTotalsSchema: shared shape for

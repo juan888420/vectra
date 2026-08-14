@@ -47,7 +47,9 @@ export function SelectContent({
       <SelectPrimitive.Content
         position={position}
         className={cn(
-          "relative z-50 min-w-32 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
+          // `text-popover-foreground` stays: `glass` only owns the surface
+          // (fill, blur, edge), never the text colour on it.
+          "relative z-50 min-w-32 overflow-hidden rounded-md border glass text-popover-foreground shadow-lift",
           // Every list in the app is fetched with `pageSize: 100`, so an
           // uncapped dropdown can run past the bottom of the viewport with no
           // way to reach the last option. Radix measures the room actually

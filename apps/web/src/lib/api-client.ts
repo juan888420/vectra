@@ -1,3 +1,5 @@
+import { errorCodeSchema, type ErrorCode } from "@vectra/types";
+
 import { env } from "./env.js";
 
 export class ApiError extends Error {
@@ -5,6 +7,11 @@ export class ApiError extends Error {
     public readonly statusCode: number,
     public readonly errorName: string,
     message: string,
+    // Null when the failure did not come from our API (a proxy, an HTML
+    // error page, a network stub). Callers must never render `message` —
+    // it is an English technical detail; resolve `code` through
+    // error-messages.ts instead.
+    public readonly code: ErrorCode | null = null,
   ) {
     super(message);
     this.name = "ApiError";
@@ -45,7 +52,7 @@ async function performRefresh(): Promise<string> {
   });
 
   if (!res.ok) {
-    throw new ApiError(res.status, "Unauthorized", "Session expired");
+    throw new ApiError(res.status, "Unauthorized", "Session expired", "UNAUTHENTICATED");
   }
 
   const body = (await res.json()) as { accessToken: string };
@@ -66,12 +73,21 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
-async function readErrorBody(res: Response): Promise<{ error: string; message: string }> {
+async function readErrorBody(
+  res: Response,
+): Promise<{ error: string; message: string; code: ErrorCode | null }> {
   try {
-    const data = (await res.json()) as { error?: string; message?: string };
-    return { error: data.error ?? res.statusText, message: data.message ?? res.statusText };
+    const data = (await res.json()) as { error?: string; message?: string; code?: unknown };
+    // An unrecognized code (older API, gateway response) parses to null so the
+    // copy layer falls back instead of showing something meaningless.
+    const parsedCode = errorCodeSchema.safeParse(data.code);
+    return {
+      error: data.error ?? res.statusText,
+      message: data.message ?? res.statusText,
+      code: parsedCode.success ? parsedCode.data : null,
+    };
   } catch {
-    return { error: res.statusText, message: res.statusText };
+    return { error: res.statusText, message: res.statusText, code: null };
   }
 }
 
@@ -110,19 +126,19 @@ async function performRequest<T>(
     } catch {
       currentAccessToken = null;
       sessionExpiredListener?.();
-      throw new ApiError(401, "Unauthorized", "Session expired");
+      throw new ApiError(401, "Unauthorized", "Session expired", "UNAUTHENTICATED");
     }
     return performRequest<T>(path, options, true);
   }
 
   if (!res.ok) {
-    const { error, message } = await readErrorBody(res);
+    const { error, message, code } = await readErrorBody(res);
     if (res.status === 401 && !isAuthEndpoint) {
       // The retry above also failed with 401: refresh succeeded once but the
       // session is still invalid (or died again immediately).
       sessionExpiredListener?.();
     }
-    throw new ApiError(res.status, error, message);
+    throw new ApiError(res.status, error, message, code);
   }
 
   if (res.status === 204) {

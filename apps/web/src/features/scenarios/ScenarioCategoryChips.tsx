@@ -2,7 +2,7 @@ import type { CategoryPublic } from "@vectra/types";
 import { cn } from "@vectra/ui";
 import { Plus } from "lucide-react";
 
-import { categoryColor } from "../categories/category-color.js";
+import { useCategoryColor } from "../categories/useCategoryColor.js";
 
 interface ScenarioCategoryChipsProps {
   categories: CategoryPublic[];
@@ -31,11 +31,15 @@ export function ScenarioCategoryChips({
   creatingCategory = false,
   onCreateCategory,
 }: ScenarioCategoryChipsProps) {
+  // Resolved once for the row rather than per chip: it is a hook, so it cannot
+  // be called inside the map below.
+  const resolveColor = useCategoryColor();
+
   return (
     <div className="flex flex-wrap gap-1.5">
       {categories.map((category) => {
         const isSelected = !creatingCategory && category.id === selectedId;
-        const color = categoryColor(category.name);
+        const color = resolveColor(category.name);
         return (
           <button
             key={category.id}

@@ -3,7 +3,7 @@ import { Button, cn } from "@vectra/ui";
 import { formatMoney, formatMoneyCompact } from "@vectra/utils";
 import { X } from "lucide-react";
 
-import { categoryColor } from "../categories/category-color.js";
+import { useCategoryColor } from "../categories/useCategoryColor.js";
 import { ScenarioOutdatedIndicator, scenarioRowClassName } from "./ScenarioOutdatedIndicator.js";
 
 // Lowercase and terse: at tile size the frequency is a qualifier hanging off
@@ -30,7 +30,7 @@ interface ScenarioItemCardProps {
  * ScenarioCompositionDetailDialog, so a product looks identical whether
  * you're viewing it in its own scenario or previewing a composed one. */
 export function ScenarioItemCard({ item, canEdit, onRemove }: ScenarioItemCardProps) {
-  const color = categoryColor(item.categoryName);
+  const color = useCategoryColor()(item.categoryName);
 
   return (
     <div

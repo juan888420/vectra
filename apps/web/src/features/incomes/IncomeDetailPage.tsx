@@ -22,7 +22,7 @@ import { DetailPageHeader } from "../../components/DetailPageHeader.js";
 import { PageContainer } from "../../components/PageContainer.js";
 import { ProjectionStatCards } from "../../components/ProjectionStatCards.js";
 import { ScenarioUsageList } from "../../components/ScenarioUsageList.js";
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
 import { useScenarioImpact } from "../scenarios/use-scenario-impact.js";
 import { IncomeFormDialog } from "./IncomeFormDialog.js";
@@ -59,14 +59,16 @@ export function IncomeDetailPage() {
 
   async function handleToggleArchive() {
     if (!summary) return;
+    const wasArchived = summary.income.archivedAt !== null;
     try {
       scenarioImpact.report(
-        summary.income.archivedAt
+        wasArchived
           ? await unarchiveIncome.mutateAsync(summary.income.id)
           : await archiveIncome.mutateAsync(summary.income.id),
       );
+      toast.success(wasArchived ? "Ingreso restaurado." : "Ingreso archivado.");
     } catch (thrown) {
-      toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
+      toast.error(getErrorMessage(thrown, "income"));
     }
   }
 
@@ -74,9 +76,10 @@ export function IncomeDetailPage() {
     if (!summary) return;
     try {
       await deleteIncome.mutateAsync(summary.income.id);
+      toast.success("Ingreso eliminado.");
       navigate("/incomes");
     } catch (thrown) {
-      toast.error(thrown instanceof ApiError ? thrown.message : "Algo salió mal.");
+      toast.error(getErrorMessage(thrown, "income"));
       setConfirmingDelete(false);
     }
   }

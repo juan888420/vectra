@@ -23,13 +23,21 @@ export const scenarioPublicSchema = z.object({
 export type ScenarioPublic = z.infer<typeof scenarioPublicSchema>;
 
 export const createScenarioBodySchema = z.object({
-  name: z.string().trim().min(1).max(80),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Ingresa un nombre para el escenario")
+    .max(80, "El nombre no puede superar los 80 caracteres"),
 });
 
 export type CreateScenarioBody = z.infer<typeof createScenarioBodySchema>;
 
 export const updateScenarioBodySchema = z.object({
-  name: z.string().trim().min(1).max(80),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Ingresa un nombre para el escenario")
+    .max(80, "El nombre no puede superar los 80 caracteres"),
 });
 
 export type UpdateScenarioBody = z.infer<typeof updateScenarioBodySchema>;

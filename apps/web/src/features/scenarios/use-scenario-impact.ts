@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { scenariosKeys } from "./scenarios.keys.js";
 
 // Exactly the shape every product/income mutation returns, so callers can
@@ -50,7 +50,7 @@ export function useScenarioImpact(
           : `Se actualizaron ${syncedCount} escenarios.`,
       );
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error));
     } finally {
       setPending(null);
     }

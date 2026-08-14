@@ -42,13 +42,13 @@ async function assertNameAvailable(
     },
   });
   if (duplicate) {
-    throw conflict(`A scenario named "${name}" already exists`);
+    throw conflict("DUPLICATE_NAME", `A scenario named "${name}" already exists`);
   }
 }
 
 function assertNotArchived(scenario: Scenario, action = "modify"): void {
   if (scenario.status === "ARCHIVED") {
-    throw conflict(`Cannot ${action} an archived scenario`);
+    throw conflict("ARCHIVED_RESOURCE", `Cannot ${action} an archived scenario`);
   }
 }
 
@@ -180,7 +180,10 @@ export async function deleteScenario(
     select: { _count: { select: { includedIn: true } } },
   });
   if (counts._count.includedIn > 0) {
-    throw conflict("Scenario is included in another scenario; archive it instead");
+    throw conflict(
+      "RESOURCE_IN_USE",
+      "Scenario is included in another scenario; archive it instead",
+    );
   }
 
   await prisma.scenario.delete({ where: { id } });
@@ -240,15 +243,15 @@ export async function addScenarioItem(
     include: { category: true },
   });
   if (!expenseItem) {
-    throw badRequest("Expense item not found");
+    throw badRequest("RESOURCE_NOT_FOUND", "Expense item not found");
   }
   if (expenseItem.archivedAt) {
-    throw badRequest("Cannot add an archived expense item");
+    throw badRequest("ARCHIVED_RESOURCE", "Cannot add an archived expense item");
   }
 
   const existing = await prisma.scenarioItem.findFirst({ where: { scenarioId, expenseItemId } });
   if (existing) {
-    throw conflict("This expense item is already in the scenario");
+    throw conflict("ALREADY_INCLUDED", "This expense item is already in the scenario");
   }
 
   const item = await prisma.scenarioItem.create({
@@ -321,15 +324,15 @@ export async function addScenarioIncome(
 
   const income = await prisma.income.findFirst({ where: { id: incomeId, userId } });
   if (!income) {
-    throw badRequest("Income not found");
+    throw badRequest("RESOURCE_NOT_FOUND", "Income not found");
   }
   if (income.archivedAt) {
-    throw badRequest("Cannot link an archived income");
+    throw badRequest("ARCHIVED_RESOURCE", "Cannot link an archived income");
   }
 
   const existing = await prisma.scenarioIncome.findFirst({ where: { scenarioId, incomeId } });
   if (existing) {
-    throw conflict("This income is already linked to the scenario");
+    throw conflict("ALREADY_INCLUDED", "This income is already linked to the scenario");
   }
 
   const scenarioIncome = await prisma.scenarioIncome.create({
@@ -423,25 +426,25 @@ export async function addScenarioComposition(
   assertNotArchived(parent, "compose");
 
   if (parentScenarioId === childScenarioId) {
-    throw badRequest("A scenario cannot include itself");
+    throw badRequest("CYCLE_DETECTED", "A scenario cannot include itself");
   }
 
   const child = await findOwnedOrFail(prisma.scenario, childScenarioId, userId, "Scenario");
   if (child.status === "ARCHIVED") {
-    throw badRequest("Cannot include an archived scenario");
+    throw badRequest("ARCHIVED_RESOURCE", "Cannot include an archived scenario");
   }
 
   const existing = await prisma.scenarioComposition.findFirst({
     where: { parentScenarioId, childScenarioId },
   });
   if (existing) {
-    throw conflict("This scenario is already included");
+    throw conflict("ALREADY_INCLUDED", "This scenario is already included");
   }
 
   // Adding parent -> child creates a cycle if child already (transitively)
   // includes parent (business rule: no direct or transitive cycles).
   if (await reaches(prisma, childScenarioId, parentScenarioId)) {
-    throw badRequest("This composition would create a cycle");
+    throw badRequest("CYCLE_DETECTED", "This composition would create a cycle");
   }
 
   return prisma.scenarioComposition.create({ data: { parentScenarioId, childScenarioId } });
@@ -835,7 +838,7 @@ export async function addScenarioCategory(
 
   const category = await findOwnedOrFail(prisma.category, categoryId, userId, "Category");
   if (category.archivedAt) {
-    throw badRequest("Cannot add an archived category");
+    throw badRequest("ARCHIVED_RESOURCE", "Cannot add an archived category");
   }
 
   const [existingItems, activeExpenseItems] = await Promise.all([

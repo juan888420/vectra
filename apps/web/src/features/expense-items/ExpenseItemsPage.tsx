@@ -25,7 +25,7 @@ import { CardGrid } from "../../components/CardGrid.js";
 import { ListPageHeader } from "../../components/ListPageHeader.js";
 import { PageContainer } from "../../components/PageContainer.js";
 import { Pagination } from "../../components/Pagination.js";
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { useCategories } from "../categories/use-categories.js";
 import { ScenarioImpactDialog } from "../scenarios/ScenarioImpactDialog.js";
 import { useScenarioImpact } from "../scenarios/use-scenario-impact.js";
@@ -74,14 +74,16 @@ export function ExpenseItemsPage() {
   const scenarioImpact = useScenarioImpact(syncExpenseItemScenariosRequest);
 
   async function handleToggleArchive(item: ExpenseItemPublic) {
+    const wasArchived = item.archivedAt !== null;
     try {
       scenarioImpact.report(
-        item.archivedAt
+        wasArchived
           ? await unarchiveExpenseItem.mutateAsync(item.id)
           : await archiveExpenseItem.mutateAsync(item.id),
       );
+      toast.success(wasArchived ? "Producto restaurado." : "Producto archivado.");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "expenseItem"));
     }
   }
 
@@ -89,8 +91,9 @@ export function ExpenseItemsPage() {
     if (!pendingDelete) return;
     try {
       await deleteExpenseItem.mutateAsync(pendingDelete.id);
+      toast.success("Producto eliminado.");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "expenseItem"));
     }
   }
 

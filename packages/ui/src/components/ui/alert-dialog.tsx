@@ -33,7 +33,9 @@ export function AlertDialogContent({
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-background p-6 shadow-lg",
+          // Same glass surface as DialogContent — see the note there on why
+          // the opaque fill is replaced rather than layered under it.
+          "fixed left-1/2 top-1/2 z-50 grid -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border glass p-6 shadow-lift",
           // Same height/width contract as DialogContent — see the note
           // there. An alert dialog can grow too: ScenarioImpactDialog lists
           // one row per pending change.

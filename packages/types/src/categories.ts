@@ -7,7 +7,7 @@ import { paginatedResponseSchema } from "./pagination.js";
 // `archivedAt`/`createdAt`/`updatedAt` are strings, not the backend's own
 // `z.date()`, for the same reason as auth.ts (JSON never produces Dates).
 
-export const categoryTypeSchema = z.enum(["EXPENSE", "INCOME"]);
+export const categoryTypeSchema = z.enum(["EXPENSE", "INCOME"], "Selecciona un tipo");
 
 export type CategoryType = z.infer<typeof categoryTypeSchema>;
 
@@ -23,8 +23,16 @@ export const categoryPublicSchema = z.object({
 
 export type CategoryPublic = z.infer<typeof categoryPublicSchema>;
 
+// Input schemas carry user-facing copy: these are the ones React Hook Form
+// runs through zodResolver, so their messages land under a field in the UI.
+// Response schemas below stay message-free — they validate server payloads,
+// which no user ever sees.
 export const createCategoryBodySchema = z.object({
-  name: z.string().trim().min(1).max(50),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Ingresa un nombre para la categoría")
+    .max(50, "El nombre no puede superar los 50 caracteres"),
   type: categoryTypeSchema,
 });
 
@@ -34,7 +42,11 @@ export type CreateCategoryBody = z.infer<typeof createCategoryBodySchema>;
 // semantics (its transactions would contradict the new type), which leaves the
 // name as the only editable field.
 export const updateCategoryBodySchema = z.object({
-  name: z.string().trim().min(1).max(50),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Ingresa un nombre para la categoría")
+    .max(50, "El nombre no puede superar los 50 caracteres"),
 });
 
 export type UpdateCategoryBody = z.infer<typeof updateCategoryBodySchema>;
@@ -67,7 +79,7 @@ export type CategorySummary = z.infer<typeof categorySummarySchema>;
 // Moves a category's expense items to another category, then deletes it
 // (no product is ever left without a category).
 export const deleteCategoryWithReassignmentBodySchema = z.object({
-  targetCategoryId: z.uuid(),
+  targetCategoryId: z.uuid("Selecciona una categoría"),
 });
 
 export type DeleteCategoryWithReassignmentBody = z.infer<

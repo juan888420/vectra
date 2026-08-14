@@ -26,7 +26,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { applyConflictError } from "../../lib/form-errors.js";
 import { useCreateIncome, useUpdateIncome } from "./use-incomes.js";
 
@@ -89,7 +89,7 @@ export function IncomeFormDialog({
     const parsedAmount = moneyAmountSchema.safeParse(Number(values.amount));
     if (!parsedAmount.success) {
       form.setError("amount", {
-        message: parsedAmount.error.issues[0]?.message ?? "Monto inválido",
+        message: parsedAmount.error.issues[0]?.message ?? "Ingresa un monto válido",
       });
       return;
     }
@@ -105,12 +105,11 @@ export function IncomeFormDialog({
         const created = await createIncome.mutateAsync({ ...values, amount: parsedAmount.data });
         onCreated?.(created);
       }
+      toast.success(isEditing ? "Ingreso actualizado." : "Ingreso creado.");
       onOpenChange(false);
     } catch (error) {
-      if (!applyConflictError(error, form, "name")) {
-        toast.error(
-          error instanceof ApiError ? error.message : "Algo salió mal. Intenta de nuevo.",
-        );
+      if (!applyConflictError(error, form, "name", "income")) {
+        toast.error(getErrorMessage(error, "income"));
       }
     }
   }

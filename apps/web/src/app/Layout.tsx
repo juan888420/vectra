@@ -11,8 +11,9 @@ import {
 import { LogOut, User } from "lucide-react";
 import { NavLink, Outlet } from "react-router";
 
-import vectraLogo from "../assets/vectra-logo.png";
+import vectraLogo from "../assets/vectra-mark.png";
 import { useAuth } from "../features/auth/useAuth.js";
+import { CategoryColorProvider } from "../features/categories/CategoryColorProvider.js";
 
 // Vectra's product surface (RFC-0027): the ledger (Cuentas/Transacciones/
 // Dashboard) was retired from the UI, so the primary nav is the whole nav.
@@ -43,7 +44,22 @@ export function Layout() {
   const { user, logout } = useAuth();
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
+    <div
+      className="flex h-dvh flex-col overflow-hidden"
+      // The luminous ground, painted here rather than on <body>: this shell is
+      // h-dvh with `overflow-hidden` and the scrolling happens inside <main>,
+      // so the body element is never visible and a gradient on it would render
+      // to nothing. Anchoring it here also keeps it still while content
+      // scrolls, instead of dragging the light along with the list.
+      //
+      // Far fainter than the auth screens'. This is the surface someone works
+      // on for long stretches; there it is a first impression, here it only
+      // has to keep cards from sitting on dead flat white.
+      style={{
+        backgroundImage:
+          "radial-gradient(60rem 40rem at 15% -5%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 55%)",
+      }}
+    >
       <header className="shrink-0 border-b">
         <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
           <div className="flex shrink-0 items-center gap-2">
@@ -96,9 +112,13 @@ export function Layout() {
         </nav>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6">
-        <Outlet />
-      </main>
+      {/* Wraps every authenticated screen so a category is tinted the same on
+          the categories list, on a product card and inside a scenario. */}
+      <CategoryColorProvider>
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6">
+          <Outlet />
+        </main>
+      </CategoryColorProvider>
     </div>
   );
 }

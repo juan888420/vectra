@@ -33,7 +33,10 @@ export function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-background p-6 shadow-lg",
+          // `glass` replaces the opaque fill rather than stacking on it: both
+          // set background-color, and leaving `bg-background` in place would
+          // make which one wins depend on Tailwind's utility ordering.
+          "fixed left-1/2 top-1/2 z-50 grid -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border glass p-6 shadow-lift",
           // A centered `fixed` box with no height cap overflows off both
           // edges at once and can't be scrolled back — on a phone in
           // landscape, or with the on-screen keyboard open, that puts the

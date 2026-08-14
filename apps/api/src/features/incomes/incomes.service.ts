@@ -31,7 +31,7 @@ async function assertNameAvailable(
     },
   });
   if (duplicate) {
-    throw conflict(`An active income named "${name}" already exists`);
+    throw conflict("DUPLICATE_NAME", `An active income named "${name}" already exists`);
   }
 }
 
@@ -160,7 +160,7 @@ export async function deleteIncome(
     select: { _count: { select: { scenarioIncomes: true } } },
   });
   if (counts._count.scenarioIncomes > 0) {
-    throw conflict("Income is referenced by a scenario; archive it instead");
+    throw conflict("RESOURCE_IN_USE", "Income is referenced by a scenario; archive it instead");
   }
 
   await prisma.income.delete({ where: { id } });

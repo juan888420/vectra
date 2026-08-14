@@ -6,64 +6,73 @@
  * nothing depends on the color being stable — it is a way to tell categories
  * apart at a glance, not an identity.
  *
- * Three variants per hue: `soft` for badges/chips (opaque enough to carry
- * text on its own), `solid` for the selected state of a chip, and `wash` — a
- * much lower-opacity bg/border pair with no text-color change — for tinting
- * an entire card as background identity without competing with the card's
- * own foreground text.
+ * Three variants per slot: `soft` for badges/chips (a tint that carries its own
+ * text), `solid` for the selected state of a chip, and `wash` — a much fainter
+ * bg/border pair with no text-color change — for tinting an entire card as
+ * background identity without competing with the card's own foreground text.
+ *
+ * The ten slots are `--cat-1`..`--cat-10` in apps/web/src/index.css, which is
+ * also where the hue choices and their contrast constraints are documented.
+ * Two consequences of holding the palette in tokens rather than in Tailwind's
+ * named scales:
+ *
+ * 1. No `dark:` variants appear below. The tokens themselves are redefined
+ *    under `.dark`, so one class name is correct in both themes — this file
+ *    used to carry every color twice.
+ * 2. The opacities below are the ones that were measured: `soft` at 15% and
+ *    `wash` at 8% keep `--cat-N-ink` and `--foreground` respectively above
+ *    4.5:1 once composited over the card, in both themes.
  */
-
-// Amber and red are deliberately absent: amber already means "Desactualizado"
-// on a scenario item card, and red means destructive everywhere else. A
-// category tinted like either would read as a state instead of a name.
 const CATEGORY_COLORS = [
   {
-    soft: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300",
-    solid:
-      "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500 dark:text-emerald-950",
-    wash: "border-emerald-200/60 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-950/20",
+    soft: "border-cat-1/30 bg-cat-1/15 text-cat-1-ink",
+    solid: "border-cat-1 bg-cat-1 text-cat-on",
+    wash: "border-cat-1/25 bg-cat-1/8",
   },
   {
-    soft: "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900 dark:bg-teal-950/60 dark:text-teal-300",
-    solid:
-      "border-teal-600 bg-teal-600 text-white dark:border-teal-500 dark:bg-teal-500 dark:text-teal-950",
-    wash: "border-teal-200/60 bg-teal-50/50 dark:border-teal-900/40 dark:bg-teal-950/20",
+    soft: "border-cat-2/30 bg-cat-2/15 text-cat-2-ink",
+    solid: "border-cat-2 bg-cat-2 text-cat-on",
+    wash: "border-cat-2/25 bg-cat-2/8",
   },
   {
-    soft: "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/60 dark:text-cyan-300",
-    solid:
-      "border-cyan-600 bg-cyan-600 text-white dark:border-cyan-500 dark:bg-cyan-500 dark:text-cyan-950",
-    wash: "border-cyan-200/60 bg-cyan-50/50 dark:border-cyan-900/40 dark:bg-cyan-950/20",
+    soft: "border-cat-3/30 bg-cat-3/15 text-cat-3-ink",
+    solid: "border-cat-3 bg-cat-3 text-cat-on",
+    wash: "border-cat-3/25 bg-cat-3/8",
   },
   {
-    soft: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300",
-    solid:
-      "border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500 dark:text-blue-950",
-    wash: "border-blue-200/60 bg-blue-50/50 dark:border-blue-900/40 dark:bg-blue-950/20",
+    soft: "border-cat-4/30 bg-cat-4/15 text-cat-4-ink",
+    solid: "border-cat-4 bg-cat-4 text-cat-on",
+    wash: "border-cat-4/25 bg-cat-4/8",
   },
   {
-    soft: "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/60 dark:text-indigo-300",
-    solid:
-      "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-500 dark:bg-indigo-500 dark:text-indigo-950",
-    wash: "border-indigo-200/60 bg-indigo-50/50 dark:border-indigo-900/40 dark:bg-indigo-950/20",
+    soft: "border-cat-5/30 bg-cat-5/15 text-cat-5-ink",
+    solid: "border-cat-5 bg-cat-5 text-cat-on",
+    wash: "border-cat-5/25 bg-cat-5/8",
   },
   {
-    soft: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/60 dark:text-violet-300",
-    solid:
-      "border-violet-600 bg-violet-600 text-white dark:border-violet-500 dark:bg-violet-500 dark:text-violet-950",
-    wash: "border-violet-200/60 bg-violet-50/50 dark:border-violet-900/40 dark:bg-violet-950/20",
+    soft: "border-cat-6/30 bg-cat-6/15 text-cat-6-ink",
+    solid: "border-cat-6 bg-cat-6 text-cat-on",
+    wash: "border-cat-6/25 bg-cat-6/8",
   },
   {
-    soft: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-900 dark:bg-fuchsia-950/60 dark:text-fuchsia-300",
-    solid:
-      "border-fuchsia-600 bg-fuchsia-600 text-white dark:border-fuchsia-500 dark:bg-fuchsia-500 dark:text-fuchsia-950",
-    wash: "border-fuchsia-200/60 bg-fuchsia-50/50 dark:border-fuchsia-900/40 dark:bg-fuchsia-950/20",
+    soft: "border-cat-7/30 bg-cat-7/15 text-cat-7-ink",
+    solid: "border-cat-7 bg-cat-7 text-cat-on",
+    wash: "border-cat-7/25 bg-cat-7/8",
   },
   {
-    soft: "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-900 dark:bg-pink-950/60 dark:text-pink-300",
-    solid:
-      "border-pink-600 bg-pink-600 text-white dark:border-pink-500 dark:bg-pink-500 dark:text-pink-950",
-    wash: "border-pink-200/60 bg-pink-50/50 dark:border-pink-900/40 dark:bg-pink-950/20",
+    soft: "border-cat-8/30 bg-cat-8/15 text-cat-8-ink",
+    solid: "border-cat-8 bg-cat-8 text-cat-on",
+    wash: "border-cat-8/25 bg-cat-8/8",
+  },
+  {
+    soft: "border-cat-9/30 bg-cat-9/15 text-cat-9-ink",
+    solid: "border-cat-9 bg-cat-9 text-cat-on",
+    wash: "border-cat-9/25 bg-cat-9/8",
+  },
+  {
+    soft: "border-cat-10/30 bg-cat-10/15 text-cat-10-ink",
+    solid: "border-cat-10 bg-cat-10 text-cat-on",
+    wash: "border-cat-10/25 bg-cat-10/8",
   },
 ] as const;
 
@@ -82,7 +91,85 @@ function hash(value: string): number {
 
 /** Case- and whitespace-insensitive so fixing "comida" to "Comida" doesn't
  * move the category to a different color. */
+function normalize(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+/** Slot for a name considered on its own, with no knowledge of the other
+ * categories. Kept for the cases where the full set genuinely isn't available;
+ * prefer `useCategoryColor`, which never lets two visible categories share a
+ * color while a slot is still free. See `assignCategoryColors` for why hashing
+ * a name in isolation cannot make that promise. */
 export function categoryColor(name: string): CategoryColor {
-  const index = hash(name.trim().toLowerCase()) % CATEGORY_COLORS.length;
+  const index = hash(normalize(name)) % CATEGORY_COLORS.length;
   return CATEGORY_COLORS[index] as CategoryColor;
+}
+
+/** Assigns colors to a whole set of categories at once.
+ *
+ * Hashing each name independently — what this module did before — cannot avoid
+ * repeats, and the fix is not a better hash. Dropping n names into 10 slots is
+ * balls-in-bins: with 12 categories, ~2.5 slots are expected to come up empty
+ * while others take two or three, whatever the hash function is. Measured on
+ * the real data, plain djb2 filled 8 of 10 slots and put three categories on
+ * one color; running the same names through a strong avalanche mix made it
+ * *worse* (7 of 10). The only way to stop two visible categories sharing a
+ * color while a slot sits unused is to assign them together.
+ *
+ * The result is still deterministic and independent of input order, and it
+ * guarantees:
+ *   - up to 10 categories, every one gets a different color;
+ *   - beyond 10, loads differ by at most 1 (some sharing is forced by the
+ *     pigeonhole principle, but never three on one color while another is free).
+ *
+ * Stability is preserved where it can be: a category alone in its hashed slot
+ * always keeps it, so adding or renaming one only re-homes the few that were
+ * actually contesting a slot.
+ */
+export function assignCategoryColors(names: readonly string[]): Map<string, CategoryColor> {
+  const slotCount = CATEGORY_COLORS.length;
+  const entries = [...new Set(names.map(normalize))]
+    .map((key) => ({ key, hash: hash(key) }))
+    // Sorted by hash so the outcome never depends on the order the API
+    // happened to return, and lowest hash deterministically wins a contest.
+    .sort((a, b) => a.hash - b.hash || (a.key < b.key ? -1 : 1));
+
+  const claims = new Map<number, typeof entries>();
+  for (const entry of entries) {
+    const preferred = entry.hash % slotCount;
+    const group = claims.get(preferred);
+    if (group) group.push(entry);
+    else claims.set(preferred, [entry]);
+  }
+
+  const load = new Array<number>(slotCount).fill(0);
+  const assigned = new Map<string, number>();
+  const displaced: typeof entries = [];
+
+  // Pass 1 — uncontested names keep their hashed slot. This is what keeps
+  // colors stable across edits: only contested slots can move.
+  for (const [slot, group] of claims) {
+    const [winner, ...losers] = group;
+    if (winner) {
+      assigned.set(winner.key, slot);
+      load[slot] = (load[slot] ?? 0) + 1;
+    }
+    displaced.push(...losers);
+  }
+
+  // Pass 2 — everyone else takes the emptiest slot, probing forward from their
+  // own preference so the choice still follows from their hash rather than
+  // from their position in the list.
+  for (const entry of displaced) {
+    let best = entry.hash % slotCount;
+    for (let step = 1; step < slotCount; step += 1) {
+      const candidate = (entry.hash + step) % slotCount;
+      if ((load[candidate] ?? 0) < (load[best] ?? 0)) best = candidate;
+      if ((load[best] ?? 0) === 0) break;
+    }
+    assigned.set(entry.key, best);
+    load[best] = (load[best] ?? 0) + 1;
+  }
+
+  return new Map([...assigned].map(([key, slot]) => [key, CATEGORY_COLORS[slot] as CategoryColor]));
 }

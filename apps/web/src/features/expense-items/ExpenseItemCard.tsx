@@ -12,7 +12,7 @@ import { formatMoney, formatMoneyCompact } from "@vectra/utils";
 import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 
-import { categoryColor } from "../categories/category-color.js";
+import { useCategoryColor } from "../categories/useCategoryColor.js";
 
 const FREQUENCY_LABELS: Record<ExpenseItemFrequency, string> = {
   MONTHLY: "mensual",
@@ -48,7 +48,7 @@ export function ExpenseItemCard({
   onToggleArchive,
   onDelete,
 }: ExpenseItemCardProps) {
-  const color = categoryColor(categoryName);
+  const color = useCategoryColor()(categoryName);
 
   return (
     // Padding and type step up with the grid's own column minimum (CardGrid

@@ -2,11 +2,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { registerBodySchema, type RegisterBody } from "@vectra/types";
 import {
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Form,
   FormControl,
   FormField,
@@ -18,10 +13,11 @@ import {
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
-import { toast } from "sonner";
 import type { z } from "zod";
 
 import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
+import { AuthLayout } from "./AuthLayout.js";
 import { useAuth } from "./useAuth.js";
 
 // `defaultCurrency`/`timezone` carry schema defaults, so the form's *input*
@@ -34,6 +30,7 @@ export function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm<RegisterFormValues, unknown, RegisterBody>({
     resolver: zodResolver(registerBodySchema),
@@ -42,14 +39,17 @@ export function RegisterPage() {
 
   async function onSubmit(values: RegisterBody) {
     setIsSubmitting(true);
+    setFormError(null);
     try {
       await register(values);
       navigate("/", { replace: true });
     } catch (error) {
-      if (error instanceof ApiError && error.statusCode === 409) {
-        form.setError("email", { message: "Este correo ya está registrado" });
+      // A taken email belongs under the field the user can fix; anything else
+      // is form-level. Both paths take their copy from getErrorMessage.
+      if (error instanceof ApiError && error.code === "EMAIL_TAKEN") {
+        form.setError("email", { message: getErrorMessage(error) });
       } else {
-        toast.error("Algo salió mal. Intenta de nuevo.");
+        setFormError(getErrorMessage(error));
       }
     } finally {
       setIsSubmitting(false);
@@ -57,54 +57,56 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Crea tu cuenta</CardTitle>
-          <CardDescription>Empieza a controlar tus finanzas con Vectra.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Correo electrónico</FormLabel>
-                    <FormControl>
-                      <Input type="email" autoComplete="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contraseña</FormLabel>
-                    <FormControl>
-                      <Input type="password" autoComplete="new-password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Creando cuenta…" : "Crear cuenta"}
-              </Button>
-            </form>
-          </Form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            ¿Ya tienes una cuenta?{" "}
-            <Link to="/login" className="text-primary underline-offset-4 hover:underline">
-              Inicia sesión
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthLayout
+      title="Crea tu cuenta"
+      description="Empieza a simular tus decisiones de dinero en unos minutos."
+      error={formError}
+      footer={
+        <>
+          ¿Ya tienes una cuenta?{" "}
+          <Link
+            to="/login"
+            className="font-medium text-primary underline-offset-4 hover:underline focus-ring rounded-sm"
+          >
+            Inicia sesión
+          </Link>
+        </>
+      }
+    >
+      <Form {...form}>
+        {/* noValidate: Zod owns validation copy — see FormDialog. */}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4" noValidate>
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Correo electrónico</FormLabel>
+                <FormControl>
+                  <Input type="email" autoComplete="email" placeholder="tu@correo.com" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Contraseña</FormLabel>
+                <FormControl>
+                  <Input type="password" autoComplete="new-password" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="submit" className="mt-2 w-full" disabled={isSubmitting}>
+            {isSubmitting ? "Creando cuenta…" : "Crear cuenta"}
+          </Button>
+        </form>
+      </Form>
+    </AuthLayout>
   );
 }

@@ -17,7 +17,7 @@ import { Layers } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { ApiError } from "../../lib/api-client.js";
+import { getErrorMessage } from "../../lib/error-messages.js";
 import { ScenarioCompositionCard } from "./ScenarioCompositionCard.js";
 import {
   useAddScenarioComposition,
@@ -70,7 +70,7 @@ export function ScenarioCompositionsSection({
       await addComposition.mutateAsync({ childScenarioId: selectedId });
       setSelectedId("");
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "scenario"));
     }
   }
 
@@ -78,7 +78,7 @@ export function ScenarioCompositionsSection({
     try {
       await removeComposition.mutateAsync(compositionId);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Algo salió mal.");
+      toast.error(getErrorMessage(error, "scenario"));
     }
   }
 

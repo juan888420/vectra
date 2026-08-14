@@ -27,13 +27,19 @@ async function assertNameAvailable(
     },
   });
   if (duplicate) {
-    throw conflict(`An active ${type.toLowerCase()} category named "${name}" already exists`);
+    throw conflict(
+      "DUPLICATE_NAME",
+      `An active ${type.toLowerCase()} category named "${name}" already exists`,
+    );
   }
 }
 
 function assertNotSystem(category: Category, action: string): void {
   if (category.isSystem) {
-    throw conflict(`"${category.name}" is a system category and cannot be ${action}`);
+    throw conflict(
+      "SYSTEM_CATEGORY",
+      `"${category.name}" is a system category and cannot be ${action}`,
+    );
   }
 }
 
@@ -169,9 +175,24 @@ export async function deleteCategory(
     },
   });
 
+  // Two distinct blocks, reported apart so the UI never offers a way out that
+  // cannot actually resolve it: expense items can be moved elsewhere first
+  // (deleteCategoryWithReassignment), while the ledger rows retired in
+  // ADR-0007 have no such flow — archiving is the only resolution. Ledger is
+  // checked first because when both apply, moving products still leaves the
+  // category undeletable.
   const { transactions, budgets, recurringTransactions, expenseItems } = counts._count;
-  if (transactions > 0 || budgets > 0 || recurringTransactions > 0 || expenseItems > 0) {
-    throw conflict("Category has associated records; archive it instead");
+  if (transactions > 0 || budgets > 0 || recurringTransactions > 0) {
+    throw conflict(
+      "CATEGORY_HAS_RECORDS",
+      "Category has associated ledger records; archive it instead",
+    );
+  }
+  if (expenseItems > 0) {
+    throw conflict(
+      "CATEGORY_HAS_ITEMS",
+      "Category still has expense items; move them elsewhere or archive it instead",
+    );
   }
 
   await prisma.category.delete({ where: { id } });
@@ -192,7 +213,10 @@ export async function deleteCategoryWithReassignment(
   assertNotSystem(category, "deleted");
 
   if (targetCategoryId === id) {
-    throw badRequest("Target category must be different from the category being deleted");
+    throw badRequest(
+      "INVALID_CATEGORY",
+      "Target category must be different from the category being deleted",
+    );
   }
 
   const counts = await prisma.category.findUniqueOrThrow({
@@ -203,15 +227,21 @@ export async function deleteCategoryWithReassignment(
   });
   const { transactions, budgets, recurringTransactions } = counts._count;
   if (transactions > 0 || budgets > 0 || recurringTransactions > 0) {
-    throw conflict("Category has associated records; archive it instead");
+    throw conflict(
+      "CATEGORY_HAS_RECORDS",
+      "Category has associated ledger records; archive it instead",
+    );
   }
 
   const target = await findOwnedOrFail(prisma.category, targetCategoryId, userId, "Category");
   if (target.type !== category.type) {
-    throw badRequest("Target category must be the same type as the category being deleted");
+    throw badRequest(
+      "INVALID_CATEGORY",
+      "Target category must be the same type as the category being deleted",
+    );
   }
   if (target.archivedAt) {
-    throw badRequest("Cannot move products into an archived category");
+    throw badRequest("ARCHIVED_RESOURCE", "Cannot move products into an archived category");
   }
 
   const [{ count: movedCount }] = await prisma.$transaction([

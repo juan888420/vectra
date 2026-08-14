@@ -57,7 +57,7 @@ export async function registerUser(
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      throw conflict("Email is already registered");
+      throw conflict("EMAIL_TAKEN", "Email is already registered");
     }
     throw error;
   }
@@ -72,7 +72,7 @@ export async function loginUser(
 
   // Same error for unknown email and wrong password: no account enumeration.
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-    throw unauthorized("Invalid email or password");
+    throw unauthorized("INVALID_CREDENTIALS", "Invalid email or password");
   }
 
   const refreshToken = await issueRefreshToken(prisma, user.id);
@@ -89,7 +89,7 @@ export async function rotateRefreshToken(
   });
 
   if (!stored) {
-    throw unauthorized("Invalid refresh token");
+    throw unauthorized("UNAUTHENTICATED", "Invalid refresh token");
   }
 
   // A revoked token coming back means it was already rotated once: either a
@@ -99,11 +99,11 @@ export async function rotateRefreshToken(
       where: { userId: stored.userId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
-    throw unauthorized("Refresh token reuse detected");
+    throw unauthorized("UNAUTHENTICATED", "Refresh token reuse detected");
   }
 
   if (stored.expiresAt < new Date()) {
-    throw unauthorized("Refresh token expired");
+    throw unauthorized("UNAUTHENTICATED", "Refresh token expired");
   }
 
   const refreshToken = await prisma.$transaction(async (tx) => {
@@ -129,7 +129,7 @@ export async function getUserById(prisma: PrismaClient, id: string): Promise<Use
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) {
     // Valid JWT for a deleted user — treat as an expired session.
-    throw unauthorized("User no longer exists");
+    throw unauthorized("UNAUTHENTICATED", "User no longer exists");
   }
   return user;
 }

@@ -9,52 +9,243 @@
    index.html inline script) drives every `dark:` utility. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Instrument Sans, self-hosted (RFC-0029 visual). Variable across 400-700, so
+   one file per subset covers every weight the app uses. Chosen over the system
+   stack for its narrow figures: Vectra is mostly a screen of amounts, and the
+   money columns fit more digits without crowding.
+
+   latin-ext is carried alongside latin because category and product names are
+   user data — a name with a glyph outside latin would otherwise fall back to
+   the system face mid-word. `unicode-range` keeps it from being fetched at all
+   for the typical Spanish content. */
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./assets/fonts/instrument-sans-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./assets/fonts/instrument-sans-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+/* Light-first, luminous (RFC-0029 visual). Two things changed shape here:
+
+   1. `--background` and `--card` are no longer the same value. Both used to be
+      pure white, so a card never separated from the page — only its border did
+      that work. The page now carries a faint cool tint and the card keeps pure
+      white, which is what produces depth and gives a translucent surface
+      something to refract.
+   2. Semantic colour is a closed set of three: `--destructive` (destructive),
+      `--warning` (the existing "Desactualizado" amber, now a real token) and
+      `--success`. Category hues must avoid all three — enforced in phase C,
+      when category-color.ts moves onto tokens.
+
+   `--accent` here is shadcn's hover/active *surface*, not Vectra's brand
+   accent. The brand accent is `--primary`, and it stays the single indigo. */
 :root {
   --radius: 0.625rem;
 
-  /* Dark-minimalist neutral scale (zinc) + a single accent (indigo), per
-     project convention: one accent color per project. */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
+  --background: oklch(0.975 0.008 250);
+  --foreground: oklch(0.21 0.012 275);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
+  --card-foreground: oklch(0.21 0.012 275);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.511 0.262 276.966);
-  --primary-foreground: oklch(0.969 0.016 293.756);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.969 0.016 293.756);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.511 0.262 276.966);
+  --popover-foreground: oklch(0.21 0.012 275);
+  --primary: oklch(0.55 0.24 275);
+  --primary-foreground: oklch(0.985 0.005 275);
+  --secondary: oklch(0.96 0.005 260);
+  --secondary-foreground: oklch(0.28 0.012 275);
+  --muted: oklch(0.96 0.005 260);
+  --muted-foreground: oklch(0.52 0.014 272);
+  --accent: oklch(0.955 0.008 265);
+  --accent-foreground: oklch(0.28 0.012 275);
+  --destructive: oklch(0.56 0.21 27);
+  --destructive-foreground: oklch(0.99 0.005 27);
+  /* Both semantic hues are set dark enough to be read as *text* on a white
+     card, not just as a tint — measured, not eyeballed: amber at its usual
+     0.72 lightness scored 2.53:1 here, under even the 3:1 floor for a
+     non-text indicator, and "Desactualizado" is amber text plus an amber dot.
+     At 0.54/0.52 they clear 4.5:1 against both the card and the page, and
+     still carry light ink when used as a solid fill. Dark mode inverts this,
+     below: there the light value is the legible one. */
+  --success: oklch(0.52 0.14 155);
+  --success-foreground: oklch(0.99 0.01 155);
+  --warning: oklch(0.54 0.14 75);
+  --warning-foreground: oklch(0.99 0.01 78);
+  /* Ink for text sitting on a *tint* of its own semantic colour, the same
+     split the category slots use and for the same reason: a 15% tint darkens
+     the ground while the text stays put, so `text-success` on `bg-success/15`
+     only reaches 4.3:1. These share the category inks' lightness (0.42 light,
+     0.82 dark), which keeps one pair of values behind every tinted surface. */
+  --success-ink: oklch(0.42 0.13 155);
+  --warning-ink: oklch(0.42 0.13 75);
+  --destructive-ink: oklch(0.42 0.13 27);
+  --border: oklch(0.21 0.012 275 / 0.1);
+  --input: oklch(0.21 0.012 275 / 0.14);
+  --ring: oklch(0.55 0.24 275);
+
+  /* 0.88, not the 0.62 this started at, and the number is a contrast result
+     rather than a taste call. A glass panel is a stack, not a colour: a dialog
+     renders as (this fill) over (the bg-black/50 overlay) over (the page). At
+     0.62 that composites to rgb 205 in light mode and `text-muted-foreground`
+     — which every DialogDescription uses — lands at 3.47:1, under AA. 0.88
+     composites to 235 and clears 4.5:1 for muted, primary and destructive text
+     alike. Dark needs no such floor: there the dimmed backdrop makes the panel
+     darker, which raises contrast against light text instead of lowering it,
+     so it keeps the more translucent 0.55. */
+  --glass: oklch(1 0 0 / 0.88);
+  /* An ink edge, not the white one you would expect on glass. A 75%-white
+     border is only visible over a *dimmed* backdrop; the sidebar and the
+     composition card sit in normal flow over near-white surfaces, where a
+     white edge disappears and the panel loses its outline entirely. Ink at 12%
+     reads on both grounds. Dark keeps a white edge, which works everywhere
+     there. */
+  --glass-edge: oklch(0.21 0.012 275 / 0.12);
+  --glass-blur: blur(16px) saturate(150%);
+
+  --elevation-surface: 0 0 0 1px oklch(0.21 0.012 275 / 0.04),
+    0 1px 2px -1px oklch(0.21 0.012 275 / 0.07), 0 8px 24px -14px oklch(0.21 0.012 275 / 0.16);
+  --elevation-lift: 0 0 0 1px oklch(0.21 0.012 275 / 0.05),
+    0 2px 6px -1px oklch(0.21 0.012 275 / 0.1), 0 16px 32px -18px oklch(0.21 0.012 275 / 0.24);
+  --elevation-press: 0 0 0 1px oklch(0.21 0.012 275 / 0.07),
+    0 1px 1px oklch(0.21 0.012 275 / 0.05);
+
+  /* Category identities (RFC-0029 visual, phase C). Ten slots, picked by
+     hashing the category name — see category-color.ts.
+
+     The hues sit in the gaps left by the semantic colours: destructive ~27,
+     warning ~75, success ~155, and the indigo accent ~275. A category tinted
+     like any of those would read as a *state* rather than a name. The warm
+     end stops at 338 rather than running to ~355, which is what fixes the
+     old fuchsia slot reading as red in dark mode.
+
+     Slot 10 is deliberately near-grey (chroma 0.03). It sits on the accent's
+     own hue, but desaturated far enough that it cannot be mistaken for it,
+     and it gives names like "Otros" somewhere neutral to land.
+
+     Base lightness is 0.52 in light, not the 0.55 it started at: OKLCH
+     lightness is perceptual while WCAG contrast is relative luminance, and at
+     0.55 the teal/cyan/sky slots carried white text at only ~4.1:1. Each slot
+     ships one chromatic value plus an ink for text on its own tint. */
+  --cat-1: oklch(0.52 0.15 105);
+  --cat-1-ink: oklch(0.42 0.13 105);
+  --cat-2: oklch(0.52 0.15 130);
+  --cat-2-ink: oklch(0.42 0.13 130);
+  --cat-3: oklch(0.52 0.15 178);
+  --cat-3-ink: oklch(0.42 0.13 178);
+  --cat-4: oklch(0.52 0.15 202);
+  --cat-4-ink: oklch(0.42 0.13 202);
+  --cat-5: oklch(0.52 0.15 226);
+  --cat-5-ink: oklch(0.42 0.13 226);
+  --cat-6: oklch(0.52 0.15 250);
+  --cat-6-ink: oklch(0.42 0.13 250);
+  --cat-7: oklch(0.52 0.15 296);
+  --cat-7-ink: oklch(0.42 0.13 296);
+  --cat-8: oklch(0.52 0.15 317);
+  --cat-8-ink: oklch(0.42 0.13 317);
+  --cat-9: oklch(0.52 0.15 338);
+  --cat-9-ink: oklch(0.42 0.13 338);
+  --cat-10: oklch(0.52 0.03 270);
+  --cat-10-ink: oklch(0.42 0.03 270);
+  /* Text on a fully saturated category fill. One value for all ten: the fill
+     lightness is uniform, so the ink that works on one works on every slot. */
+  --cat-on: oklch(0.99 0 0);
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.673 0.182 276.935);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 18%);
-  --ring: oklch(0.673 0.182 276.935);
+  --background: oklch(0.165 0.008 275);
+  --foreground: oklch(0.97 0.002 275);
+  --card: oklch(0.215 0.008 275);
+  --card-foreground: oklch(0.97 0.002 275);
+  --popover: oklch(0.225 0.009 275);
+  --popover-foreground: oklch(0.97 0.002 275);
+  --primary: oklch(0.68 0.18 277);
+  --primary-foreground: oklch(0.18 0.012 275);
+  --secondary: oklch(0.27 0.009 275);
+  --secondary-foreground: oklch(0.97 0.002 275);
+  --muted: oklch(0.27 0.009 275);
+  --muted-foreground: oklch(0.71 0.013 275);
+  --accent: oklch(0.28 0.01 275);
+  --accent-foreground: oklch(0.97 0.002 275);
+  /* Dark keeps the *light* red so `text-destructive` stays legible on a dark
+     page, which means the destructive button flips to dark ink instead of
+     white — white on a 0.70-lightness red is roughly 2.5:1 and fails. */
+  --destructive: oklch(0.7 0.18 25);
+  --destructive-foreground: oklch(0.18 0.02 25);
+  --success: oklch(0.72 0.15 157);
+  --success-foreground: oklch(0.18 0.02 157);
+  --warning: oklch(0.79 0.14 80);
+  --warning-foreground: oklch(0.2 0.03 80);
+  --success-ink: oklch(0.82 0.12 157);
+  --warning-ink: oklch(0.82 0.12 80);
+  --destructive-ink: oklch(0.82 0.12 25);
+  --border: oklch(1 0 0 / 0.11);
+  --input: oklch(1 0 0 / 0.16);
+  --ring: oklch(0.68 0.18 277);
+
+  --glass: oklch(0.245 0.01 275 / 0.55);
+  --glass-edge: oklch(1 0 0 / 0.09);
+
+  /* Depth shadows barely read on a dark ground; the ring does the work. */
+  --elevation-surface: 0 0 0 1px oklch(1 0 0 / 0.07);
+  --elevation-lift: 0 0 0 1px oklch(1 0 0 / 0.09), 0 16px 32px -18px oklch(0 0 0 / 0.6);
+  --elevation-press: 0 0 0 1px oklch(1 0 0 / 0.1);
+
+  /* Same ten hues, re-lit for a dark ground: the fill brightens and the ink
+     goes lighter still, so `soft` and `wash` keep working with the tint
+     composited over the dark card instead of over white. Because the swap
+     happens here, category-color.ts needs no `dark:` variants at all. */
+  --cat-1: oklch(0.7 0.15 105);
+  --cat-1-ink: oklch(0.82 0.12 105);
+  --cat-2: oklch(0.7 0.15 130);
+  --cat-2-ink: oklch(0.82 0.12 130);
+  --cat-3: oklch(0.7 0.15 178);
+  --cat-3-ink: oklch(0.82 0.12 178);
+  --cat-4: oklch(0.7 0.15 202);
+  --cat-4-ink: oklch(0.82 0.12 202);
+  --cat-5: oklch(0.7 0.15 226);
+  --cat-5-ink: oklch(0.82 0.12 226);
+  --cat-6: oklch(0.7 0.15 250);
+  --cat-6-ink: oklch(0.82 0.12 250);
+  --cat-7: oklch(0.7 0.15 296);
+  --cat-7-ink: oklch(0.82 0.12 296);
+  --cat-8: oklch(0.7 0.15 317);
+  --cat-8-ink: oklch(0.82 0.12 317);
+  --cat-9: oklch(0.7 0.15 338);
+  --cat-9-ink: oklch(0.82 0.12 338);
+  --cat-10: oklch(0.7 0.03 270);
+  --cat-10-ink: oklch(0.82 0.03 270);
+  --cat-on: oklch(0.18 0.01 275);
+}
+
+/* Both fallbacks resolve the glass surface to the opaque card colour, so
+   nothing that uses `glass` can end up unreadable. They target `.dark` as well
+   as `:root` and sit after both blocks, so they win in either theme. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root,
+  .dark {
+    --glass: var(--card);
+    --glass-blur: none;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  .dark {
+    --glass: var(--card);
+    --glass-blur: none;
+  }
 }
 
 /* Overlay/panel motion. The primitives were written against
@@ -161,6 +352,17 @@
   --animate-sheet-in-left: vectra-sheet-in-left 220ms cubic-bezier(0.32, 0.72, 0, 1);
   --animate-sheet-out-left: vectra-sheet-out-left 180ms ease-in;
 
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* One ease for anything that should feel like it responded to a finger:
+     fast out of the gate, settling at the end. Never `ease-in` — that delays
+     the first frame, which is the frame the user is watching. */
+  --ease-physical: cubic-bezier(0.23, 1, 0.32, 1);
+
+  --shadow-surface: var(--elevation-surface);
+  --shadow-lift: var(--elevation-lift);
+  --shadow-press: var(--elevation-press);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -182,9 +384,40 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-ink: var(--success-ink);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-ink: var(--warning-ink);
+  --color-destructive-ink: var(--destructive-ink);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-glass: var(--glass);
+  --color-glass-edge: var(--glass-edge);
+
+  --color-cat-1: var(--cat-1);
+  --color-cat-1-ink: var(--cat-1-ink);
+  --color-cat-2: var(--cat-2);
+  --color-cat-2-ink: var(--cat-2-ink);
+  --color-cat-3: var(--cat-3);
+  --color-cat-3-ink: var(--cat-3-ink);
+  --color-cat-4: var(--cat-4);
+  --color-cat-4-ink: var(--cat-4-ink);
+  --color-cat-5: var(--cat-5);
+  --color-cat-5-ink: var(--cat-5-ink);
+  --color-cat-6: var(--cat-6);
+  --color-cat-6-ink: var(--cat-6-ink);
+  --color-cat-7: var(--cat-7);
+  --color-cat-7-ink: var(--cat-7-ink);
+  --color-cat-8: var(--cat-8);
+  --color-cat-8-ink: var(--cat-8-ink);
+  --color-cat-9: var(--cat-9);
+  --color-cat-9-ink: var(--cat-9-ink);
+  --color-cat-10: var(--cat-10);
+  --color-cat-10-ink: var(--cat-10-ink);
+  --color-cat-on: var(--cat-on);
 }
 
 /* One keyboard-focus treatment for the whole app. Primitives (Button, Input,
@@ -197,12 +430,36 @@
   @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
 }
 
+/* A translucent surface, for the few places that genuinely sit *above* another
+   layer: overlays (dialog, sheet, popovers), the scenarios sidebar, and the
+   composition card — a scenario nested inside another scenario, which is the
+   literal case the metaphor is about.
+   Deliberately NOT for the product/category/income grids: dozens of blurred
+   cards cost real frames and read as noise rather than depth.
+   Both `--glass` and `--glass-blur` collapse to the opaque card colour when
+   the browser lacks backdrop-filter or the user asked for reduced
+   transparency, so this utility is always safe to apply.
+
+   Only the unprefixed `backdrop-filter` is written below, on purpose.
+   Lightning CSS (which Tailwind v4 runs) treats the prefixed and unprefixed
+   forms as one property, keeps whichever comes last, and then re-adds prefixes
+   per its browser targets. Hand-writing `-webkit-backdrop-filter` after the
+   standard one made the build drop the standard property entirely, which would
+   have left Firefox with no glass at all. */
+@utility glass {
+  background-color: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-edge);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  /* `font-sans` is stated explicitly rather than left to Tailwind's preflight
+     default, so the app face doesn't depend on the theme's fallback chain. */
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background font-sans text-foreground antialiased;
   }
 
   /* Radix keeps an exiting panel mounted until its animation ends, so these
