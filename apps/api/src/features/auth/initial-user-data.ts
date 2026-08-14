@@ -1,21 +1,18 @@
 import type { Prisma, TransactionType } from "../../generated/prisma/client.js";
 
 // Data every user starts with. Created inside the registration transaction
-// (and reused by the dev seed) so "Sin categorizar" never depends on a seed
-// having run — risk raised in RFC-0008, closed here (RFC-0010).
+// (and reused by the dev seed) so a fresh account has something to organize
+// products with from the first screen — risk raised in RFC-0008, closed in
+// RFC-0010.
 
-// "Sin categorizar" exists once per TransactionType: a category is either
-// expense or income, never both (business rule 2), and transactions always
-// require a category (resolved open question 3). They are system categories:
-// protected from rename/archive/delete because future flows use them as the
-// re-categorization fallback.
+// The two "Sin categorizar" system categories this list used to seed were
+// dropped after ADR-0007: they existed as the re-categorization fallback for
+// transactions, and the ledger no longer has an exposed surface. Everything
+// here is now an ordinary category the user can rename, archive or delete.
 export const DEFAULT_CATEGORIES: {
   name: string;
   type: TransactionType;
-  isSystem?: boolean;
 }[] = [
-  { name: "Sin categorizar", type: "EXPENSE", isSystem: true },
-  { name: "Sin categorizar", type: "INCOME", isSystem: true },
   { name: "Comida", type: "EXPENSE" },
   { name: "Transporte", type: "EXPENSE" },
   { name: "Vivienda", type: "EXPENSE" },
