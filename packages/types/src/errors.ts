@@ -24,7 +24,9 @@ export const errorCodeSchema = z.enum([
   // so archiving is the only way out) — kept apart from CATEGORY_HAS_ITEMS so
   // the copy never promises a flow that cannot resolve the block.
   "CATEGORY_HAS_RECORDS",
-  // "Sin categorizar" and friends cannot be renamed, archived or deleted.
+  // A protected category cannot be renamed, archived or deleted. No category
+  // is protected today (the "Sin categorizar" pair was demoted), so this is
+  // unreachable until one is marked again.
   "SYSTEM_CATEGORY",
   // The resource is archived, so it cannot be used or modified.
   "ARCHIVED_RESOURCE",

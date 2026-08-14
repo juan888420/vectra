@@ -1,0 +1,14 @@
+-- Demotes the per-user "Sin categorizar" categories to ordinary ones.
+--
+-- They were introduced as the re-categorization fallback for transactions
+-- (ADR-0002), but the ledger was retired from the exposed backend in
+-- ADR-0007, so no runtime flow looks them up any more -- not by isSystem,
+-- not by name. The INCOME one was never even referenceable: Income has no
+-- categoryId, and expense items reject non-EXPENSE categories.
+--
+-- Demoted, not deleted: the rows may hold products, and the user can now
+-- rename, archive or delete them like any other category. The isSystem
+-- mechanism itself stays in place (column, guard, badge) for whenever a
+-- protected category is needed again -- this migration only leaves it with
+-- no rows to protect.
+UPDATE "categories" SET "isSystem" = false WHERE "isSystem" = true;
