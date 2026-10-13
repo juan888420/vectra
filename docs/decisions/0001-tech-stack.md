@@ -2,7 +2,7 @@
 
 ## Estado
 
-`accepted`
+`accepted` — la sección "Deploy" está supersedida por [ADR-0008](0008-single-service-deploy.md) (servicio único en Railway, mismo origen).
 
 ## Contexto
 

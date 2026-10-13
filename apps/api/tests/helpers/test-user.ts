@@ -18,7 +18,7 @@ export async function registerTestUser(app: FastifyInstance): Promise<TestUser> 
 
   const registerRes = await app.inject({
     method: "POST",
-    url: "/auth/register",
+    url: "/api/auth/register",
     payload: { email, password: "password123" },
   });
   const { user, accessToken } = registerRes.json();
@@ -27,7 +27,7 @@ export async function registerTestUser(app: FastifyInstance): Promise<TestUser> 
 
   const categoriesRes = await app.inject({
     method: "GET",
-    url: "/categories?pageSize=100",
+    url: "/api/categories?pageSize=100",
     headers: authHeader,
   });
   const { data: categories } = categoriesRes.json();

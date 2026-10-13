@@ -1,6 +1,9 @@
 import { errorCodeSchema, type ErrorCode } from "@vectra/types";
 
-import { env } from "./env.js";
+// Same origin as the SPA (ADR-0008): the API is mounted under /api by the
+// server that serves this bundle, and by Vite's dev proxy locally. Absolute so
+// non-browser runtimes (the jsdom test environment) resolve it too.
+const API_BASE_URL = `${window.location.origin}/api`;
 
 export class ApiError extends Error {
   constructor(
@@ -46,9 +49,9 @@ export function onSessionExpired(listener: SessionExpiredListener): void {
 let refreshPromise: Promise<string> | null = null;
 
 async function performRefresh(): Promise<string> {
-  const res = await fetch(`${env.VITE_API_URL}/auth/refresh`, {
+  const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
     method: "POST",
-    credentials: "include",
+    credentials: "same-origin",
   });
 
   if (!res.ok) {
@@ -108,11 +111,12 @@ async function performRequest<T>(
     headers.Authorization = `Bearer ${currentAccessToken}`;
   }
 
-  const res = await fetch(`${env.VITE_API_URL}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method ?? "GET",
-    // Needed for the httpOnly `vectra_refresh` cookie on /auth/* calls;
-    // harmless elsewhere since the cookie is scoped path=/auth server-side.
-    credentials: "include",
+    // Sends the httpOnly `vectra_refresh` cookie on /auth/* calls (it is
+    // scoped to that path server-side). Never "include": nothing here should
+    // ever carry credentials to another origin.
+    credentials: "same-origin",
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     signal: options.signal,

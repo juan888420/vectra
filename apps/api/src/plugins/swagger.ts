@@ -3,6 +3,8 @@ import swaggerUi from "@fastify/swagger-ui";
 import fp from "fastify-plugin";
 import { jsonSchemaTransform } from "fastify-type-provider-zod";
 
+import { API_PREFIX } from "../lib/api-prefix.js";
+
 export const swaggerPlugin = fp(async (app) => {
   await app.register(swagger, {
     openapi: {
@@ -27,6 +29,6 @@ export const swaggerPlugin = fp(async (app) => {
   });
 
   await app.register(swaggerUi, {
-    routePrefix: "/docs",
+    routePrefix: `${API_PREFIX}/docs`,
   });
 });

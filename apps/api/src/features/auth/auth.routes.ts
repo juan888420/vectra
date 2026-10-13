@@ -3,6 +3,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 
 import { env } from "../../config/env.js";
+import { API_PREFIX } from "../../lib/api-prefix.js";
 import { unauthorized } from "../../lib/http-errors.js";
 import { errorResponseSchema } from "../../lib/schemas.js";
 import { toUserPublic } from "../users/users.schemas.js";
@@ -10,13 +11,16 @@ import { authResponseSchema, loginBodySchema, registerBodySchema } from "./auth.
 import { loginUser, registerUser, revokeRefreshToken, rotateRefreshToken } from "./auth.service.js";
 
 export const REFRESH_COOKIE = "vectra_refresh";
+// Must match where authRoutes is mounted, or the browser stops sending the
+// cookie to /refresh and /logout and every reload silently loses the session.
+export const REFRESH_COOKIE_PATH = `${API_PREFIX}/auth`;
 
-// Scoped to /auth so the browser only attaches it to refresh/logout calls.
-// SameSite=Lax works in dev (localhost ports are same-site); the production
-// cross-site setup (Vercel <-> Railway) is documented in RFC-0010.
+// Scoped to the auth routes so the browser only attaches it to refresh/logout
+// calls. SameSite=Lax is enough because the SPA and the API share one origin
+// (ADR-0008) — the cookie is never sent cross-site.
 function setRefreshCookie(reply: FastifyReply, token: string, expiresAt: Date): void {
   void reply.setCookie(REFRESH_COOKIE, token, {
-    path: "/auth",
+    path: REFRESH_COOKIE_PATH,
     httpOnly: true,
     secure: env.NODE_ENV === "production",
     sameSite: "lax",
@@ -112,7 +116,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
         await revokeRefreshToken(app.prisma, token);
       }
 
-      void reply.clearCookie(REFRESH_COOKIE, { path: "/auth" });
+      void reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
       return reply.status(204).send(null);
     },
   );

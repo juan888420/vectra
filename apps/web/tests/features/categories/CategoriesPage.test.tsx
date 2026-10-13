@@ -7,7 +7,7 @@ import { CategoriesPage } from "../../../src/features/categories/CategoriesPage.
 import { server } from "../../msw/server.js";
 import { createTestQueryClient, withProviders } from "../../test-utils.js";
 
-const API_URL = "http://localhost:3001";
+const API_URL = `${window.location.origin}/api`;
 
 function makeCategory(overrides: Partial<Record<string, unknown>> = {}) {
   return {

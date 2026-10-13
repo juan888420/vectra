@@ -22,6 +22,7 @@
   - [`0005-financial-scenarios.md`](decisions/0005-financial-scenarios.md): escenarios financieros como eje del producto (`accepted`).
   - [`0006-question-driven-interface.md`](decisions/0006-question-driven-interface.md): interfaz orientada a preguntas financieras, no a CRUD (`partially superseded` por ADR-0007 en lo referido al ledger).
   - [`0007-retire-ledger-surface.md`](decisions/0007-retire-ledger-surface.md): retiro de Cuentas/Transacciones/Presupuestos/Reports/Dashboard de la experiencia de producto (`accepted`).
+  - [`0008-single-service-deploy.md`](decisions/0008-single-service-deploy.md): SPA y API en un único servicio y mismo origen; migraciones en el paso de release (`accepted`, supersede el deploy de ADR-0001).
 
 - **`glossary.md`** — términos de dominio financiero usados de forma consistente en todo el proyecto.
 
