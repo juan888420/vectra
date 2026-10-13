@@ -96,7 +96,11 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       const { user, refreshToken } = await rotateRefreshToken(app.prisma, token);
       const accessToken = await reply.jwtSign({ sub: user.id });
 
-      setRefreshCookie(reply, refreshToken.token, refreshToken.expiresAt);
+      // Null inside the reuse grace window: a concurrent request already
+      // rotated this token and its response sets the successor cookie.
+      if (refreshToken) {
+        setRefreshCookie(reply, refreshToken.token, refreshToken.expiresAt);
+      }
       return reply.status(200).send({ user: toUserPublic(user), accessToken });
     },
   );
