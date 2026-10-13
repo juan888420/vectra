@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, types, tests and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      # Matches apps/api/.env.test, which the API test suite loads.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vectra_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TURBO_TELEMETRY_DISABLED: 1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version comes from package.json's packageManager field.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      # The Prisma client is generated (gitignored); typecheck and lint need it.
+      - name: Generate Prisma client
+        run: pnpm --filter @vectra/api db:generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # Same command the release step runs in production, against a fresh
+      # database: proves every migration applies cleanly from zero.
+      - name: Apply migrations to the test database
+        run: pnpm --filter @vectra/api db:deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vectra_test?schema=public
+
+      - name: Test (API against PostgreSQL, web)
+        run: pnpm test
+
+      - name: Production build
+        run: pnpm build
+
+  image:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Builds the exact image Railway deploys (ADR-0008); nothing is pushed.
+      - name: Build image
+        run: docker build --tag vectra:ci .

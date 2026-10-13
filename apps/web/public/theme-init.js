@@ -1,4 +1,3 @@
-/* global localStorage, window, document -- plain browser script, outside the Vite/TS build */
 // Blocking, runs before any stylesheet/React paints, so the correct theme
 // applies on the very first frame (no flash of the wrong theme). A file, not
 // an inline <script>, so the server's CSP (script-src 'self') allows it.
