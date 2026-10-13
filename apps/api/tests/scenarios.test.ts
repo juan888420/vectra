@@ -725,6 +725,155 @@ describe("Scenarios", () => {
     expect(summary.body.hasUpdates).toBe(false);
   });
 
+  describe("archived scenarios stay frozen", () => {
+    async function addItem(scenarioId: string, expenseItemId: string) {
+      await request(app.server)
+        .post(`/api/scenarios/${scenarioId}/items`)
+        .set(auth)
+        .send({ expenseItemId });
+    }
+
+    async function include(parentId: string, childId: string) {
+      await request(app.server)
+        .post(`/api/scenarios/${parentId}/compositions`)
+        .set(auth)
+        .send({ childScenarioId: childId });
+    }
+
+    async function itemAmounts(scenarioId: string): Promise<number[]> {
+      const res = await request(app.server).get(`/api/scenarios/${scenarioId}/items`).set(auth);
+      return (res.body.data as { amount: number }[]).map((item) => item.amount);
+    }
+
+    it("leaves an archived composed scenario untouched when its parent syncs", async () => {
+      const parent = await createScenario();
+      const child = await createScenario();
+      const childOnly = await createExpenseItem(10000);
+      const shared = await createExpenseItem(20000);
+      await addItem(child.id, childOnly);
+      await addItem(parent.id, shared);
+      await include(parent.id, child.id);
+      await request(app.server).post(`/api/scenarios/${child.id}/archive`).set(auth);
+
+      for (const id of [childOnly, shared]) {
+        await request(app.server)
+          .patch(`/api/expense-items/${id}`)
+          .set(auth)
+          .send({ amount: 99000 });
+      }
+
+      // Only the parent's own drift is pending: the archived child's can never
+      // be applied from here, so it must not keep the parent "outdated".
+      const summary = await request(app.server)
+        .get(`/api/scenarios/${parent.id}/summary`)
+        .set(auth);
+      expect(summary.body.pendingChanges).toHaveLength(1);
+      expect(summary.body.pendingChanges[0].from).toBe(20000);
+
+      const synced = await request(app.server).post(`/api/scenarios/${parent.id}/sync`).set(auth);
+      expect(synced.body.syncedCount).toBe(1);
+      expect(await itemAmounts(parent.id)).toEqual([99000]);
+      expect(await itemAmounts(child.id)).toEqual([10000]);
+
+      const after = await request(app.server).get(`/api/scenarios/${parent.id}/summary`).set(auth);
+      expect(after.body.hasUpdates).toBe(false);
+    });
+
+    it("still syncs a live scenario composed through an archived one", async () => {
+      const parent = await createScenario();
+      const middle = await createScenario();
+      const leaf = await createScenario();
+      const middleItem = await createExpenseItem(10000);
+      const leafItem = await createExpenseItem(20000);
+      await addItem(middle.id, middleItem);
+      await addItem(leaf.id, leafItem);
+      await include(parent.id, middle.id);
+      await include(middle.id, leaf.id);
+      await request(app.server).post(`/api/scenarios/${middle.id}/archive`).set(auth);
+
+      for (const id of [middleItem, leafItem]) {
+        await request(app.server)
+          .patch(`/api/expense-items/${id}`)
+          .set(auth)
+          .send({ amount: 55000 });
+      }
+      await request(app.server).post(`/api/scenarios/${parent.id}/sync`).set(auth);
+
+      expect(await itemAmounts(middle.id)).toEqual([10000]);
+      expect(await itemAmounts(leaf.id)).toEqual([55000]);
+    });
+
+    it("refuses to change the contents of an archived scenario", async () => {
+      const scenario = await createScenario();
+      const other = await createScenario();
+      const itemId = await createExpenseItem(10000);
+      const incomeId = await createIncome(500000);
+      await addItem(scenario.id, itemId);
+      await request(app.server)
+        .post(`/api/scenarios/${scenario.id}/incomes`)
+        .set(auth)
+        .send({ incomeId });
+      await include(scenario.id, other.id);
+
+      const [items, incomes, compositions] = await Promise.all(
+        ["items", "incomes", "compositions"].map((path) =>
+          request(app.server).get(`/api/scenarios/${scenario.id}/${path}`).set(auth),
+        ),
+      );
+      await request(app.server).post(`/api/scenarios/${scenario.id}/archive`).set(auth);
+      await request(app.server).patch(`/api/expense-items/${itemId}`).set(auth).send({ amount: 1 });
+
+      const attempts = await Promise.all([
+        request(app.server)
+          .delete(`/api/scenarios/${scenario.id}/items/${items!.body.data[0].id}`)
+          .set(auth),
+        request(app.server)
+          .delete(`/api/scenarios/${scenario.id}/incomes/${incomes!.body.data[0].id}`)
+          .set(auth),
+        request(app.server)
+          .delete(`/api/scenarios/${scenario.id}/compositions/${compositions!.body.data[0].id}`)
+          .set(auth),
+        request(app.server).post(`/api/scenarios/${scenario.id}/sync`).set(auth),
+      ]);
+
+      for (const attempt of attempts) {
+        expect(attempt.status).toBe(409);
+        expect(attempt.body.code).toBe("ARCHIVED_RESOURCE");
+      }
+      expect(await itemAmounts(scenario.id)).toEqual([10000]);
+    });
+  });
+
+  it("keeps snapshots in sync when a deleted category's products are moved", async () => {
+    const source = await request(app.server)
+      .post("/api/categories")
+      .set(auth)
+      .send({ name: uniqueName("Temporal"), type: "EXPENSE" });
+    const target = await request(app.server)
+      .post("/api/categories")
+      .set(auth)
+      .send({ name: uniqueName("Destino"), type: "EXPENSE" });
+    const item = await request(app.server)
+      .post("/api/expense-items")
+      .set(auth)
+      .send({ categoryId: source.body.id, name: uniqueName("Yoga"), amount: 50000 });
+    const scenario = await createScenario();
+    await request(app.server)
+      .post(`/api/scenarios/${scenario.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: item.body.id });
+
+    const deleted = await request(app.server)
+      .post(`/api/categories/${source.body.id}/delete-with-reassignment`)
+      .set(auth)
+      .send({ targetCategoryId: target.body.id });
+    expect(deleted.status).toBe(200);
+
+    const items = await request(app.server).get(`/api/scenarios/${scenario.id}/items`).set(auth);
+    expect(items.body.data[0].categoryName).toBe(target.body.name);
+    expect(items.body.data[0].outdated).toBe(false);
+  });
+
   it("hides another user's scenario behind a 404", async () => {
     const stranger = await registerTestUser(app);
     const strangerAuth = { Authorization: `Bearer ${stranger.accessToken}` };

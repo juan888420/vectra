@@ -54,6 +54,10 @@ export async function cleanupTestUser(app: FastifyInstance, userId: string): Pro
   // cascade delete (RefreshToken/Account/Category/...) fails unless it's
   // removed first. Scenarios must go before expenseItem/income:
   // ScenarioItem/ScenarioIncome reference them with onDelete: Restrict too.
+  // Compositions go first of all: their child side is Restrict, so deleting
+  // a parent and its child in one statement fails or not depending on row
+  // order.
+  await app.prisma.scenarioComposition.deleteMany({ where: { parentScenario: { userId } } });
   await app.prisma.scenario.deleteMany({ where: { userId } });
   await app.prisma.expenseItem.deleteMany({ where: { userId } });
   await app.prisma.user.delete({ where: { id: userId } });
