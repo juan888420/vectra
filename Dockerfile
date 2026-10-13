@@ -21,6 +21,9 @@ FROM base AS runtime
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV WEB_DIST_DIR=/app/apps/web/dist
+# Railway puts one proxy in front of the container. Pending verification on a
+# real deploy (ADR-0008) — the rate limiter's client IP depends on it.
+ENV TRUST_PROXY_HOPS=1
 
 # Every workspace manifest, so the frozen lockfile still matches; only the
 # API's production dependency closure is actually installed.

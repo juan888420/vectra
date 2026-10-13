@@ -14,6 +14,12 @@ const envSchema = z
     /// also serves the frontend from the same origin (ADR-0008); in local
     /// development Vite serves it instead and proxies /api here.
     WEB_DIST_DIR: z.string().min(1).optional(),
+    /// How many reverse proxies sit in front of this server (Fastify's
+    /// `trustProxy` hop count). 0 = none: X-Forwarded-For is ignored and the
+    /// socket address is the client. Must match the real topology — too high
+    /// lets a client forge its IP, too low lumps every user behind the
+    /// proxy's address (ADR-0008, "Verificación pendiente").
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
   })
   .refine((env) => env.NODE_ENV !== "production" || env.WEB_DIST_DIR !== undefined, {
     message: "WEB_DIST_DIR is required in production (single-service deploy, ADR-0008)",

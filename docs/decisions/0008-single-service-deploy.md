@@ -29,7 +29,8 @@ ADR-0001 preveía el SPA en Vercel y el API en Railway, en dominios distintos. L
 
 - Se pierde el CDN de Vercel para los estáticos. Irrelevante en la beta; si hiciera falta, se puede poner un CDN delante del servicio único sin cambiar la aplicación.
 - Un solo despliegue versiona juntos frontend y API: no hay ventana en la que un frontend nuevo hable con un API viejo.
-- Variables de entorno de producción: `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`, `WEB_DIST_DIR` (fijada en la imagen), `HOST=0.0.0.0` (fijada en la imagen) y `PORT` (la inyecta Railway).
+- Variables de entorno de producción: `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`, `WEB_DIST_DIR`, `HOST=0.0.0.0` y `TRUST_PROXY_HOPS=1` (estas tres fijadas en la imagen) y `PORT` (la inyecta Railway).
+- **Rate limiting**: las peticiones con un access token válido se limitan por cuenta (no falsificable con cabeceras); las anónimas, por IP del cliente. Esa IP sale de `X-Forwarded-For` confiando exactamente `TRUST_PROXY_HOPS` saltos (nunca `trustProxy: true`), así que lo que el cliente anteponga en la cabecera se ignora. La autenticación corre en `preValidation` para que el limitador (en `onRequest`) cuente también las peticiones con token ausente o falsificado.
 
 ## Verificación pendiente contra la plataforma real
 
@@ -37,4 +38,4 @@ La documentación de Railway no pudo consultarse desde el entorno donde se escri
 
 1. Que `preDeployCommand` en `railway.json` se aplica tal como está escrito y corre una sola vez por despliegue (no por réplica).
 2. Que `healthcheckPath` (`/api/health`) bloquea el cambio de versión si la nueva no arranca.
-3. La topología del proxy de Railway delante del contenedor (cabeceras `X-Forwarded-For` / `X-Real-IP` y número de saltos), que determina la configuración de `trustProxy` del rate limiting.
+3. La topología del proxy de Railway delante del contenedor, que fija `TRUST_PROXY_HOPS` (hoy `1`). Comprobación: enviar `curl -H "X-Forwarded-For: 1.2.3.4" https://<dominio>/api/health` y confirmar en los logs que `remoteAddress` es la IP pública real de quien hace la petición, no `1.2.3.4` ni una IP interna de Railway. Si aparece una IP de Railway o de su CDN, hay un salto más y el valor correcto es `2`; si aparece `1.2.3.4`, el valor es demasiado alto. La documentación pública de Railway no define este modelo de confianza y hay reportes de comunidad contradictorios sobre `X-Real-IP`, por eso no se usa esa cabecera.

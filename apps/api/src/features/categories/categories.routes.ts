@@ -28,7 +28,7 @@ const TAGS = ["Categories"];
 const SECURITY = [{ bearerAuth: [] }];
 
 export const categoriesRoutes: FastifyPluginAsyncZod = async (app) => {
-  app.addHook("onRequest", app.authenticate);
+  app.addHook("preValidation", app.authenticate);
 
   app.get(
     "/",

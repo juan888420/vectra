@@ -8,7 +8,7 @@ export const usersRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     "/me",
     {
-      onRequest: [app.authenticate],
+      preValidation: [app.authenticate],
       schema: {
         tags: ["Users"],
         summary: "Get the authenticated user",
