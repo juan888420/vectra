@@ -3,6 +3,13 @@
 # run once per deploy as the platform's pre-deploy step (railway.json).
 
 FROM node:22-bookworm-slim AS base
+# Prisma picks its schema engine (prisma migrate deploy) by the system OpenSSL.
+# The slim image has none, so Prisma falls back to a binary with its own
+# statically embedded OpenSSL: it works, but never gets Debian's security
+# updates. With openssl installed it selects the build that links libssl3.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable

@@ -167,21 +167,27 @@ jobs:
           [ "$status" = "404" ]
           jq -e '.code == "RESOURCE_NOT_FOUND"' missing.json
 
-      - name: Prisma warnings
+      # Prisma warns when it falls back to a guessed engine (ADR-0008, OpenSSL
+      # in the image); any warning means the image no longer matches.
+      - name: No Prisma warnings
         if: always()
         run: |
           docker logs vectra > server.log 2>&1 || true
+          echo "--- Schema engine in the final image and the libraries it resolves"
+          docker run --rm --entrypoint sh vectra:ci -c '
+            engine=$(find /app/node_modules -name "schema-engine-*" -type f)
+            echo "$engine"
+            ldd "$engine" | grep -E "libssl|libcrypto|not found" || echo "no libssl/libcrypto linked"
+            openssl version'
+          warnings=0
           for log in build.log migrate.log server.log; do
             [ -f "$log" ] || continue
-            { grep -i 'prisma:warn' "$log" || true; } | sort -u | while read -r line; do
-              echo "::warning title=$log::$line"
-            done
+            while read -r line; do
+              echo "::error title=$log::$line"
+              warnings=$((warnings + 1))
+            done < <(grep -i 'prisma:warn' "$log" | sort -u || true)
           done
-          echo "--- Prisma engines and OpenSSL in the final image"
-          docker run --rm --entrypoint sh vectra:ci -c '
-            find / -name "schema-engine*" -not -path "/proc/*" 2>/dev/null
-            ls /usr/lib/x86_64-linux-gnu | grep -E "^lib(ssl|crypto)" || echo "no libssl/libcrypto"
-            command -v openssl || echo "no openssl binary"'
+          [ "$warnings" -eq 0 ]
 
       - name: Server logs
         if: failure()

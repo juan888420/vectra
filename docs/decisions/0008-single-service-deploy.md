@@ -29,7 +29,8 @@ ADR-0001 preveía el SPA en Vercel y el API en Railway, en dominios distintos. L
 
 - Se pierde el CDN de Vercel para los estáticos. Irrelevante en la beta; si hiciera falta, se puede poner un CDN delante del servicio único sin cambiar la aplicación.
 - Un solo despliegue versiona juntos frontend y API: no hay ventana en la que un frontend nuevo hable con un API viejo.
-- Variables de entorno de producción: `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`, `WEB_DIST_DIR`, `HOST=0.0.0.0` y `TRUST_PROXY_HOPS=1` (estas tres fijadas en la imagen) y `PORT` (la inyecta Railway).
+- Variables de entorno de producción: `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`, `WEB_DIST_DIR`, `HOST=0.0.0.0` y `TRUST_PROXY_HOPS=1` (estas cuatro fijadas en la imagen) y `PORT` (la inyecta Railway).
+- **OpenSSL en la imagen**: `node:22-bookworm-slim` no trae OpenSSL, así que Prisma no detecta su versión y elige el `schema-engine` "debian-openssl-1.1.x", que en Prisma 7.10 no enlaza libssl: lleva OpenSSL 3.4.1 embebido estáticamente. Funciona (el smoke test lo comprobó), pero esa copia no recibe los parches de seguridad de Debian y Prisma lo marca como fallback ("may not work as expected"). La imagen instala `openssl` en la etapa base para que Prisma elija el binario "debian-openssl-3.0.x", que enlaza el `libssl3` del sistema. El CI falla si reaparece cualquier `prisma:warn`.
 - **Rate limiting**: las peticiones con un access token válido se limitan por cuenta (no falsificable con cabeceras); las anónimas, por IP del cliente. Esa IP sale de `X-Forwarded-For` confiando exactamente `TRUST_PROXY_HOPS` saltos (nunca `trustProxy: true`), así que lo que el cliente anteponga en la cabecera se ignora. La autenticación corre en `preValidation` para que el limitador (en `onRequest`) cuente también las peticiones con token ausente o falsificado.
 
 ## Verificación pendiente contra la plataforma real
