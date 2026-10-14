@@ -19,9 +19,10 @@ jobs:
     timeout-minutes: 20
 
     services:
-      # Matches apps/api/.env.test, which the API test suite loads.
+      # Matches apps/api/.env.test, which the API test suite loads. Same major
+      # as production: the railway SDK's postgres() provisions postgres-ssl:18.
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -91,8 +92,9 @@ jobs:
     timeout-minutes: 20
 
     services:
+      # Same major as production (postgres-ssl:18, see .railway/railway.ts).
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
