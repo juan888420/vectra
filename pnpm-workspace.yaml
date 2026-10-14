@@ -9,3 +9,26 @@ allowBuilds:
   esbuild: true
   msw: false
   prisma: true
+
+# Advisories accepted after review (ADR-0008, "Riesgos aceptados"). All three
+# come only from the Prisma CLI, which pins exact versions (prisma 7.10.0:
+# mysql2 3.15.3; @prisma/config 7.10.0: deepmerge-ts 7.1.5). The CLI ships in
+# the runtime image solely for the pre-deploy `prisma migrate deploy`; the
+# server never loads either package.
+#
+# Revisit on every Prisma upgrade and drop each entry once the audit stops
+# reporting it. Any advisory not listed here fails CI (`pnpm audit --prod`).
+auditConfig:
+  ignoreGhsas:
+    # deepmerge-ts <8 (high, CVE-2026-40345): stack exhaustion on recursive
+    # object graphs. Only @prisma/config uses it, to merge our own
+    # prisma.config.ts: plain data, no cycles, not user input. The fix is a
+    # major (8.x) that Prisma 7 does not accept.
+    - GHSA-ggr8-5vv4-36mx
+    # mysql2 <3.22.0 (high): a rogue MySQL server can downgrade auth to
+    # cleartext. mysql2 is only imported by Prisma Studio for MySQL
+    # datasources; Vectra uses PostgreSQL and never runs Studio in production.
+    - GHSA-3f6p-5ww8-9rcr
+    # mysql2 <=3.23.0 (moderate): unbounded zlib inflate from a MySQL server.
+    # Same reachability as above: no MySQL connection is ever opened.
+    - GHSA-rgwj-5xj2-c3m3

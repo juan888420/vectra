@@ -51,6 +51,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Fails on any advisory in production dependencies that is not one of
+      # the reviewed exceptions in pnpm-workspace.yaml (auditConfig).
+      - name: Audit production dependencies
+        run: pnpm audit --prod
+
       - name: Check formatting
         run: pnpm format:check
 

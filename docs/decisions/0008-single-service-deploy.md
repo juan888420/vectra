@@ -33,6 +33,18 @@ ADR-0001 preveía el SPA en Vercel y el API en Railway, en dominios distintos. L
 - **OpenSSL en la imagen**: `node:22-bookworm-slim` no trae OpenSSL, así que Prisma no detecta su versión y elige el `schema-engine` "debian-openssl-1.1.x", que en Prisma 7.10 no enlaza libssl: lleva OpenSSL 3.4.1 embebido estáticamente. Funciona (el smoke test lo comprobó), pero esa copia no recibe los parches de seguridad de Debian y Prisma lo marca como fallback ("may not work as expected"). La imagen instala `openssl` en la etapa base para que Prisma elija el binario "debian-openssl-3.0.x", que enlaza el `libssl3` del sistema. El CI falla si reaparece cualquier `prisma:warn`.
 - **Rate limiting**: las peticiones con un access token válido se limitan por cuenta (no falsificable con cabeceras); las anónimas, por IP del cliente. Esa IP sale de `X-Forwarded-For` confiando exactamente `TRUST_PROXY_HOPS` saltos (nunca `trustProxy: true`), así que lo que el cliente anteponga en la cabecera se ignora. La autenticación corre en `preValidation` para que el limitador (en `onRequest`) cuente también las peticiones con token ausente o falsificado.
 
+## Riesgos aceptados
+
+El CLI de Prisma viaja en la imagen de runtime solo para el `prisma migrate deploy` del paso de release, y arrastra tres avisos de `pnpm audit --prod` que no tienen arreglo compatible: Prisma 7.10.0 fija versiones exactas (`mysql2` 3.15.3, `deepmerge-ts` 7.1.5 vía `@prisma/config`). Revisados el 2026-10-14:
+
+| Aviso                                       | Paquete           | Por qué no es alcanzable en Vectra                                                                                                                                                                             |
+| ------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GHSA-ggr8-5vv4-36mx / CVE-2026-40345 (alta) | `deepmerge-ts` <8 | Solo lo usa `@prisma/config` para fusionar nuestro `prisma.config.ts` (datos propios, sin ciclos). El runtime de `@prisma/client` no lo carga. El arreglo es la 8.x, una versión mayor que Prisma 7 no admite. |
+| GHSA-3f6p-5ww8-9rcr (alta)                  | `mysql2` <3.22.0  | Solo lo importa Prisma Studio, de forma dinámica, con datasources MySQL. Vectra usa PostgreSQL y nunca ejecuta Studio en producción.                                                                           |
+| GHSA-rgwj-5xj2-c3m3 (moderada)              | `mysql2` ≤3.23.0  | El mismo caso: nunca se abre una conexión MySQL.                                                                                                                                                               |
+
+Se registran en `pnpm-workspace.yaml` (`auditConfig.ignoreGhsas`), y el CI ejecuta `pnpm audit --prod`, así que cualquier aviso fuera de esta lista lo rompe. Se descartaron los overrides (forzar `mysql2` por encima del pin exacto de Prisma sin pruebas propias, o `deepmerge-ts` 8, que es una versión mayor) y Prisma 8, que hoy está en RC. Hay que revisar la lista en cada actualización de Prisma.
+
 ## Verificación pendiente contra la plataforma real
 
 La documentación de Railway no pudo consultarse desde el entorno donde se escribió esta ADR. Antes de abrir la beta, verificar en un despliegue de prueba:
