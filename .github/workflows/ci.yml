@@ -15,7 +15,7 @@ concurrency:
 jobs:
   verify:
     name: Lint, types, tests and production build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     services:
@@ -38,12 +38,12 @@ jobs:
       TURBO_TELEMETRY_DISABLED: 1
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Version comes from package.json's packageManager field.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -82,7 +82,7 @@ jobs:
   # pushed, and the database is a throwaway service container of this job.
   image:
     name: Docker image builds, migrates and serves
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     services:
@@ -111,7 +111,7 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build image
         run: docker build --progress=plain --tag vectra:ci . 2>&1 | tee build.log
