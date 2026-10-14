@@ -28,7 +28,6 @@ auditConfig:
     # mysql2 <3.22.0 (high): a rogue MySQL server can downgrade auth to
     # cleartext. mysql2 is only imported by Prisma Studio for MySQL
     # datasources; Vectra uses PostgreSQL and never runs Studio in production.
-    - GHSA-3f6p-5ww8-9rcr
     # mysql2 <=3.23.0 (moderate): unbounded zlib inflate from a MySQL server.
     # Same reachability as above: no MySQL connection is ever opened.
     - GHSA-rgwj-5xj2-c3m3
