@@ -137,7 +137,8 @@ jobs:
             exit 1
           fi
 
-      # Same command as railway.json's preDeployCommand, inside the final image.
+      # Same command as the service's preDeploy in .railway/railway.ts, inside the
+      # final image.
       - name: Release step applies every migration
         env:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}

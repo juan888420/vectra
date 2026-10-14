@@ -226,7 +226,7 @@ The frontend runs on `http://localhost:5173` and proxies `/api` to the backend o
 
 ### Deployment
 
-A single service serves both the built SPA and the API from one origin (see [ADR-0008](docs/decisions/0008-single-service-deploy.md)). The image is defined in [`Dockerfile`](Dockerfile) and the platform settings in [`railway.json`](railway.json). Database migrations run once per deploy as a pre-deploy step (`prisma migrate deploy`), never when the server starts.
+A single service serves both the built SPA and the API from one origin (see [ADR-0008](docs/decisions/0008-single-service-deploy.md)). The image is defined in [`Dockerfile`](Dockerfile) and the Railway project (service, PostgreSQL, pre-deploy, health check) in [`.railway/railway.ts`](.railway/railway.ts), applied with `railway config plan` / `railway config apply` rather than read on deploy. Database migrations run once per deploy as a pre-deploy step (`prisma migrate deploy`), never when the server starts.
 
 ---
 

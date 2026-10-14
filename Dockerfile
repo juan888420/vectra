@@ -1,6 +1,6 @@
 # Single-service image (ADR-0008): Fastify serves the API under /api and the
 # built SPA everywhere else. Migrations are NOT run here or at startup — they
-# run once per deploy as the platform's pre-deploy step (railway.json).
+# run once per deploy as the platform's pre-deploy step (.railway/railway.ts).
 
 FROM node:22-bookworm-slim AS base
 # Prisma picks its schema engine (prisma migrate deploy) by the system OpenSSL.
