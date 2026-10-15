@@ -1,9 +1,9 @@
 // Railway project for the single-service deploy (ADR-0008). Railway does not
 // read this file on deploy: it is applied with `railway config plan` and
 // `railway config apply`, and a plan must be reviewed before every apply.
-import { defineRailway, github, postgres, preserve, project, service } from "railway/iac";
+import { defineRailway, github, postgres, project, service } from "railway/iac";
 
-export default defineRailway(() => {
+export default defineRailway((ctx) => {
   const db = postgres("postgres");
 
   const app = service("vectra", {
@@ -27,8 +27,9 @@ export default defineRailway(() => {
     replicas: 1,
     env: {
       DATABASE_URL: db.env.DATABASE_URL,
-      // Created as a sealed variable in Railway; never written to the repo.
-      JWT_SECRET: preserve(),
+      // References the environment's sealed shared variable (${{shared.JWT_SECRET}}),
+      // created in the Railway dashboard; the value never enters the repo.
+      JWT_SECRET: ctx.shared.JWT_SECRET,
     },
   });
 
