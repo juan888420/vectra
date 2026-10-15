@@ -16,8 +16,8 @@ ADR-0001 preveía el SPA en Vercel y el API en Railway, en dominios distintos. L
 - Fastify sirve `apps/web/dist` (`plugins/web-app.ts`): los archivos de `assets/` con caché inmutable, `index.html` siempre revalidado, y cualquier navegación GET fuera de `/api` que no sea un archivo cae en `index.html` (fallback del SPA). Un `/api/*` desconocido o un archivo inexistente responden 404 JSON, nunca el SPA.
 - No hay plugin de CORS: el navegador bloquea toda lectura cross-origin por defecto, que es la política deseada. En desarrollo, Vite hace proxy de `/api` al API local, así que también es mismo origen.
 - El frontend no tiene variables de entorno de build: llama a `/api` relativo al origen que lo sirve.
-- Imagen: `Dockerfile` multi-stage (build del workspace completo; runtime solo con las dependencias de producción del API). Configuración en `railway.json`.
-- **Migraciones**: `prisma migrate deploy` se ejecuta como `preDeployCommand` de Railway, una vez por despliegue y antes de que arranque la nueva versión; si falla, el despliegue se detiene. El arranque del servidor (`node dist/server.js`) **nunca** migra.
+- Imagen: `Dockerfile` multi-stage (build del workspace completo; runtime solo con las dependencias de producción del API). La configuración de la plataforma vive en `.railway/railway.ts` (ver "Configuración de Railway").
+- **Migraciones**: `prisma migrate deploy` se ejecuta como comando de pre-deploy de Railway, una vez por despliegue y antes de que arranque la nueva versión; si falla, el despliegue se detiene. El arranque del servidor (`node dist/server.js`) **nunca** migra.
 - `WEB_DIST_DIR` es obligatorio en producción (el servidor no arranca sin él ni sin un `index.html` dentro).
 
 ## Alternativas consideradas
@@ -45,10 +45,31 @@ El CLI de Prisma viaja en la imagen de runtime solo para el `prisma migrate depl
 
 Se registran en `pnpm-workspace.yaml` (`auditConfig.ignoreGhsas`), y el CI ejecuta `pnpm audit --prod`, así que cualquier aviso fuera de esta lista lo rompe. Se descartaron los overrides (forzar `mysql2` por encima del pin exacto de Prisma sin pruebas propias, o `deepmerge-ts` 8, que es una versión mayor) y Prisma 8, que hoy está en RC. Hay que revisar la lista en cada actualización de Prisma.
 
+## Configuración de Railway (Infrastructure as Code)
+
+La primera versión de esta ADR usaba `railway.json` (Config as Code). Railway lo declaró obsoleto: los servicios nuevos no pueden adoptarlo (según el foro de Railway, desde el 2026-08-28) y los archivos existentes dejan de leerse el 2026-12-01. Un servicio creado hoy **ignoraría `railway.json` sin avisar**: se seguiría construyendo con el `Dockerfile` (Railway lo detecta en la raíz), pero sin pre-deploy ni health check. Como `/api/health` solo comprueba `SELECT 1`, ese deploy quedaría activo sobre una base sin tablas.
+
+Se sustituye por `.railway/railway.ts` (Infrastructure as Code, SDK `railway`), sin cambiar la arquitectura:
+
+- **Recursos**: un `postgres("postgres")` y el servicio `vectra`, con origen GitHub `main` y "Wait for CI" (`checkSuites: true`), así que un commit con el CI en rojo no se despliega.
+- **Build**: `builder: "DOCKERFILE"`, `dockerfilePath: "Dockerfile"`.
+- **Pre-deploy**: `npx --no-install prisma migrate deploy`, el mismo comando que el smoke test del CI ejecuta dentro de la imagen final. Corre en un contenedor aparte con la misma imagen y las variables del servicio; si falla, no se reintenta y el deploy no sigue. Se añade `preDeployTimeoutSeconds: 300`, porque por defecto no tiene límite y una migración bloqueada colgaría el deploy.
+- **Health check**: `/api/health`, timeout de 60 s. Railway lo consulta desde `healthcheck.railway.app` y solo al desplegar, no como monitorización continua.
+- **Réplicas**: `1`. El rate limiter guarda sus contadores en memoria del proceso: con dos réplicas, cada presupuesto se duplicaría. Escalar exige antes un almacén compartido.
+- **Variables**: `DATABASE_URL` referencia a la del Postgres. `JWT_SECRET` es `ctx.shared.JWT_SECRET`, que Railway resuelve como `${{shared.JWT_SECRET}}`: referencia a una variable compartida y sellada del entorno `production`, creada a mano en el dashboard, así que el valor nunca entra en el repositorio ni en el plan. Se descartó `preserve()`, que solo conserva el valor de una variable que ya existe en el servicio y no sirve para un servicio que aún no existe. El nombre no lo comprueba el compilador (`ctx.shared` acepta cualquier clave), así que se revisa en el plan. `NODE_ENV`, `HOST`, `WEB_DIST_DIR` y `TRUST_PROXY_HOPS` siguen fijadas en la imagen.
+- **Aplicación**: Railway no lee `.railway/` durante el deploy. Los cambios se aplican con `railway config plan` y `railway config apply` (CLI ≥ 5.42.1), y **no se ejecuta `apply` sin revisar antes el `plan`**. Automatizarlo en CI (action `railwayapp/config`) queda fuera de alcance mientras sea un solo entorno.
+- **Validación local**: `pnpm typecheck` comprueba el archivo contra los tipos del SDK, que rechazan campos desconocidos y valores fuera de enum. Evaluar el programa produce el grafo esperado: `preDeploy` se normaliza a `deploy.preDeployCommand: [...]`, igual que en el antiguo `railway.json`. El cálculo del plan vive en el CLI, no en el SDK, así que solo `railway config plan` contra el proyecto real valida el resto.
+
 ## Verificación pendiente contra la plataforma real
 
-La documentación de Railway no pudo consultarse desde el entorno donde se escribió esta ADR. Antes de abrir la beta, verificar en un despliegue de prueba:
+Antes de abrir la beta, verificar en el proyecto real (primero con `railway config plan`, después en un despliegue de prueba):
 
-1. Que `preDeployCommand` en `railway.json` se aplica tal como está escrito y corre una sola vez por despliegue (no por réplica).
-2. Que `healthcheckPath` (`/api/health`) bloquea el cambio de versión si la nueva no arranca.
-3. La topología del proxy de Railway delante del contenedor, que fija `TRUST_PROXY_HOPS` (hoy `1`). Comprobación: enviar `curl -H "X-Forwarded-For: 1.2.3.4" https://<dominio>/api/health` y confirmar en los logs que `remoteAddress` es la IP pública real de quien hace la petición, no `1.2.3.4` ni una IP interna de Railway. Si aparece una IP de Railway o de su CDN, hay un salto más y el valor correcto es `2`; si aparece `1.2.3.4`, el valor es demasiado alto. La documentación pública de Railway no define este modelo de confianza y hay reportes de comunidad contradictorios sobre `X-Real-IP`, por eso no se usa esa cabecera.
+1. **Plan**: que `railway config plan` acepta `build` y `deploy` (`builder`, `dockerfilePath`, `preDeployTimeoutSeconds`, `restartPolicy*`), que en el SDK están tipados pero no aparecen en la referencia pública, y que no propone cambios destructivos.
+2. **Pre-deploy**: que corre una sola vez por despliegue, que su fallo detiene el deploy y que el timeout de 300 s se aplica. La documentación no dice cómo se comporta con varias réplicas; con `replicas: 1` no afecta hoy.
+3. **Health check**: que `/api/health` bloquea el cambio de versión si la nueva no arranca (timeout de 60 s).
+4. **Variables**: que el plan asigna al servicio `JWT_SECRET = ${{shared.JWT_SECRET}}`, que no propone modificar ni borrar la variable compartida (no está declarada en `sharedVariables`), que no muestra su valor y que la referencia a una variable sellada se resuelve en el deploy. Si no se resolviera, el servidor no arranca (`JWT_SECRET` exige al menos 32 caracteres) y el health check detiene el deploy.
+5. **Wait for CI**: que `checkSuites` retiene el deploy hasta que termina el workflow de CI en `main`. El workflow cancela ejecuciones en curso del mismo ref (`concurrency`): un commit cuyo CI se cancela por un push posterior no se despliega, y se despliega el siguiente.
+6. **PostgreSQL**: el helper `postgres()` del SDK fija `ghcr.io/railwayapp-templates/postgres-ssl:18` (la plantilla parte de `postgres:18-trixie`), y Prisma 7 soporta PostgreSQL 18. El CI ya prueba contra `postgres:18` (tests y smoke test). Falta confirmar en el plan que esa es la imagen que se provisiona. Es una etiqueta flotante: Railway la puede actualizar a nuevas versiones menores de la 18, y el CI sigue la última 18.
+7. **TLS**: si la `DATABASE_URL` de la red privada exige `sslmode`, y que `migrate deploy` (schema engine enlazado a `libssl3`) y el servidor (`@prisma/adapter-pg`) conectan con ella.
+8. **`TRUST_PROXY_HOPS`** (hoy `1`). Comprobación: enviar `curl -H "X-Forwarded-For: 1.2.3.4" https://<dominio>/api/health` y confirmar en los logs que `remoteAddress` es la IP pública real de quien hace la petición, no `1.2.3.4` ni una IP interna de Railway. Si aparece una IP de Railway o de su CDN, hay un salto más y el valor correcto es `2`; si aparece `1.2.3.4`, el valor es demasiado alto. La documentación pública de Railway no define este modelo de confianza y hay reportes de comunidad contradictorios sobre `X-Real-IP`, por eso no se usa esa cabecera.
+9. **Proyecto**: que el nombre del proyecto y del servicio en Railway coinciden con `vectra`; si no, el plan propondría renombrar o crear recursos.

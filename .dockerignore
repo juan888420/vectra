@@ -10,3 +10,4 @@ apps/api/src/generated
 .claude
 docs
 **/*.log
+.railway

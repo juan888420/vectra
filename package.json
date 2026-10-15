@@ -12,7 +12,7 @@
     "dev:turbo": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck && tsc -p .railway",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"
@@ -25,7 +25,8 @@
     "prettier": "^3.4.0",
     "husky": "^9.1.0",
     "lint-staged": "^15.2.0",
-    "@vectra/config": "workspace:*"
+    "@vectra/config": "workspace:*",
+    "railway": "^3.15.0"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs}": [
