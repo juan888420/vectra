@@ -31,7 +31,7 @@ describe("Scenarios", () => {
     frequency: "MONTHLY" | "YEARLY" | "ONE_TIME" = "MONTHLY",
   ) {
     const res = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId: user.expenseCategoryId, name: uniqueName("Item"), amount, frequency });
     return res.body.id as string;
@@ -39,20 +39,20 @@ describe("Scenarios", () => {
 
   async function createIncome(amount: number, frequency: "MONTHLY" | "WEEKLY" = "MONTHLY") {
     const res = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Income"), amount, frequency });
     return res.body.id as string;
   }
 
   async function createScenario(name = uniqueName("Escenario")) {
-    const res = await request(app.server).post("/scenarios").set(auth).send({ name });
+    const res = await request(app.server).post("/api/scenarios").set(auth).send({ name });
     return res.body as { id: string; name: string; status: string };
   }
 
   it("creates a scenario defaulting to INACTIVE", async () => {
     const res = await request(app.server)
-      .post("/scenarios")
+      .post("/api/scenarios")
       .set(auth)
       .send({ name: uniqueName("Escenario actual") });
 
@@ -62,9 +62,9 @@ describe("Scenarios", () => {
 
   it("rejects a second active scenario with the same name", async () => {
     const name = uniqueName("Escenario IA");
-    await request(app.server).post("/scenarios").set(auth).send({ name });
+    await request(app.server).post("/api/scenarios").set(auth).send({ name });
 
-    const res = await request(app.server).post("/scenarios").set(auth).send({ name });
+    const res = await request(app.server).post("/api/scenarios").set(auth).send({ name });
     expect(res.status).toBe(409);
   });
 
@@ -72,25 +72,27 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
 
     const deactivated = await request(app.server)
-      .post(`/scenarios/${scenario.id}/deactivate`)
+      .post(`/api/scenarios/${scenario.id}/deactivate`)
       .set(auth);
     expect(deactivated.body.status).toBe("INACTIVE");
 
     const activated = await request(app.server)
-      .post(`/scenarios/${scenario.id}/activate`)
+      .post(`/api/scenarios/${scenario.id}/activate`)
       .set(auth);
     expect(activated.body.status).toBe("ACTIVE");
 
-    const archived = await request(app.server).post(`/scenarios/${scenario.id}/archive`).set(auth);
+    const archived = await request(app.server)
+      .post(`/api/scenarios/${scenario.id}/archive`)
+      .set(auth);
     expect(archived.body.status).toBe("ARCHIVED");
 
     const activateArchived = await request(app.server)
-      .post(`/scenarios/${scenario.id}/activate`)
+      .post(`/api/scenarios/${scenario.id}/activate`)
       .set(auth);
     expect(activateArchived.status).toBe(409);
 
     const unarchived = await request(app.server)
-      .post(`/scenarios/${scenario.id}/unarchive`)
+      .post(`/api/scenarios/${scenario.id}/unarchive`)
       .set(auth);
     expect(unarchived.body.status).toBe("INACTIVE");
   });
@@ -100,7 +102,7 @@ describe("Scenarios", () => {
     const itemId = await createExpenseItem(50000);
 
     const res = await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
 
@@ -109,15 +111,15 @@ describe("Scenarios", () => {
     expect(res.body.outdated).toBe(false);
 
     const duplicate = await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
     expect(duplicate.status).toBe(409);
 
     const archivedItemId = await createExpenseItem(1000);
-    await request(app.server).post(`/expense-items/${archivedItemId}/archive`).set(auth);
+    await request(app.server).post(`/api/expense-items/${archivedItemId}/archive`).set(auth);
     const rejected = await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: archivedItemId });
     expect(rejected.status).toBe(400);
@@ -127,13 +129,16 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const itemId = await createExpenseItem(30000);
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
 
-    await request(app.server).patch(`/expense-items/${itemId}`).set(auth).send({ amount: 45000 });
+    await request(app.server)
+      .patch(`/api/expense-items/${itemId}`)
+      .set(auth)
+      .send({ amount: 45000 });
 
-    const res = await request(app.server).get(`/scenarios/${scenario.id}/items`).set(auth);
+    const res = await request(app.server).get(`/api/scenarios/${scenario.id}/items`).set(auth);
     expect(res.body.data[0].outdated).toBe(true);
     // The snapshot itself never changes silently (ADR-0005 principle 2).
     expect(res.body.data[0].amount).toBe(30000);
@@ -141,11 +146,11 @@ describe("Scenarios", () => {
 
   it("refuses to add items or incomes to an archived scenario", async () => {
     const scenario = await createScenario();
-    await request(app.server).post(`/scenarios/${scenario.id}/archive`).set(auth);
+    await request(app.server).post(`/api/scenarios/${scenario.id}/archive`).set(auth);
     const itemId = await createExpenseItem(1000);
 
     const res = await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
     expect(res.status).toBe(409);
@@ -155,11 +160,11 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const itemId = await createExpenseItem(20000);
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
 
-    const res = await request(app.server).delete(`/expense-items/${itemId}`).set(auth);
+    const res = await request(app.server).delete(`/api/expense-items/${itemId}`).set(auth);
     expect(res.status).toBe(409);
   });
 
@@ -167,11 +172,11 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const incomeId = await createIncome(1000000);
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/incomes`)
+      .post(`/api/scenarios/${scenario.id}/incomes`)
       .set(auth)
       .send({ incomeId });
 
-    const res = await request(app.server).delete(`/incomes/${incomeId}`).set(auth);
+    const res = await request(app.server).delete(`/api/incomes/${incomeId}`).set(auth);
     expect(res.status).toBe(409);
   });
 
@@ -179,20 +184,20 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
 
     const selfInclude = await request(app.server)
-      .post(`/scenarios/${scenario.id}/compositions`)
+      .post(`/api/scenarios/${scenario.id}/compositions`)
       .set(auth)
       .send({ childScenarioId: scenario.id });
     expect(selfInclude.status).toBe(400);
 
     const other = await createScenario();
     const forward = await request(app.server)
-      .post(`/scenarios/${scenario.id}/compositions`)
+      .post(`/api/scenarios/${scenario.id}/compositions`)
       .set(auth)
       .send({ childScenarioId: other.id });
     expect(forward.status).toBe(201);
 
     const cycle = await request(app.server)
-      .post(`/scenarios/${other.id}/compositions`)
+      .post(`/api/scenarios/${other.id}/compositions`)
       .set(auth)
       .send({ childScenarioId: scenario.id });
     expect(cycle.status).toBe(400);
@@ -202,11 +207,11 @@ describe("Scenarios", () => {
     const parent = await createScenario();
     const child = await createScenario();
     await request(app.server)
-      .post(`/scenarios/${parent.id}/compositions`)
+      .post(`/api/scenarios/${parent.id}/compositions`)
       .set(auth)
       .send({ childScenarioId: child.id });
 
-    const res = await request(app.server).delete(`/scenarios/${child.id}`).set(auth);
+    const res = await request(app.server).delete(`/api/scenarios/${child.id}`).set(auth);
     expect(res.status).toBe(409);
   });
 
@@ -217,17 +222,17 @@ describe("Scenarios", () => {
     const oneTimeId = await createExpenseItem(900000, "ONE_TIME");
     for (const expenseItemId of [monthlyId, yearlyId, oneTimeId]) {
       await request(app.server)
-        .post(`/scenarios/${scenario.id}/items`)
+        .post(`/api/scenarios/${scenario.id}/items`)
         .set(auth)
         .send({ expenseItemId });
     }
     const incomeId = await createIncome(200000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/incomes`)
+      .post(`/api/scenarios/${scenario.id}/incomes`)
       .set(auth)
       .send({ incomeId });
 
-    const res = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    const res = await request(app.server).get(`/api/scenarios/${scenario.id}/summary`).set(auth);
 
     // 50000 + (120000 / 12) = 60000
     expect(res.body.totals.monthly).toBe(60000);
@@ -244,26 +249,26 @@ describe("Scenarios", () => {
     const parent = await createScenario();
     const child = await createScenario();
     await request(app.server)
-      .post(`/scenarios/${parent.id}/compositions`)
+      .post(`/api/scenarios/${parent.id}/compositions`)
       .set(auth)
       .send({ childScenarioId: child.id });
 
     const childItemId = await createExpenseItem(10000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${child.id}/items`)
+      .post(`/api/scenarios/${child.id}/items`)
       .set(auth)
       .send({ expenseItemId: childItemId });
 
-    const before = await request(app.server).get(`/scenarios/${parent.id}/summary`).set(auth);
+    const before = await request(app.server).get(`/api/scenarios/${parent.id}/summary`).set(auth);
     expect(before.body.totals.monthly).toBe(10000);
     expect(before.body.hasUpdates).toBe(false);
 
     await request(app.server)
-      .patch(`/expense-items/${childItemId}`)
+      .patch(`/api/expense-items/${childItemId}`)
       .set(auth)
       .send({ amount: 15000 });
 
-    const after = await request(app.server).get(`/scenarios/${parent.id}/summary`).set(auth);
+    const after = await request(app.server).get(`/api/scenarios/${parent.id}/summary`).set(auth);
     // The snapshot is unchanged, so the total is still derived from 10000 —
     // only the drift flag surfaces the child's outdated item.
     expect(after.body.totals.monthly).toBe(10000);
@@ -274,11 +279,13 @@ describe("Scenarios", () => {
     const parent = await createScenario();
     const child = await createScenario();
     await request(app.server)
-      .post(`/scenarios/${parent.id}/compositions`)
+      .post(`/api/scenarios/${parent.id}/compositions`)
       .set(auth)
       .send({ childScenarioId: child.id });
 
-    const before = await request(app.server).get(`/scenarios/${parent.id}/compositions`).set(auth);
+    const before = await request(app.server)
+      .get(`/api/scenarios/${parent.id}/compositions`)
+      .set(auth);
     expect(before.body.data).toEqual([
       {
         id: expect.any(String),
@@ -290,22 +297,26 @@ describe("Scenarios", () => {
 
     const childItemId = await createExpenseItem(10000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${child.id}/items`)
+      .post(`/api/scenarios/${child.id}/items`)
       .set(auth)
       .send({ expenseItemId: childItemId });
     await request(app.server)
-      .patch(`/expense-items/${childItemId}`)
+      .patch(`/api/expense-items/${childItemId}`)
       .set(auth)
       .send({ amount: 15000 });
 
     // The child itself has unsynced financial drift, so it shows up as
     // outdated from the parent's own composition list — no detail here,
     // that's what opening the child scenario is for.
-    const after = await request(app.server).get(`/scenarios/${parent.id}/compositions`).set(auth);
+    const after = await request(app.server)
+      .get(`/api/scenarios/${parent.id}/compositions`)
+      .set(auth);
     expect(after.body.data[0].outdated).toBe(true);
 
-    await request(app.server).post(`/scenarios/${child.id}/sync`).set(auth);
-    const synced = await request(app.server).get(`/scenarios/${parent.id}/compositions`).set(auth);
+    await request(app.server).post(`/api/scenarios/${child.id}/sync`).set(auth);
+    const synced = await request(app.server)
+      .get(`/api/scenarios/${parent.id}/compositions`)
+      .set(auth);
     expect(synced.body.data[0].outdated).toBe(false);
   });
 
@@ -313,11 +324,11 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const itemId = await createExpenseItem(40000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
 
-    const res = await request(app.server).get("/scenarios?pageSize=100").set(auth);
+    const res = await request(app.server).get("/api/scenarios?pageSize=100").set(auth);
 
     const listed = res.body.data.find((entry: { id: string }) => entry.id === scenario.id);
     expect(listed.monthly).toBe(40000);
@@ -329,13 +340,13 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const itemId = await createExpenseItem(10000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
 
     const newName = uniqueName("Renombrado");
     const patched = await request(app.server)
-      .patch(`/expense-items/${itemId}`)
+      .patch(`/api/expense-items/${itemId}`)
       .set(auth)
       .send({ name: newName });
 
@@ -343,10 +354,12 @@ describe("Scenarios", () => {
     expect(patched.body.affectedScenarios).toEqual([]);
     expect(patched.body.changes).toEqual([]);
 
-    const items = await request(app.server).get(`/scenarios/${scenario.id}/items`).set(auth);
+    const items = await request(app.server).get(`/api/scenarios/${scenario.id}/items`).set(auth);
     expect(items.body.data[0].name).toBe(newName);
 
-    const summary = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    const summary = await request(app.server)
+      .get(`/api/scenarios/${scenario.id}/summary`)
+      .set(auth);
     expect(summary.body.hasUpdates).toBe(false);
   });
 
@@ -354,20 +367,22 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const itemId = await createExpenseItem(10000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
 
     const newName = uniqueName("Categoria");
     await request(app.server)
-      .patch(`/categories/${user.expenseCategoryId}`)
+      .patch(`/api/categories/${user.expenseCategoryId}`)
       .set(auth)
       .send({ name: newName });
 
-    const items = await request(app.server).get(`/scenarios/${scenario.id}/items`).set(auth);
+    const items = await request(app.server).get(`/api/scenarios/${scenario.id}/items`).set(auth);
     expect(items.body.data[0].categoryName).toBe(newName);
 
-    const summary = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    const summary = await request(app.server)
+      .get(`/api/scenarios/${scenario.id}/summary`)
+      .set(auth);
     expect(summary.body.hasUpdates).toBe(false);
   });
 
@@ -375,12 +390,12 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const itemId = await createExpenseItem(10000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
 
     const patched = await request(app.server)
-      .patch(`/expense-items/${itemId}`)
+      .patch(`/api/expense-items/${itemId}`)
       .set(auth)
       .send({ amount: 15000 });
 
@@ -400,7 +415,9 @@ describe("Scenarios", () => {
       },
     ]);
 
-    const declined = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    const declined = await request(app.server)
+      .get(`/api/scenarios/${scenario.id}/summary`)
+      .set(auth);
     expect(declined.body.totals.monthly).toBe(10000);
     expect(declined.body.hasUpdates).toBe(true);
     // Same shape and wording data as the post-edit dialog — built by the
@@ -417,11 +434,11 @@ describe("Scenarios", () => {
     ]);
 
     const synced = await request(app.server)
-      .post(`/expense-items/${itemId}/sync-scenarios`)
+      .post(`/api/expense-items/${itemId}/sync-scenarios`)
       .set(auth);
     expect(synced.body.syncedCount).toBe(1);
 
-    const after = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    const after = await request(app.server).get(`/api/scenarios/${scenario.id}/summary`).set(auth);
     expect(after.body.totals.monthly).toBe(15000);
     expect(after.body.hasUpdates).toBe(false);
     expect(after.body.pendingChanges).toEqual([]);
@@ -435,38 +452,41 @@ describe("Scenarios", () => {
     const incomeId = await createIncome(2500000);
     for (const expenseItemId of [priceItemId, frequencyItemId, archivedItemId]) {
       await request(app.server)
-        .post(`/scenarios/${scenario.id}/items`)
+        .post(`/api/scenarios/${scenario.id}/items`)
         .set(auth)
         .send({ expenseItemId });
     }
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/incomes`)
+      .post(`/api/scenarios/${scenario.id}/incomes`)
       .set(auth)
       .send({ incomeId });
 
     await request(app.server)
-      .patch(`/expense-items/${priceItemId}`)
+      .patch(`/api/expense-items/${priceItemId}`)
       .set(auth)
       .send({ amount: 95000 });
     await request(app.server)
-      .patch(`/expense-items/${frequencyItemId}`)
+      .patch(`/api/expense-items/${frequencyItemId}`)
       .set(auth)
       .send({ frequency: "YEARLY" });
-    await request(app.server).post(`/expense-items/${archivedItemId}/archive`).set(auth);
-    await request(app.server).patch(`/incomes/${incomeId}`).set(auth).send({ amount: 2700000 });
+    await request(app.server).post(`/api/expense-items/${archivedItemId}/archive`).set(auth);
+    await request(app.server).patch(`/api/incomes/${incomeId}`).set(auth).send({ amount: 2700000 });
 
-    const summary = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    const summary = await request(app.server)
+      .get(`/api/scenarios/${scenario.id}/summary`)
+      .set(auth);
     expect(summary.body.hasUpdates).toBe(true);
 
-    const priceName = (await request(app.server).get(`/expense-items/${priceItemId}`).set(auth))
+    const priceName = (await request(app.server).get(`/api/expense-items/${priceItemId}`).set(auth))
       .body.name;
     const frequencyName = (
-      await request(app.server).get(`/expense-items/${frequencyItemId}`).set(auth)
+      await request(app.server).get(`/api/expense-items/${frequencyItemId}`).set(auth)
     ).body.name;
     const archivedName = (
-      await request(app.server).get(`/expense-items/${archivedItemId}`).set(auth)
+      await request(app.server).get(`/api/expense-items/${archivedItemId}`).set(auth)
     ).body.name;
-    const incomeName = (await request(app.server).get(`/incomes/${incomeId}`).set(auth)).body.name;
+    const incomeName = (await request(app.server).get(`/api/incomes/${incomeId}`).set(auth)).body
+      .name;
 
     expect(summary.body.pendingChanges).toEqual(
       expect.arrayContaining([
@@ -503,12 +523,12 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const itemId = await createExpenseItem(80000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
 
     const patched = await request(app.server)
-      .patch(`/expense-items/${itemId}`)
+      .patch(`/api/expense-items/${itemId}`)
       .set(auth)
       .send({ amount: 100000, frequency: "YEARLY" });
 
@@ -525,18 +545,21 @@ describe("Scenarios", () => {
     const itemId = await createExpenseItem(10000, "MONTHLY");
     for (const scenario of [synced, stale]) {
       await request(app.server)
-        .post(`/scenarios/${scenario.id}/items`)
+        .post(`/api/scenarios/${scenario.id}/items`)
         .set(auth)
         .send({ expenseItemId: itemId });
     }
 
     // Only one of the two scenarios follows along to 20000, so their
     // snapshots now hold different "from" values.
-    await request(app.server).patch(`/expense-items/${itemId}`).set(auth).send({ amount: 20000 });
-    await request(app.server).post(`/scenarios/${synced.id}/sync`).set(auth);
+    await request(app.server)
+      .patch(`/api/expense-items/${itemId}`)
+      .set(auth)
+      .send({ amount: 20000 });
+    await request(app.server).post(`/api/scenarios/${synced.id}/sync`).set(auth);
 
     const patched = await request(app.server)
-      .patch(`/expense-items/${itemId}`)
+      .patch(`/api/expense-items/${itemId}`)
       .set(auth)
       .send({ amount: 30000 });
 
@@ -556,11 +579,13 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const itemId = await createExpenseItem(10000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
 
-    const archived = await request(app.server).post(`/expense-items/${itemId}/archive`).set(auth);
+    const archived = await request(app.server)
+      .post(`/api/expense-items/${itemId}/archive`)
+      .set(auth);
 
     expect(archived.body.changes).toEqual([
       { name: archived.body.data.name, source: "expenseItem", field: "archived" },
@@ -571,18 +596,18 @@ describe("Scenarios", () => {
     const parent = await createScenario();
     const child = await createScenario();
     await request(app.server)
-      .post(`/scenarios/${parent.id}/compositions`)
+      .post(`/api/scenarios/${parent.id}/compositions`)
       .set(auth)
       .send({ childScenarioId: child.id });
 
     const itemId = await createExpenseItem(10000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${child.id}/items`)
+      .post(`/api/scenarios/${child.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
 
     const patched = await request(app.server)
-      .patch(`/expense-items/${itemId}`)
+      .patch(`/api/expense-items/${itemId}`)
       .set(auth)
       .send({ amount: 20000 });
 
@@ -595,25 +620,29 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const itemId = await createExpenseItem(10000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
-    await request(app.server).post(`/scenarios/${scenario.id}/archive`).set(auth);
+    await request(app.server).post(`/api/scenarios/${scenario.id}/archive`).set(auth);
 
     const patched = await request(app.server)
-      .patch(`/expense-items/${itemId}`)
+      .patch(`/api/expense-items/${itemId}`)
       .set(auth)
       .send({ amount: 30000 });
 
     expect(patched.body.affectedScenarios).toEqual([]);
 
     // Frozen: an archived scenario surfaces no pending state at all.
-    const summary = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    const summary = await request(app.server)
+      .get(`/api/scenarios/${scenario.id}/summary`)
+      .set(auth);
     expect(summary.body.hasUpdates).toBe(false);
 
     // Unarchiving re-checks from scratch, so the drift resurfaces.
-    await request(app.server).post(`/scenarios/${scenario.id}/unarchive`).set(auth);
-    const restored = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    await request(app.server).post(`/api/scenarios/${scenario.id}/unarchive`).set(auth);
+    const restored = await request(app.server)
+      .get(`/api/scenarios/${scenario.id}/summary`)
+      .set(auth);
     expect(restored.body.hasUpdates).toBe(true);
   });
 
@@ -621,16 +650,18 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const itemId = await createExpenseItem(10000, "MONTHLY");
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/items`)
+      .post(`/api/scenarios/${scenario.id}/items`)
       .set(auth)
       .send({ expenseItemId: itemId });
 
-    const archived = await request(app.server).post(`/expense-items/${itemId}/archive`).set(auth);
+    const archived = await request(app.server)
+      .post(`/api/expense-items/${itemId}/archive`)
+      .set(auth);
     expect(archived.body.affectedScenarios).toEqual([{ id: scenario.id, name: scenario.name }]);
 
-    await request(app.server).post(`/scenarios/${scenario.id}/sync`).set(auth);
+    await request(app.server).post(`/api/scenarios/${scenario.id}/sync`).set(auth);
 
-    const items = await request(app.server).get(`/scenarios/${scenario.id}/items`).set(auth);
+    const items = await request(app.server).get(`/api/scenarios/${scenario.id}/items`).set(auth);
     expect(items.body.data).toEqual([]);
   });
 
@@ -638,12 +669,12 @@ describe("Scenarios", () => {
     const scenario = await createScenario();
     const incomeId = await createIncome(100000);
     await request(app.server)
-      .post(`/scenarios/${scenario.id}/incomes`)
+      .post(`/api/scenarios/${scenario.id}/incomes`)
       .set(auth)
       .send({ incomeId });
 
     const patched = await request(app.server)
-      .patch(`/incomes/${incomeId}`)
+      .patch(`/api/incomes/${incomeId}`)
       .set(auth)
       .send({ amount: 150000 });
     expect(patched.body.affectedScenarios).toEqual([{ id: scenario.id, name: scenario.name }]);
@@ -658,12 +689,12 @@ describe("Scenarios", () => {
       },
     ]);
 
-    const before = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    const before = await request(app.server).get(`/api/scenarios/${scenario.id}/summary`).set(auth);
     expect(before.body.incomeCoverage.totalIncomeMonthly).toBe(100000);
 
-    await request(app.server).post(`/incomes/${incomeId}/sync-scenarios`).set(auth);
+    await request(app.server).post(`/api/incomes/${incomeId}/sync-scenarios`).set(auth);
 
-    const after = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    const after = await request(app.server).get(`/api/scenarios/${scenario.id}/summary`).set(auth);
     expect(after.body.incomeCoverage.totalIncomeMonthly).toBe(150000);
     expect(after.body.hasUpdates).toBe(false);
   });
@@ -673,34 +704,185 @@ describe("Scenarios", () => {
     await createExpenseItem(5000, "MONTHLY");
 
     const added = await request(app.server)
-      .post(`/scenarios/${scenario.id}/category`)
+      .post(`/api/scenarios/${scenario.id}/category`)
       .set(auth)
       .send({ categoryId: user.expenseCategoryId });
     expect(added.body.addedCount).toBeGreaterThan(0);
 
     const countAfterAdd = (
-      await request(app.server).get(`/scenarios/${scenario.id}/items`).set(auth)
+      await request(app.server).get(`/api/scenarios/${scenario.id}/items`).set(auth)
     ).body.data.length;
 
     // A product created in that category afterwards never joins on its own.
     await createExpenseItem(7000, "MONTHLY");
 
-    const items = await request(app.server).get(`/scenarios/${scenario.id}/items`).set(auth);
+    const items = await request(app.server).get(`/api/scenarios/${scenario.id}/items`).set(auth);
     expect(items.body.data.length).toBe(countAfterAdd);
 
-    const summary = await request(app.server).get(`/scenarios/${scenario.id}/summary`).set(auth);
+    const summary = await request(app.server)
+      .get(`/api/scenarios/${scenario.id}/summary`)
+      .set(auth);
     expect(summary.body.hasUpdates).toBe(false);
+  });
+
+  describe("archived scenarios stay frozen", () => {
+    async function addItem(scenarioId: string, expenseItemId: string) {
+      await request(app.server)
+        .post(`/api/scenarios/${scenarioId}/items`)
+        .set(auth)
+        .send({ expenseItemId });
+    }
+
+    async function include(parentId: string, childId: string) {
+      await request(app.server)
+        .post(`/api/scenarios/${parentId}/compositions`)
+        .set(auth)
+        .send({ childScenarioId: childId });
+    }
+
+    async function itemAmounts(scenarioId: string): Promise<number[]> {
+      const res = await request(app.server).get(`/api/scenarios/${scenarioId}/items`).set(auth);
+      return (res.body.data as { amount: number }[]).map((item) => item.amount);
+    }
+
+    it("leaves an archived composed scenario untouched when its parent syncs", async () => {
+      const parent = await createScenario();
+      const child = await createScenario();
+      const childOnly = await createExpenseItem(10000);
+      const shared = await createExpenseItem(20000);
+      await addItem(child.id, childOnly);
+      await addItem(parent.id, shared);
+      await include(parent.id, child.id);
+      await request(app.server).post(`/api/scenarios/${child.id}/archive`).set(auth);
+
+      for (const id of [childOnly, shared]) {
+        await request(app.server)
+          .patch(`/api/expense-items/${id}`)
+          .set(auth)
+          .send({ amount: 99000 });
+      }
+
+      // Only the parent's own drift is pending: the archived child's can never
+      // be applied from here, so it must not keep the parent "outdated".
+      const summary = await request(app.server)
+        .get(`/api/scenarios/${parent.id}/summary`)
+        .set(auth);
+      expect(summary.body.pendingChanges).toHaveLength(1);
+      expect(summary.body.pendingChanges[0].from).toBe(20000);
+
+      const synced = await request(app.server).post(`/api/scenarios/${parent.id}/sync`).set(auth);
+      expect(synced.body.syncedCount).toBe(1);
+      expect(await itemAmounts(parent.id)).toEqual([99000]);
+      expect(await itemAmounts(child.id)).toEqual([10000]);
+
+      const after = await request(app.server).get(`/api/scenarios/${parent.id}/summary`).set(auth);
+      expect(after.body.hasUpdates).toBe(false);
+    });
+
+    it("still syncs a live scenario composed through an archived one", async () => {
+      const parent = await createScenario();
+      const middle = await createScenario();
+      const leaf = await createScenario();
+      const middleItem = await createExpenseItem(10000);
+      const leafItem = await createExpenseItem(20000);
+      await addItem(middle.id, middleItem);
+      await addItem(leaf.id, leafItem);
+      await include(parent.id, middle.id);
+      await include(middle.id, leaf.id);
+      await request(app.server).post(`/api/scenarios/${middle.id}/archive`).set(auth);
+
+      for (const id of [middleItem, leafItem]) {
+        await request(app.server)
+          .patch(`/api/expense-items/${id}`)
+          .set(auth)
+          .send({ amount: 55000 });
+      }
+      await request(app.server).post(`/api/scenarios/${parent.id}/sync`).set(auth);
+
+      expect(await itemAmounts(middle.id)).toEqual([10000]);
+      expect(await itemAmounts(leaf.id)).toEqual([55000]);
+    });
+
+    it("refuses to change the contents of an archived scenario", async () => {
+      const scenario = await createScenario();
+      const other = await createScenario();
+      const itemId = await createExpenseItem(10000);
+      const incomeId = await createIncome(500000);
+      await addItem(scenario.id, itemId);
+      await request(app.server)
+        .post(`/api/scenarios/${scenario.id}/incomes`)
+        .set(auth)
+        .send({ incomeId });
+      await include(scenario.id, other.id);
+
+      const [items, incomes, compositions] = await Promise.all(
+        ["items", "incomes", "compositions"].map((path) =>
+          request(app.server).get(`/api/scenarios/${scenario.id}/${path}`).set(auth),
+        ),
+      );
+      await request(app.server).post(`/api/scenarios/${scenario.id}/archive`).set(auth);
+      await request(app.server).patch(`/api/expense-items/${itemId}`).set(auth).send({ amount: 1 });
+
+      const attempts = await Promise.all([
+        request(app.server)
+          .delete(`/api/scenarios/${scenario.id}/items/${items!.body.data[0].id}`)
+          .set(auth),
+        request(app.server)
+          .delete(`/api/scenarios/${scenario.id}/incomes/${incomes!.body.data[0].id}`)
+          .set(auth),
+        request(app.server)
+          .delete(`/api/scenarios/${scenario.id}/compositions/${compositions!.body.data[0].id}`)
+          .set(auth),
+        request(app.server).post(`/api/scenarios/${scenario.id}/sync`).set(auth),
+      ]);
+
+      for (const attempt of attempts) {
+        expect(attempt.status).toBe(409);
+        expect(attempt.body.code).toBe("ARCHIVED_RESOURCE");
+      }
+      expect(await itemAmounts(scenario.id)).toEqual([10000]);
+    });
+  });
+
+  it("keeps snapshots in sync when a deleted category's products are moved", async () => {
+    const source = await request(app.server)
+      .post("/api/categories")
+      .set(auth)
+      .send({ name: uniqueName("Temporal"), type: "EXPENSE" });
+    const target = await request(app.server)
+      .post("/api/categories")
+      .set(auth)
+      .send({ name: uniqueName("Destino"), type: "EXPENSE" });
+    const item = await request(app.server)
+      .post("/api/expense-items")
+      .set(auth)
+      .send({ categoryId: source.body.id, name: uniqueName("Yoga"), amount: 50000 });
+    const scenario = await createScenario();
+    await request(app.server)
+      .post(`/api/scenarios/${scenario.id}/items`)
+      .set(auth)
+      .send({ expenseItemId: item.body.id });
+
+    const deleted = await request(app.server)
+      .post(`/api/categories/${source.body.id}/delete-with-reassignment`)
+      .set(auth)
+      .send({ targetCategoryId: target.body.id });
+    expect(deleted.status).toBe(200);
+
+    const items = await request(app.server).get(`/api/scenarios/${scenario.id}/items`).set(auth);
+    expect(items.body.data[0].categoryName).toBe(target.body.name);
+    expect(items.body.data[0].outdated).toBe(false);
   });
 
   it("hides another user's scenario behind a 404", async () => {
     const stranger = await registerTestUser(app);
     const strangerAuth = { Authorization: `Bearer ${stranger.accessToken}` };
     const res = await request(app.server)
-      .post("/scenarios")
+      .post("/api/scenarios")
       .set(strangerAuth)
       .send({ name: uniqueName("Secreto") });
 
-    const get = await request(app.server).get(`/scenarios/${res.body.id}`).set(auth);
+    const get = await request(app.server).get(`/api/scenarios/${res.body.id}`).set(auth);
     expect(get.status).toBe(404);
 
     await cleanupTestUser(app, stranger.userId);

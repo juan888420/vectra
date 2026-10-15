@@ -28,7 +28,7 @@ describe("Incomes", () => {
 
   it("creates an income defaulting to MONTHLY and the user's currency", async () => {
     const res = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Sueldo"), amount: 4000000 });
 
@@ -41,15 +41,15 @@ describe("Incomes", () => {
 
   it("accepts WEEKLY, YEARLY and ONE_TIME frequencies", async () => {
     const weekly = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Freelance"), amount: 500000, frequency: "WEEKLY" });
     const yearly = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Dividendos"), amount: 2000000, frequency: "YEARLY" });
     const oneTime = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Bono"), amount: 1500000, frequency: "ONE_TIME" });
 
@@ -60,10 +60,10 @@ describe("Incomes", () => {
 
   it("rejects a second active income with the same name", async () => {
     const name = uniqueName("Arriendo");
-    await request(app.server).post("/incomes").set(auth).send({ name, amount: 1000000 });
+    await request(app.server).post("/api/incomes").set(auth).send({ name, amount: 1000000 });
 
     const res = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name, amount: 1200000 });
     expect(res.status).toBe(409);
@@ -71,7 +71,7 @@ describe("Incomes", () => {
 
   it("rejects a negative amount", async () => {
     const res = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Negativo"), amount: -100 });
 
@@ -80,12 +80,12 @@ describe("Incomes", () => {
 
   it("updates an income's amount and frequency", async () => {
     const created = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Consultoria"), amount: 800000 });
 
     const res = await request(app.server)
-      .patch(`/incomes/${created.body.id}`)
+      .patch(`/api/incomes/${created.body.id}`)
       .set(auth)
       .send({ amount: 900000, frequency: "YEARLY" });
 
@@ -98,14 +98,14 @@ describe("Incomes", () => {
 
   it("filters by frequency and excludes archived incomes by default", async () => {
     const archived = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Viejo"), amount: 100000 });
-    await request(app.server).post(`/incomes/${archived.body.id}/archive`).set(auth);
+    await request(app.server).post(`/api/incomes/${archived.body.id}/archive`).set(auth);
 
-    const active = await request(app.server).get("/incomes?pageSize=100").set(auth);
+    const active = await request(app.server).get("/api/incomes?pageSize=100").set(auth);
     const all = await request(app.server)
-      .get("/incomes?pageSize=100&includeArchived=true")
+      .get("/api/incomes?pageSize=100&includeArchived=true")
       .set(auth);
 
     const activeIds = active.body.data.map((income: { id: string }) => income.id);
@@ -116,36 +116,36 @@ describe("Incomes", () => {
 
   it("round-trips archive and unarchive", async () => {
     const created = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Alquiler"), amount: 700000 });
 
     const archived = await request(app.server)
-      .post(`/incomes/${created.body.id}/archive`)
+      .post(`/api/incomes/${created.body.id}/archive`)
       .set(auth);
     expect(archived.body.data.archivedAt).not.toBeNull();
 
     const unarchived = await request(app.server)
-      .post(`/incomes/${created.body.id}/unarchive`)
+      .post(`/api/incomes/${created.body.id}/unarchive`)
       .set(auth);
     expect(unarchived.body.data.archivedAt).toBeNull();
   });
 
   it("projects WEEKLY and YEARLY incomes to their monthly equivalent", async () => {
     const weekly = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Freelance semanal"), amount: 100000, frequency: "WEEKLY" });
     const yearly = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Dividendos anuales"), amount: 1200000, frequency: "YEARLY" });
 
     const weeklySummary = await request(app.server)
-      .get(`/incomes/${weekly.body.id}/summary`)
+      .get(`/api/incomes/${weekly.body.id}/summary`)
       .set(auth);
     const yearlySummary = await request(app.server)
-      .get(`/incomes/${yearly.body.id}/summary`)
+      .get(`/api/incomes/${yearly.body.id}/summary`)
       .set(auth);
 
     // 100000 * 52 / 12 ≈ 433333.33
@@ -156,22 +156,22 @@ describe("Incomes", () => {
 
   it("returns null totals for a ONE_TIME income's summary", async () => {
     const oneTime = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Bono único"), amount: 500000, frequency: "ONE_TIME" });
 
-    const res = await request(app.server).get(`/incomes/${oneTime.body.id}/summary`).set(auth);
+    const res = await request(app.server).get(`/api/incomes/${oneTime.body.id}/summary`).set(auth);
     expect(res.body.totals).toBeNull();
   });
 
   it("hides another user's income behind a 404", async () => {
     const stranger = await registerTestUser(app);
     const income = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set({ Authorization: `Bearer ${stranger.accessToken}` })
       .send({ name: uniqueName("Ajeno"), amount: 123456 });
 
-    const res = await request(app.server).get(`/incomes/${income.body.id}`).set(auth);
+    const res = await request(app.server).get(`/api/incomes/${income.body.id}`).set(auth);
     expect(res.status).toBe(404);
 
     await cleanupTestUser(app, stranger.userId);
@@ -179,11 +179,11 @@ describe("Incomes", () => {
 
   it("deletes an income", async () => {
     const created = await request(app.server)
-      .post("/incomes")
+      .post("/api/incomes")
       .set(auth)
       .send({ name: uniqueName("Temporal"), amount: 10000 });
 
-    const res = await request(app.server).delete(`/incomes/${created.body.id}`).set(auth);
+    const res = await request(app.server).delete(`/api/incomes/${created.body.id}`).set(auth);
     expect(res.status).toBe(204);
   });
 });

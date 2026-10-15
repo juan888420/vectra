@@ -1,5 +1,5 @@
 import type { ErrorCode } from "@vectra/types";
-import type { FastifyError, FastifyInstance } from "fastify";
+import type { FastifyError, FastifyInstance, FastifyReply } from "fastify";
 import {
   hasZodFastifySchemaValidationErrors,
   isResponseSerializationError,
@@ -78,14 +78,16 @@ export function registerErrorHandler(app: FastifyInstance): void {
       message: UNEXPECTED_MESSAGE,
     } satisfies ErrorResponse);
   });
+}
 
-  app.setNotFoundHandler((request, reply) => {
-    return reply.status(404).send({
-      statusCode: 404,
-      error: "Not Found",
-      code: "RESOURCE_NOT_FOUND",
-      // Deliberately does not echo the requested method/url back.
-      message: "Route not found",
-    } satisfies ErrorResponse);
-  });
+// Not registered here: the API prefix and the SPA fallback each decide when a
+// miss is a JSON 404 (see app.ts and plugins/web-app.ts).
+export function sendRouteNotFound(reply: FastifyReply): FastifyReply {
+  return reply.status(404).send({
+    statusCode: 404,
+    error: "Not Found",
+    code: "RESOURCE_NOT_FOUND",
+    // Deliberately does not echo the requested method/url back.
+    message: "Route not found",
+  } satisfies ErrorResponse);
 }

@@ -217,10 +217,16 @@ cd apps/api
 pnpm dev
 ```
 
+The frontend runs on `http://localhost:5173` and proxies `/api` to the backend on port 3001, so the whole app is same-origin in development just like in production.
+
 ### Main applications
 
 - Frontend: `apps/web`
-- Backend: `apps/api`
+- Backend: `apps/api` (every route under `/api`)
+
+### Deployment
+
+A single service serves both the built SPA and the API from one origin (see [ADR-0008](docs/decisions/0008-single-service-deploy.md)). The image is defined in [`Dockerfile`](Dockerfile) and the platform settings in [`railway.json`](railway.json). Database migrations run once per deploy as a pre-deploy step (`prisma migrate deploy`), never when the server starts.
 
 ---
 

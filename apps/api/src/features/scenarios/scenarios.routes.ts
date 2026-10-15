@@ -55,7 +55,7 @@ const scenarioIncomeParamsSchema = z.object({ id: z.uuid(), incomeId: z.uuid() }
 const scenarioCompositionParamsSchema = z.object({ id: z.uuid(), compositionId: z.uuid() });
 
 export const scenariosRoutes: FastifyPluginAsyncZod = async (app) => {
-  app.addHook("onRequest", app.authenticate);
+  app.addHook("preValidation", app.authenticate);
 
   app.get(
     "/",

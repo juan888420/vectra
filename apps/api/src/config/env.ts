@@ -2,15 +2,29 @@ import "dotenv/config";
 
 import { z } from "zod";
 
-const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  HOST: z.string().default("127.0.0.1"),
-  PORT: z.coerce.number().int().positive().default(3001),
-  DATABASE_URL: z.string().min(1),
-  CORS_ORIGIN: z.string().default("http://localhost:5173"),
-  /// Signs access tokens (HS256). 32+ chars so brute-forcing is unfeasible.
-  JWT_SECRET: z.string().min(32),
-});
+const envSchema = z
+  .object({
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    HOST: z.string().default("127.0.0.1"),
+    PORT: z.coerce.number().int().positive().default(3001),
+    DATABASE_URL: z.string().min(1),
+    /// Signs access tokens (HS256). 32+ chars so brute-forcing is unfeasible.
+    JWT_SECRET: z.string().min(32),
+    /// Absolute path to the built SPA (apps/web/dist). When set, this server
+    /// also serves the frontend from the same origin (ADR-0008); in local
+    /// development Vite serves it instead and proxies /api here.
+    WEB_DIST_DIR: z.string().min(1).optional(),
+    /// How many reverse proxies sit in front of this server (Fastify's
+    /// `trustProxy` hop count). 0 = none: X-Forwarded-For is ignored and the
+    /// socket address is the client. Must match the real topology — too high
+    /// lets a client forge its IP, too low lumps every user behind the
+    /// proxy's address (ADR-0008, "Verificación pendiente").
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
+  })
+  .refine((env) => env.NODE_ENV !== "production" || env.WEB_DIST_DIR !== undefined, {
+    message: "WEB_DIST_DIR is required in production (single-service deploy, ADR-0008)",
+    path: ["WEB_DIST_DIR"],
+  });
 
 const parsed = envSchema.safeParse(process.env);
 

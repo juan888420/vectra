@@ -252,6 +252,12 @@ export async function deleteCategoryWithReassignment(
     prisma.category.delete({ where: { id } }),
   ]);
 
+  // Moving a product changes the category name its scenario snapshots show —
+  // a visual change, synced right away like a rename (RFC-0023.3). Without
+  // this the snapshots kept the deleted category's name and read as
+  // "Desactualizado" forever, since no scenario sync applies visual drift.
+  await syncCategoryNameInScenarios(prisma, targetCategoryId, target.name);
+
   return { movedCount };
 }
 

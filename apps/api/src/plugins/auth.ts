@@ -23,6 +23,10 @@ declare module "fastify" {
 
 // Access tokens are short-lived JWTs sent as `Authorization: Bearer`; the
 // long-lived session lives in the refresh-token cookie (see auth feature).
+//
+// Routes attach `authenticate` as a preValidation hook, not onRequest: the
+// rate limiter runs in onRequest, and it must see (and count) requests with a
+// missing or forged token too, not only the ones that authenticate.
 export const authPlugin = fp(async (app) => {
   await app.register(cookie);
   await app.register(jwt, {

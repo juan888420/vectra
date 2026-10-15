@@ -28,7 +28,7 @@ describe("Category summary", () => {
 
   async function createExpenseCategory() {
     const res = await request(app.server)
-      .post("/categories")
+      .post("/api/categories")
       .set(auth)
       .send({ name: uniqueName("Tecnología"), type: "EXPENSE" });
     return res.body.id as string;
@@ -37,19 +37,19 @@ describe("Category summary", () => {
   it("sums monthly, prorates YEARLY and excludes ONE_TIME from the total", async () => {
     const categoryId = await createExpenseCategory();
     await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Claude"), amount: 50000, frequency: "MONTHLY" });
     await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Dominio"), amount: 120000, frequency: "YEARLY" });
     const oneTime = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Mac Mini"), amount: 900000, frequency: "ONE_TIME" });
 
-    const res = await request(app.server).get(`/categories/${categoryId}/summary`).set(auth);
+    const res = await request(app.server).get(`/api/categories/${categoryId}/summary`).set(auth);
 
     expect(res.status).toBe(200);
     // 50000 + (120000 / 12) = 60000
@@ -64,12 +64,12 @@ describe("Category summary", () => {
   it("excludes archived items from the summary", async () => {
     const categoryId = await createExpenseCategory();
     const item = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Spotify"), amount: 20000 });
-    await request(app.server).post(`/expense-items/${item.body.id}/archive`).set(auth);
+    await request(app.server).post(`/api/expense-items/${item.body.id}/archive`).set(auth);
 
-    const res = await request(app.server).get(`/categories/${categoryId}/summary`).set(auth);
+    const res = await request(app.server).get(`/api/categories/${categoryId}/summary`).set(auth);
 
     expect(res.body.totals.monthly).toBe(0);
     expect(res.body.items).toHaveLength(0);
@@ -78,7 +78,7 @@ describe("Category summary", () => {
   it("returns an empty summary for a category with no items", async () => {
     const categoryId = await createExpenseCategory();
 
-    const res = await request(app.server).get(`/categories/${categoryId}/summary`).set(auth);
+    const res = await request(app.server).get(`/api/categories/${categoryId}/summary`).set(auth);
 
     expect(res.status).toBe(200);
     expect(res.body.totals.monthly).toBe(0);
@@ -89,12 +89,12 @@ describe("Category summary", () => {
     const stranger = await registerTestUser(app);
     const strangerAuth = { Authorization: `Bearer ${stranger.accessToken}` };
     const categoryRes = await request(app.server)
-      .post("/categories")
+      .post("/api/categories")
       .set(strangerAuth)
       .send({ name: uniqueName("Secreto"), type: "EXPENSE" });
 
     const res = await request(app.server)
-      .get(`/categories/${categoryRes.body.id}/summary`)
+      .get(`/api/categories/${categoryRes.body.id}/summary`)
       .set(auth);
     expect(res.status).toBe(404);
 

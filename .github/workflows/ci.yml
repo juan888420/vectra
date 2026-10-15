@@ -1,0 +1,199 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, types, tests and production build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      # Matches apps/api/.env.test, which the API test suite loads.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vectra_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TURBO_TELEMETRY_DISABLED: 1
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Version comes from package.json's packageManager field.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Fails on any advisory in production dependencies that is not one of
+      # the reviewed exceptions in pnpm-workspace.yaml (auditConfig).
+      - name: Audit production dependencies
+        run: pnpm audit --prod
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      # The Prisma client is generated (gitignored); typecheck and lint need it.
+      - name: Generate Prisma client
+        run: pnpm --filter @vectra/api db:generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # Same command the release step runs in production, against a fresh
+      # database: proves every migration applies cleanly from zero.
+      - name: Apply migrations to the test database
+        run: pnpm --filter @vectra/api db:deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vectra_test?schema=public
+
+      - name: Test (API against PostgreSQL, web)
+        run: pnpm test
+
+      - name: Production build
+        run: pnpm build
+
+  # Builds the exact image Railway deploys (ADR-0008) and runs it the way
+  # Railway does: release step (migrations) first, then the server. Nothing is
+  # pushed, and the database is a throwaway service container of this job.
+  image:
+    name: Docker image builds, migrates and serves
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: vectra_smoke
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vectra_smoke?schema=public
+      # Smoke test only; never used outside this job.
+      JWT_SECRET: ci-smoke-test-secret-not-used-anywhere-else
+
+    defaults:
+      run:
+        # Explicit shell turns on pipefail, so `| tee` never hides a failure.
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build --progress=plain --tag vectra:ci . 2>&1 | tee build.log
+
+      # The server must never migrate (ADR-0008): booting it against an empty
+      # database has to leave the schema untouched.
+      - name: Server boots without migrating
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          docker run -d --name vectra-boot --network host \
+            -e DATABASE_URL -e JWT_SECRET vectra:ci
+          .github/scripts/wait-for-health.sh vectra-boot
+          docker rm -f vectra-boot
+          table=$(docker exec "$POSTGRES_CONTAINER" psql -U postgres -d vectra_smoke -tAc "SELECT to_regclass('public._prisma_migrations')")
+          if [ -n "$table" ]; then
+            echo "::error::The server created the migrations table on boot"
+            exit 1
+          fi
+
+      # Same command as railway.json's preDeployCommand, inside the final image.
+      - name: Release step applies every migration
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          docker run --rm --network host -e DATABASE_URL vectra:ci \
+            npx --no-install prisma migrate deploy 2>&1 | tee migrate.log
+          expected=$(find apps/api/prisma/migrations -name migration.sql | wc -l)
+          applied=$(docker exec "$POSTGRES_CONTAINER" psql -U postgres -d vectra_smoke -tAc "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL")
+          echo "Migrations applied: $applied of $expected"
+          [ "$applied" -eq "$expected" ]
+
+      - name: Server serves the API and the SPA
+        run: |
+          docker run -d --name vectra --network host \
+            -e DATABASE_URL -e JWT_SECRET vectra:ci
+          .github/scripts/wait-for-health.sh vectra
+
+          curl -fsS http://localhost:3001/api/health | tee health.json
+          echo
+          jq -e '.status == "ok" and .checks.database == "up"' health.json
+
+          for route in / /scenarios; do
+            curl -fsS -D headers.txt "http://localhost:3001$route" -o page.html
+            grep -qi '^content-type: text/html' headers.txt
+            grep -q '<div id="root">' page.html
+            echo "$route -> SPA index.html"
+          done
+
+          status=$(curl -sS -o missing.json -w '%{http_code}' http://localhost:3001/api/does-not-exist)
+          cat missing.json
+          echo
+          [ "$status" = "404" ]
+          jq -e '.code == "RESOURCE_NOT_FOUND"' missing.json
+
+      # Prisma warns when it falls back to a guessed engine (ADR-0008, OpenSSL
+      # in the image); any warning means the image no longer matches.
+      - name: No Prisma warnings
+        if: always()
+        run: |
+          docker logs vectra > server.log 2>&1 || true
+          echo "--- Schema engine in the final image and the libraries it resolves"
+          docker run --rm --entrypoint sh vectra:ci -c '
+            engine=$(find /app/node_modules -name "schema-engine-*" -type f)
+            echo "$engine"
+            ldd "$engine" | grep -E "libssl|libcrypto|not found" || echo "no libssl/libcrypto linked"
+            openssl version'
+          warnings=0
+          for log in build.log migrate.log server.log; do
+            [ -f "$log" ] || continue
+            while read -r line; do
+              echo "::error title=$log::$line"
+              warnings=$((warnings + 1))
+            done < <(grep -i 'prisma:warn' "$log" | sort -u || true)
+          done
+          [ "$warnings" -eq 0 ]
+
+      - name: Server logs
+        if: failure()
+        run: docker logs vectra-boot || docker logs vectra || true

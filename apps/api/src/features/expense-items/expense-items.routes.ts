@@ -28,7 +28,7 @@ const TAGS = ["Expense items"];
 const SECURITY = [{ bearerAuth: [] }];
 
 export const expenseItemsRoutes: FastifyPluginAsyncZod = async (app) => {
-  app.addHook("onRequest", app.authenticate);
+  app.addHook("preValidation", app.authenticate);
 
   app.get(
     "/",

@@ -14,7 +14,7 @@ function uniqueName(prefix: string): string {
 
 async function createExpenseCategory(app: FastifyInstance, auth: Record<string, string>) {
   const res = await request(app.server)
-    .post("/categories")
+    .post("/api/categories")
     .set(auth)
     .send({ name: uniqueName("Items cat"), type: "EXPENSE" });
   return res.body.id as string;
@@ -41,7 +41,7 @@ describe("Expense items", () => {
     const categoryId = await createExpenseCategory(app, auth);
 
     const res = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Netflix"), amount: 50000 });
 
@@ -57,11 +57,11 @@ describe("Expense items", () => {
     const categoryId = await createExpenseCategory(app, auth);
 
     const yearly = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Dominio"), amount: 60000, frequency: "YEARLY" });
     const oneTime = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Mac Mini"), amount: 3000000, frequency: "ONE_TIME" });
 
@@ -71,7 +71,7 @@ describe("Expense items", () => {
 
   it("rejects an item in an income category", async () => {
     const res = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId: user.incomeCategoryId, name: uniqueName("Sueldo"), amount: 100 });
 
@@ -80,10 +80,10 @@ describe("Expense items", () => {
 
   it("rejects an item in an archived category", async () => {
     const categoryId = await createExpenseCategory(app, auth);
-    await request(app.server).post(`/categories/${categoryId}/archive`).set(auth);
+    await request(app.server).post(`/api/categories/${categoryId}/archive`).set(auth);
 
     const res = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Spotify"), amount: 100 });
 
@@ -94,12 +94,12 @@ describe("Expense items", () => {
     const categoryId = await createExpenseCategory(app, auth);
     const name = uniqueName("Claude");
     await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name, amount: 70000 });
 
     const res = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name, amount: 90000 });
 
@@ -110,7 +110,7 @@ describe("Expense items", () => {
     const categoryId = await createExpenseCategory(app, auth);
 
     const res = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Cursor"), amount: 10.999 });
 
@@ -121,12 +121,12 @@ describe("Expense items", () => {
     const categoryId = await createExpenseCategory(app, auth);
     const otherCategoryId = await createExpenseCategory(app, auth);
     const created = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Gym"), amount: 100000 });
 
     const res = await request(app.server)
-      .patch(`/expense-items/${created.body.id}`)
+      .patch(`/api/expense-items/${created.body.id}`)
       .set(auth)
       .send({ categoryId: otherCategoryId, amount: 120000 });
 
@@ -140,12 +140,12 @@ describe("Expense items", () => {
   it("rejects an empty update body", async () => {
     const categoryId = await createExpenseCategory(app, auth);
     const created = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Vitaminas"), amount: 50000 });
 
     const res = await request(app.server)
-      .patch(`/expense-items/${created.body.id}`)
+      .patch(`/api/expense-items/${created.body.id}`)
       .set(auth)
       .send({});
 
@@ -156,20 +156,20 @@ describe("Expense items", () => {
     const categoryId = await createExpenseCategory(app, auth);
     const keptName = uniqueName("Proteina");
     await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: keptName, amount: 150000 });
     const archived = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Creatina"), amount: 80000 });
-    await request(app.server).post(`/expense-items/${archived.body.id}/archive`).set(auth);
+    await request(app.server).post(`/api/expense-items/${archived.body.id}/archive`).set(auth);
 
     const active = await request(app.server)
-      .get(`/expense-items?categoryId=${categoryId}`)
+      .get(`/api/expense-items?categoryId=${categoryId}`)
       .set(auth);
     const all = await request(app.server)
-      .get(`/expense-items?categoryId=${categoryId}&includeArchived=true`)
+      .get(`/api/expense-items?categoryId=${categoryId}&includeArchived=true`)
       .set(auth);
 
     expect(active.body.data).toHaveLength(1);
@@ -180,37 +180,37 @@ describe("Expense items", () => {
   it("archives a category in cascade with its items", async () => {
     const categoryId = await createExpenseCategory(app, auth);
     const item = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Disney"), amount: 30000 });
 
-    await request(app.server).post(`/categories/${categoryId}/archive`).set(auth);
+    await request(app.server).post(`/api/categories/${categoryId}/archive`).set(auth);
 
-    const res = await request(app.server).get(`/expense-items/${item.body.id}`).set(auth);
+    const res = await request(app.server).get(`/api/expense-items/${item.body.id}`).set(auth);
     expect(res.body.archivedAt).not.toBeNull();
   });
 
   it("refuses to delete a category that still has items", async () => {
     const categoryId = await createExpenseCategory(app, auth);
     await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Max"), amount: 25000 });
 
-    const res = await request(app.server).delete(`/categories/${categoryId}`).set(auth);
+    const res = await request(app.server).delete(`/api/categories/${categoryId}`).set(auth);
     expect(res.status).toBe(409);
   });
 
   it("refuses to unarchive an item whose category was archived", async () => {
     const categoryId = await createExpenseCategory(app, auth);
     const item = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Figma"), amount: 60000 });
-    await request(app.server).post(`/categories/${categoryId}/archive`).set(auth);
+    await request(app.server).post(`/api/categories/${categoryId}/archive`).set(auth);
 
     const res = await request(app.server)
-      .post(`/expense-items/${item.body.id}/unarchive`)
+      .post(`/api/expense-items/${item.body.id}/unarchive`)
       .set(auth);
 
     expect(res.status).toBe(400);
@@ -220,13 +220,13 @@ describe("Expense items", () => {
     const categoryId = await createExpenseCategory(app, auth);
     const name = uniqueName("Notion");
     const first = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name, amount: 40000 });
-    await request(app.server).post(`/expense-items/${first.body.id}/archive`).set(auth);
+    await request(app.server).post(`/api/expense-items/${first.body.id}/archive`).set(auth);
 
     const res = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name, amount: 45000 });
 
@@ -237,7 +237,7 @@ describe("Expense items", () => {
     const stranger = await registerTestUser(app);
     const strangerAuth = { Authorization: `Bearer ${stranger.accessToken}` };
     const item = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(strangerAuth)
       .send({
         categoryId: stranger.expenseCategoryId,
@@ -245,7 +245,7 @@ describe("Expense items", () => {
         amount: 1000,
       });
 
-    const res = await request(app.server).get(`/expense-items/${item.body.id}`).set(auth);
+    const res = await request(app.server).get(`/api/expense-items/${item.body.id}`).set(auth);
     expect(res.status).toBe(404);
 
     await cleanupTestUser(app, stranger.userId);
@@ -254,26 +254,28 @@ describe("Expense items", () => {
   it("computes the summary's monthly total and lists scenarios that use the item", async () => {
     const categoryId = await createExpenseCategory(app, auth);
     const item = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Cursor"), amount: 60000, frequency: "YEARLY" });
 
     const before = await request(app.server)
-      .get(`/expense-items/${item.body.id}/summary`)
+      .get(`/api/expense-items/${item.body.id}/summary`)
       .set(auth);
     expect(before.body.totals.monthly).toBe(5000);
     expect(before.body.scenarios).toEqual([]);
 
     const scenario = await request(app.server)
-      .post("/scenarios")
+      .post("/api/scenarios")
       .set(auth)
       .send({ name: uniqueName("Escenario") });
     await request(app.server)
-      .post(`/scenarios/${scenario.body.id}/items`)
+      .post(`/api/scenarios/${scenario.body.id}/items`)
       .set(auth)
       .send({ expenseItemId: item.body.id });
 
-    const after = await request(app.server).get(`/expense-items/${item.body.id}/summary`).set(auth);
+    const after = await request(app.server)
+      .get(`/api/expense-items/${item.body.id}/summary`)
+      .set(auth);
     expect(after.body.scenarios).toEqual([
       { id: scenario.body.id, name: scenario.body.name, status: "INACTIVE" },
     ]);
@@ -282,25 +284,27 @@ describe("Expense items", () => {
   it("returns a zero total for a ONE_TIME item's summary", async () => {
     const categoryId = await createExpenseCategory(app, auth);
     const item = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Laptop"), amount: 3000000, frequency: "ONE_TIME" });
 
-    const res = await request(app.server).get(`/expense-items/${item.body.id}/summary`).set(auth);
+    const res = await request(app.server)
+      .get(`/api/expense-items/${item.body.id}/summary`)
+      .set(auth);
     expect(res.body.totals.monthly).toBe(0);
   });
 
   it("deletes an item that no scenario references", async () => {
     const categoryId = await createExpenseCategory(app, auth);
     const item = await request(app.server)
-      .post("/expense-items")
+      .post("/api/expense-items")
       .set(auth)
       .send({ categoryId, name: uniqueName("Temporal"), amount: 10000 });
 
-    const res = await request(app.server).delete(`/expense-items/${item.body.id}`).set(auth);
+    const res = await request(app.server).delete(`/api/expense-items/${item.body.id}`).set(auth);
     expect(res.status).toBe(204);
 
-    const after = await request(app.server).get(`/expense-items/${item.body.id}`).set(auth);
+    const after = await request(app.server).get(`/api/expense-items/${item.body.id}`).set(auth);
     expect(after.status).toBe(404);
   });
 });

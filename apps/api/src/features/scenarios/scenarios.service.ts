@@ -46,6 +46,10 @@ async function assertNameAvailable(
   }
 }
 
+// Archived scenarios are frozen (ADR-0005 §10): no sync, detection or edit
+// ever touches the snapshots they own.
+const LIVE_SCENARIO = { status: { not: "ARCHIVED" as const } };
+
 function assertNotArchived(scenario: Scenario, action = "modify"): void {
   if (scenario.status === "ARCHIVED") {
     throw conflict("ARCHIVED_RESOURCE", `Cannot ${action} an archived scenario`);
@@ -275,7 +279,8 @@ export async function removeScenarioItem(
   scenarioId: string,
   itemId: string,
 ): Promise<void> {
-  await findOwnedOrFail(prisma.scenario, scenarioId, userId, "Scenario");
+  const scenario = await findOwnedOrFail(prisma.scenario, scenarioId, userId, "Scenario");
+  assertNotArchived(scenario, "remove items from");
   const item = await prisma.scenarioItem.findFirst({ where: { id: itemId, scenarioId } });
   if (!item) {
     throw notFound("Scenario item not found");
@@ -354,7 +359,8 @@ export async function removeScenarioIncome(
   scenarioId: string,
   scenarioIncomeId: string,
 ): Promise<void> {
-  await findOwnedOrFail(prisma.scenario, scenarioId, userId, "Scenario");
+  const scenario = await findOwnedOrFail(prisma.scenario, scenarioId, userId, "Scenario");
+  assertNotArchived(scenario, "remove incomes from");
   const income = await prisma.scenarioIncome.findFirst({
     where: { id: scenarioIncomeId, scenarioId },
   });
@@ -456,7 +462,8 @@ export async function removeScenarioComposition(
   parentScenarioId: string,
   compositionId: string,
 ): Promise<void> {
-  await findOwnedOrFail(prisma.scenario, parentScenarioId, userId, "Scenario");
+  const parent = await findOwnedOrFail(prisma.scenario, parentScenarioId, userId, "Scenario");
+  assertNotArchived(parent, "remove compositions from");
   const composition = await prisma.scenarioComposition.findFirst({
     where: { id: compositionId, parentScenarioId },
   });
@@ -655,14 +662,16 @@ async function getScenarioNameMap(
 
 // Items ARE inherited through composition (ADR-0005 §9), so their drift is
 // checked across every reachable scenario, attributed back to whichever one
-// actually owns the row via `originScenarioId`.
+// actually owns the row via `originScenarioId`. Rows owned by an archived
+// scenario are skipped: they are frozen, so their drift can never be applied
+// and must not keep a live ancestor looking outdated.
 async function detectItemChanges(
   prisma: PrismaClient,
   scenarioIds: string[],
   scenarioNames: Map<string, string>,
 ): Promise<ScenarioChange[]> {
   const items = await prisma.scenarioItem.findMany({
-    where: { scenarioId: { in: scenarioIds } },
+    where: { scenarioId: { in: scenarioIds }, scenario: LIVE_SCENARIO },
     include: { expenseItem: { include: { category: true } } },
   });
 
@@ -807,6 +816,7 @@ export async function applyScenarioChanges(
   id: string,
   changeIds: string[],
 ): Promise<{ appliedCount: number }> {
+  assertNotArchived(await findOwnedOrFail(prisma.scenario, id, userId, "Scenario"), "sync");
   const allChanges = await detectScenarioChanges(prisma, userId, id);
   const toApply = allChanges.filter((change) => changeIds.includes(change.id));
 
@@ -1334,11 +1344,14 @@ export async function syncScenario(
   userId: string,
   id: string,
 ): Promise<{ syncedCount: number }> {
-  await findOwnedOrFail(prisma.scenario, id, userId, "Scenario");
+  const scenario = await findOwnedOrFail(prisma.scenario, id, userId, "Scenario");
+  assertNotArchived(scenario, "sync");
   const scenarioIds = await collectReachableScenarioIds(prisma, id);
 
+  // Reaches through archived scenarios (a live grandchild still syncs) but
+  // never writes to a row an archived scenario owns.
   const items = await prisma.scenarioItem.findMany({
-    where: { scenarioId: { in: scenarioIds } },
+    where: { scenarioId: { in: scenarioIds }, scenario: LIVE_SCENARIO },
     include: { expenseItem: { include: { category: true } } },
   });
   const incomes = await prisma.scenarioIncome.findMany({

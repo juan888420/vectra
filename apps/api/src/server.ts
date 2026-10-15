@@ -1,5 +1,6 @@
 import { buildApp } from "./app.js";
 import { env } from "./config/env.js";
+import { API_PREFIX } from "./lib/api-prefix.js";
 
 const app = await buildApp();
 
@@ -20,7 +21,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 
 try {
   await app.listen({ host: env.HOST, port: env.PORT });
-  app.log.info(`API docs available at http://${env.HOST}:${env.PORT}/docs`);
+  app.log.info(`API docs available at http://${env.HOST}:${env.PORT}${API_PREFIX}/docs`);
 } catch (error) {
   app.log.error(error);
   process.exit(1);
