@@ -91,7 +91,6 @@ export async function updateCategory(
 ): Promise<Category> {
   const category = await findOwnedOrFail(prisma.category, id, userId, "Category");
 
-  // "Sin categorizar" must keep its name — other flows fall back to it.
   assertNotSystem(category, "renamed");
   await assertNameAvailable(prisma, userId, input.name, category.type, id);
 
