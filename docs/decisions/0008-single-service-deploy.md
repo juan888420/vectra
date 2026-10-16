@@ -10,7 +10,7 @@ ADR-0001 preveía el SPA en Vercel y el API en Railway, en dominios distintos. L
 
 ## Decisión
 
-**Un único servicio en Railway sirve el SPA compilado y el API desde el mismo origen, bajo un dominio propio con HTTPS.**
+**Un único servicio en Railway sirve el SPA compilado y el API desde el mismo origen, con HTTPS.** La beta cerrada usa el dominio que genera Railway (`vectra-production-fba3.up.railway.app`); un dominio propio queda para la beta abierta (ver "Dominio").
 
 - Todas las rutas del API viven bajo `/api` (`apps/api/src/lib/api-prefix.ts`). La cookie de refresh se emite con `Path=/api/auth`, derivado de esa misma constante.
 - Fastify sirve `apps/web/dist` (`plugins/web-app.ts`): los archivos de `assets/` con caché inmutable, `index.html` siempre revalidado, y cualquier navegación GET fuera de `/api` que no sea un archivo cae en `index.html` (fallback del SPA). Un `/api/*` desconocido o un archivo inexistente responden 404 JSON, nunca el SPA.
@@ -60,16 +60,40 @@ Se sustituye por `.railway/railway.ts` (Infrastructure as Code, SDK `railway`), 
 - **Aplicación**: Railway no lee `.railway/` durante el deploy. Los cambios se aplican con `railway config plan` y `railway config apply` (CLI ≥ 5.42.1), y **no se ejecuta `apply` sin revisar antes el `plan`**. Automatizarlo en CI (action `railwayapp/config`) queda fuera de alcance mientras sea un solo entorno.
 - **Validación local**: `pnpm typecheck` comprueba el archivo contra los tipos del SDK, que rechazan campos desconocidos y valores fuera de enum. Evaluar el programa produce el grafo esperado: `preDeploy` se normaliza a `deploy.preDeployCommand: [...]`, igual que en el antiguo `railway.json`. El cálculo del plan vive en el CLI, no en el SDK, así que solo `railway config plan` contra el proyecto real valida el resto.
 
-## Verificación pendiente contra la plataforma real
+## Dominio
 
-Antes de abrir la beta, verificar en el proyecto real (primero con `railway config plan`, después en un despliegue de prueba):
+Los dominios que genera Railway (`*.up.railway.app`) **no se declaran en `.railway/railway.ts`**: la referencia de IaC los excluye explícitamente, y `domains: [...]` solo admite dominios propios. El de la beta se generó una vez con `railway domain --service vectra --environment production --port 8080` y vive fuera del código; el `plan` posterior no propone borrarlo. Al pasar a un dominio propio se declarará en `domains` y se configurará su DNS (CNAME + verificación).
 
-1. **Plan**: que `railway config plan` acepta `build` y `deploy` (`builder`, `dockerfilePath`, `preDeployTimeoutSeconds`, `restartPolicy*`), que en el SDK están tipados pero no aparecen en la referencia pública, y que no propone cambios destructivos.
-2. **Pre-deploy**: que corre una sola vez por despliegue, que su fallo detiene el deploy y que el timeout de 300 s se aplica. La documentación no dice cómo se comporta con varias réplicas; con `replicas: 1` no afecta hoy.
-3. **Health check**: que `/api/health` bloquea el cambio de versión si la nueva no arranca (timeout de 60 s).
-4. **Variables**: que el plan asigna al servicio `JWT_SECRET = ${{shared.JWT_SECRET}}`, que no propone modificar ni borrar la variable compartida (no está declarada en `sharedVariables`), que no muestra su valor y que la referencia a una variable sellada se resuelve en el deploy. Si no se resolviera, el servidor no arranca (`JWT_SECRET` exige al menos 32 caracteres) y el health check detiene el deploy.
-5. **Wait for CI**: que `checkSuites` retiene el deploy hasta que termina el workflow de CI en `main`. El workflow cancela ejecuciones en curso del mismo ref (`concurrency`): un commit cuyo CI se cancela por un push posterior no se despliega, y se despliega el siguiente.
-6. **PostgreSQL**: el helper `postgres()` del SDK fija `ghcr.io/railwayapp-templates/postgres-ssl:18` (la plantilla parte de `postgres:18-trixie`), y Prisma 7 soporta PostgreSQL 18. El CI ya prueba contra `postgres:18` (tests y smoke test). Falta confirmar en el plan que esa es la imagen que se provisiona. Es una etiqueta flotante: Railway la puede actualizar a nuevas versiones menores de la 18, y el CI sigue la última 18.
-7. **TLS**: si la `DATABASE_URL` de la red privada exige `sslmode`, y que `migrate deploy` (schema engine enlazado a `libssl3`) y el servidor (`@prisma/adapter-pg`) conectan con ella.
-8. **`TRUST_PROXY_HOPS`** (hoy `1`). Comprobación: enviar `curl -H "X-Forwarded-For: 1.2.3.4" https://<dominio>/api/health` y confirmar en los logs que `remoteAddress` es la IP pública real de quien hace la petición, no `1.2.3.4` ni una IP interna de Railway. Si aparece una IP de Railway o de su CDN, hay un salto más y el valor correcto es `2`; si aparece `1.2.3.4`, el valor es demasiado alto. La documentación pública de Railway no define este modelo de confianza y hay reportes de comunidad contradictorios sobre `X-Real-IP`, por eso no se usa esa cabecera.
-9. **Proyecto**: que el nombre del proyecto y del servicio en Railway coinciden con `vectra`; si no, el plan propondría renombrar o crear recursos.
+## Swagger público (intencional)
+
+`/api/docs` (Swagger UI) y `/api/docs/json` quedan públicos en producción a propósito: Vectra es un proyecto de portafolio y el contrato del API es parte de lo que se muestra. Revisado el 2026-10-15: el documento no declara `servers` ni hosts internos, y `password` solo aparece en los `requestBody` de `register` y `login`, nunca en una respuesta. Si el producto deja de ser una demo, se condiciona por entorno en `plugins/swagger.ts`.
+
+## Verificación contra la plataforma real (2026-10-15)
+
+Hecha sobre el proyecto real, sin provocar fallos en producción. Los comportamientos ante fallo (pre-deploy que falla, health check que no responde) **no se observaron**: probarlos exige un entorno desechable, que se descartó por ahora.
+
+1. **Plan**: acepta `build` y `deploy` sin errores y no propone cambios destructivos (`0 to destroy`) ni renombres; proyecto y servicio coinciden con `vectra` (punto 9).
+2. **Pre-deploy**: en el deploy de #29 corrió una vez, aplicó solo la migración pendiente (`20261015120000_retire_system_categories`) y el servidor arrancó después. Fallo y timeout de 300 s: sin observar.
+3. **Health check**: Railway lo consulta desde `healthcheck.railway.app` y la nueva versión solo pasa a `SUCCESS` tras responder; la anterior queda `REMOVED`. Bloqueo ante una versión rota: sin observar.
+4. **Variables**: `JWT_SECRET` se resuelve desde la variable compartida (el servidor arranca y firma tokens). Incidente: el primer valor tenía un salto de línea, y un listado `railway variables --kv` cortado por `=` mostró su segunda línea como si fuera un nombre de variable, exponiendo un fragmento. Se rotó a un valor de una sola línea (`openssl rand -hex 48`). **Regla: los secretos se generan en una sola línea, y los listados de variables se inspeccionan por clave, nunca por valor.**
+5. **Wait for CI**: estaba **desactivado** pese al `apply` inicial. El deploy de #29 empezó a construir a las 01:53:00 UTC, mientras el CI de `main` corría (01:52:58 → 01:54:38). El `plan` lo mostraba como `source.checkSuites (null → true)`; el dashboard no muestra el toggle, presumiblemente por los permisos de la GitHub App sobre el repo (no confirmado). Un `apply` del plan fijado (`--out` / `--plan`) lo corrigió: el `plan` siguiente ya no lo lista, y el deploy que disparó el `apply` pasó por `WAITING` antes de `SUCCESS`. Falta verlo retener un commit con el CI en rojo. Si la deriva vuelve, la mitigación es branch protection en `main` (merge solo con CI en verde), que no depende de Railway.
+6. **PostgreSQL**: imagen sin confirmar en el plan; el CI sigue probando contra `postgres:18`.
+7. **TLS**: `migrate deploy` y el servidor conectan con la `DATABASE_URL` de la red privada (`postgres.railway.internal:5432`) sin parámetros extra.
+8. **`TRUST_PROXY_HOPS`**: se queda en `1`, ver abajo.
+9. **Proyecto**: ver punto 1.
+
+Además: el SPA responde en `/` y rutas profundas (200, `no-cache`), los assets con `max-age=31536000, immutable`, `/api/*` desconocido y archivos inexistentes dan 404 JSON, y las cabeceras de seguridad están presentes (HSTS, CSP, `nosniff`, `X-Frame-Options`, `Referrer-Policy`). El flujo de auth se probó de punta a punta con una cuenta de QA: registro (201, 10 categorías por defecto, ninguna de sistema), cookie `vectra_refresh` con `Path=/api/auth; HttpOnly; Secure; SameSite=Lax`, refresh con rotación (200, cookie nueva, token válido), refresh sin cookie (401), cookie sola sobre `/api/me` (401), logout (204, cookie borrada), refresh con la cookie revocada (401), login (200) y contraseña incorrecta (401 `INVALID_CREDENTIALS`).
+
+`restartPolicyType (null → "ON_FAILURE")` sigue apareciendo en cada `plan` después del `apply`: el manifiesto del deploy ya lleva `ON_FAILURE` (el valor por defecto de Railway) y la API devuelve `null` para él. Es una diferencia cosmética, se ignora.
+
+### IP del cliente y rate limiting
+
+Con `TRUST_PROXY_HOPS=1`, Fastify **no** obtiene la IP del cliente sino la de un nodo de **CDN77** (`152.233.23.193`/`.194`, Datacamp, Miami) que está delante del edge de Railway. Un `X-Forwarded-For` falsificado (`1.2.3.4`, o una cadena de dos IPs) se ignora, así que el límite no se puede saltar; el problema es el inverso: todo el tráfico anónimo que entra por el mismo nodo comparte cubo (100/min global, **10/min en `login` y `register`**). Las peticiones autenticadas no se ven afectadas: se limitan por cuenta.
+
+No se sube a `2`: Railway no documenta la cadena de proxies ni publica rangos del CDN, sus respuestas en la comunidad se contradicen (el edge sobrescribe, añade por la izquierda o por la derecha) y advierte que el comportamiento puede cambiar. Si alguna ruta llegara sin pasar por el CDN, `2` confiaría en un valor que el cliente controla.
+
+Decisión:
+
+- **Beta cerrada**: se queda en `1`. Falla por exceso de limitación, nunca por defecto.
+- **Antes de abrir la beta**: medir el `X-Forwarded-For` crudo que llega al servidor (log temporal a nivel debug, peticiones con la cabecera falsificada desde redes distintas).
+- **Resultado esperado**: limitar `login` y `register` también por email, además de por IP, para no depender del modelo de proxies de Railway, que no tiene contrato.
