@@ -33,6 +33,9 @@ export const notFound = (message: string, code: ErrorCode = "RESOURCE_NOT_FOUND"
 export const conflict = (code: ErrorCode, message: string): HttpError =>
   new HttpError(409, "Conflict", code, message);
 
+export const tooManyRequests = (message: string): HttpError =>
+  new HttpError(429, "Too Many Requests", "RATE_LIMITED", message);
+
 export function isHttpError(error: unknown): error is HttpError {
   return error instanceof HttpError;
 }

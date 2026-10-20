@@ -15,13 +15,26 @@ const LOGIN_LIMIT = 10;
 const USER_LIMIT = 300;
 const ANONYMOUS_LIMIT = 100;
 
-function failedLogin(app: FastifyInstance, init: { remoteAddress: string; xff?: string }) {
+// Failed logins also count per email (auth.routes.ts).
+const LOGIN_FAILURES_LIMIT = 10;
+
+let nobodyCounter = 0;
+// A fresh email per attempt by default, so tests about the per-IP limit never
+// trip the per-email one.
+function failedLogin(
+  app: FastifyInstance,
+  init: { remoteAddress: string; xff?: string; email?: string },
+) {
+  nobodyCounter += 1;
   return app.inject({
     method: "POST",
     url: "/api/auth/login",
     remoteAddress: init.remoteAddress,
     headers: init.xff ? { "x-forwarded-for": init.xff } : {},
-    payload: { email: "nobody@example.com", password: "wrong-password" },
+    payload: {
+      email: init.email ?? `nobody-${nobodyCounter}@example.com`,
+      password: "wrong-password",
+    },
   });
 }
 
@@ -159,5 +172,94 @@ describe("Rate limiting of signed-in users", () => {
 
     expect(statuses.slice(0, ANONYMOUS_LIMIT).every((status) => status === 401)).toBe(true);
     expect(statuses[ANONYMOUS_LIMIT]).toBe(429);
+  });
+});
+
+describe("Failed login limit per account", () => {
+  let app: FastifyInstance;
+  const emails: string[] = [];
+  let clientCounter = 0;
+
+  // A different client address on every request, as an attacker rotating
+  // IPs would, so only the per-email limit can stop them.
+  function nextClient(): string {
+    clientCounter += 1;
+    return `203.0.113.${clientCounter}`;
+  }
+
+  function logIn(email: string, password: string) {
+    return app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      remoteAddress: PROXY,
+      headers: { "x-forwarded-for": nextClient() },
+      payload: { email, password },
+    });
+  }
+
+  async function signUp(): Promise<string> {
+    const email = `lf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+    emails.push(email);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      remoteAddress: PROXY,
+      headers: { "x-forwarded-for": nextClient() },
+      payload: { email, password: "password123" },
+    });
+    expect(res.statusCode).toBe(201);
+    return email;
+  }
+
+  beforeAll(async () => {
+    app = await buildApp({ trustProxyHops: 1, globalRateLimit: true });
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.prisma.user.deleteMany({ where: { email: { in: emails } } });
+    await app.close();
+  });
+
+  it("locks an account after repeated failures from any address", async () => {
+    const email = await signUp();
+
+    // Mixed case on purpose: the schema lowercases, so it is one account.
+    for (let i = 0; i < LOGIN_FAILURES_LIMIT; i++) {
+      const attempt = i % 2 === 0 ? email : email.toUpperCase();
+      expect((await logIn(attempt, "wrong-password")).statusCode).toBe(401);
+    }
+
+    // Even the right password is refused until the window ends.
+    const locked = await logIn(email, "password123");
+    expect(locked.statusCode).toBe(429);
+    expect(locked.json().code).toBe("RATE_LIMITED");
+    expect(Number(locked.headers["retry-after"])).toBeGreaterThan(0);
+  });
+
+  it("does not affect other accounts", async () => {
+    const email = await signUp();
+
+    expect((await logIn(email, "password123")).statusCode).toBe(200);
+  });
+
+  it("does not count successful logins", async () => {
+    const email = await signUp();
+
+    for (let i = 0; i < LOGIN_FAILURES_LIMIT + 1; i++) {
+      expect((await logIn(email, "password123")).statusCode).toBe(200);
+    }
+    expect((await logIn(email, "wrong-password")).statusCode).toBe(401);
+  });
+
+  it("counts an unknown email like a wrong password", async () => {
+    // Otherwise a 429 on one and a 401 on the other would reveal which
+    // accounts exist.
+    const email = `ghost-${Date.now()}@example.com`;
+
+    for (let i = 0; i < LOGIN_FAILURES_LIMIT; i++) {
+      expect((await logIn(email, "wrong-password")).statusCode).toBe(401);
+    }
+    expect((await logIn(email, "wrong-password")).statusCode).toBe(429);
   });
 });

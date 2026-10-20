@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { env } from "../../config/env.js";
 import { API_PREFIX } from "../../lib/api-prefix.js";
-import { unauthorized } from "../../lib/http-errors.js";
+import { isHttpError, tooManyRequests, unauthorized } from "../../lib/http-errors.js";
 import { errorResponseSchema } from "../../lib/schemas.js";
 import { toUserPublic } from "../users/users.schemas.js";
 import { authResponseSchema, loginBodySchema, registerBodySchema } from "./auth.schemas.js";
@@ -40,7 +40,22 @@ function readRefreshCookie(request: FastifyRequest): string {
 // the target of credential-stuffing attacks.
 const strictRateLimit = { rateLimit: { max: 10, timeWindow: "1 minute" } };
 
+// Per account, on top of the per-IP limit: the client IP behind Railway's CDN
+// is not reliable (ADR-0008), so an attacker rotating addresses must still hit
+// a ceiling per target. Only failures count, so a user who signs in normally
+// never spends budget. The cost is that anyone can lock an account's login for
+// the window by failing on purpose (ADR-0008, "IP del cliente y rate limiting").
+const LOGIN_FAILURES_MAX = 10;
+const LOGIN_FAILURES_WINDOW = "15 minutes";
+
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {
+  const loginFailures = app.createRateLimit({
+    max: LOGIN_FAILURES_MAX,
+    timeWindow: LOGIN_FAILURES_WINDOW,
+    // Runs inside the handler, after validation; the schema lowercases email.
+    keyGenerator: (request) => `login-email:${loginBodySchema.parse(request.body).email}`,
+  });
+
   app.post(
     "/register",
     {
@@ -73,8 +88,25 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       config: strictRateLimit,
     },
     async (request, reply) => {
+      // `isAllowed` is always false outside an allow list; `remaining` is the
+      // real signal. A read does not count the attempt.
+      const failures = await loginFailures(request, { increment: false });
+      if (!failures.isAllowed && failures.remaining === 0) {
+        void reply.header("retry-after", failures.ttlInSeconds);
+        throw tooManyRequests("Too many failed login attempts for this account");
+      }
+
       const { email, password } = request.body;
-      const { user, refreshToken } = await loginUser(app.prisma, email, password);
+      const { user, refreshToken } = await loginUser(app.prisma, email, password).catch(
+        async (error: unknown) => {
+          // Unknown email and wrong password count alike, so a 429 never
+          // reveals whether the account exists.
+          if (isHttpError(error) && error.code === "INVALID_CREDENTIALS") {
+            await loginFailures(request);
+          }
+          throw error;
+        },
+      );
       const accessToken = await reply.jwtSign({ sub: user.id });
 
       setRefreshCookie(reply, refreshToken.token, refreshToken.expiresAt);
