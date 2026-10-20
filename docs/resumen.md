@@ -100,7 +100,7 @@ Tres variantes por color: `soft` (badges/chips), `solid` (chip seleccionado), y 
 
 - **#29 (retiro de "Sin categorizar")**: rebasado sobre `main` tras #26/#28; la migración se renombró de `20260814120000` a `20261015120000` para quedar después de `20261013120000_refresh_token_rotation_chain`, ya aplicada en prod (mismo SQL, mismo checksum). Probada antes en una DB desechable que reproducía el historial de `main`: solo cambian las filas `isSystem`, nada se borra. En prod la aplicó el pre-deploy.
 - **Dominio**: `vectra-production-fba3.up.railway.app`, generado con el CLI, fuera de IaC (Railway no los declara en `railway.ts`).
-- **Wait for CI estaba desactivado**: #29 se desplegó en paralelo a su CI de `main`. Corregido con `railway config apply` sobre un plan fijado.
+- **Wait for CI estaba desactivado**: #29 se desplegó en paralelo a su CI de `main`. Se aplicó `railway config apply` sobre un plan fijado: el `plan` ya no muestra la deriva, pero falta observar que Railway retenga un deploy (ADR-0008, punto 5).
 - **`JWT_SECRET` rotado**: el valor original tenía un salto de línea y un fragmento quedó expuesto en un listado de variables.
 - **Verificado**: SPA y rutas profundas, caché de assets, 404 JSON, cabeceras de seguridad, `/api/health`, y auth de punta a punta (registro, login, refresh con rotación, logout, cookie revocada) con una cuenta de QA.
 - **`TRUST_PROXY_HOPS=1` devuelve la IP de un nodo de CDN77**, no la del cliente: no es explotable, pero los anónimos comparten cubo de rate limit. Se queda en `1` durante la beta cerrada (ver "Pendiente inmediato").
