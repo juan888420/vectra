@@ -2,7 +2,11 @@
 
 > Se actualiza al final de cada sesión. Léelo primero para saber dónde retomar.
 
-**Última actualización**: 2026-08-14 (retiro de las categorías de sistema "Sin categorizar" — degradadas a categorías normales vía migración de datos, sin cambio de schema; el mecanismo `isSystem` se conserva completo. Cambio propio, posterior al cierre de RFC-0029. Detalle en "Estado" abajo).
+**Última actualización**: 2026-10-15 (Vectra desplegado en Railway: beta cerrada en `https://vectra-production-fba3.up.railway.app`, verificado contra la plataforma real. Detalle en "Qué se hizo en esta sesión" abajo y en [ADR-0008](decisions/0008-single-service-deploy.md)).
+
+**Deploy, Phase 1** (2026-10-14/15, PRs #26, #28, #29): servicio único en el mismo origen (SPA + API bajo `/api`), CI en cada PR (lint, tipos, tests, build, `pnpm audit --prod`, smoke test de la imagen con migraciones), fixes de seguridad (rate limit por cuenta y por IP real, rotación atómica de refresh tokens con ventana de gracia), configuración de Railway como IaC en `.railway/railway.ts`, y el retiro de "Sin categorizar" mergeado y migrado en producción.
+
+**Retiro de las categorías de sistema "Sin categorizar"** (2026-08-14, mergeado en #29 el 2026-10-15): degradadas a categorías normales vía migración de datos, sin cambio de schema; el mecanismo `isSystem` se conserva completo. Detalle en "Estado" abajo.
 
 **RFC-0029, parte visual** (2026-08-14 — identidad luminosa/premium con glassmorphism selectivo, en 5 fases: tokens base + Instrument Sans, vidrio en overlays/composición, paleta de categorías a 10 tonos, rediseño de Login/Register, pulido general. Cierre de sesión: se detectó y corrigió una colisión de color entre categorías, y se auditó — sin implementar — el retiro de las categorías de sistema "Sin categorizar". PR #25 mergeado a `main`, incluye también la parte de mensajes de error de la sesión anterior. Detalle en "Qué se hizo en la sesión de RFC-0029" abajo).
 
@@ -18,7 +22,7 @@
 
 ## Estado
 
-**Backend**: expone hoy solo el dominio de escenarios — auth (JWT + refresh), categories, expense-items, incomes (RFC-0021), scenarios (RFC-0022), sus endpoints `summary` (RFC-0023), eliminación de categorías con reasignación (RFC-0023.2) y el sistema de sincronización en el momento de editar (RFC-0023.3, ver abajo). Todo en `apps/api`. **El ledger (accounts, transactions, budgets, recurring-transactions, dashboard, reports) se retiró por completo en RFC-0027** ([ADR-0007](decisions/0007-retire-ledger-surface.md)): sin rutas, servicios, schemas ni tests, junto con la lib exclusiva a ellos (`resource-guards`, `chart-color`, `finance-math`, `date-range`, `report-buckets`, `recurrence`). Los modelos Prisma (`Account`, `Transaction`, `Budget`, `RecurringTransaction`) siguen en el schema sin migración ni endpoint que los exponga — `Category.archiveCategory`/`deleteCategory` sigue dependiendo de esas relaciones para su propia cascada de archivado y conteo. Nuevos registros usan `COP` como `defaultCurrency` por defecto (el usuario de prueba sembrado sigue en USD); el registro ya no crea una cuenta "Efectivo" por defecto (no tiene sentido sembrar un modelo sin endpoint que lo exponga). CORS permite explícitamente `GET/HEAD/POST/PATCH/DELETE`.
+**Backend**: expone hoy solo el dominio de escenarios — auth (JWT + refresh), categories, expense-items, incomes (RFC-0021), scenarios (RFC-0022), sus endpoints `summary` (RFC-0023), eliminación de categorías con reasignación (RFC-0023.2) y el sistema de sincronización en el momento de editar (RFC-0023.3, ver abajo). Todo en `apps/api`. **El ledger (accounts, transactions, budgets, recurring-transactions, dashboard, reports) se retiró por completo en RFC-0027** ([ADR-0007](decisions/0007-retire-ledger-surface.md)): sin rutas, servicios, schemas ni tests, junto con la lib exclusiva a ellos (`resource-guards`, `chart-color`, `finance-math`, `date-range`, `report-buckets`, `recurrence`). Los modelos Prisma (`Account`, `Transaction`, `Budget`, `RecurringTransaction`) siguen en el schema sin migración ni endpoint que los exponga — `Category.archiveCategory`/`deleteCategory` sigue dependiendo de esas relaciones para su propia cascada de archivado y conteo. Nuevos registros usan `COP` como `defaultCurrency` por defecto (el usuario de prueba sembrado sigue en USD); el registro ya no crea una cuenta "Efectivo" por defecto (no tiene sentido sembrar un modelo sin endpoint que lo exponga). Sin CORS: el SPA y el API se sirven desde el mismo origen (ADR-0008), y en desarrollo Vite hace proxy de `/api`.
 
 **Escenarios (modelo)**: `Scenario` (estados `ACTIVE`/`INACTIVE`/`ARCHIVED`, default `INACTIVE`) con `ScenarioItem`/`ScenarioIncome` como snapshots explícitos de `ExpenseItem`/`Income` — el escenario nunca lee el recurso original en vivo, así que un cambio de precio nunca modifica una simulación en silencio (ADR-0005). `ScenarioComposition` permite escenario-en-escenario con detección de ciclos (BFS en service layer). Los `ScenarioItem` **sí** se heredan a través de la composición (agregado real); los `ScenarioIncome` **no** — un ingreso pertenece únicamente al escenario donde se vinculó.
 
@@ -86,11 +90,25 @@ Tres variantes por color: `soft` (badges/chips), `solid` (chip seleccionado), y 
 
 **Los formularios usan `noValidate`** (RFC-0029): Zod vía `zodResolver` es la única fuente de validación. Sin esto, la validación nativa del navegador corre primero y bloquea el submit con un mensaje en el idioma **del navegador**, no el de la app.
 
-**Categorías de sistema "Sin categorizar": retiradas** (2026-08-14, cambio propio posterior a RFC-0029). La auditoría previa concluyó que las dos filas `isSystem: true` por usuario (una `EXPENSE`, una `INCOME`, creadas en `initial-user-data.ts`) ya no cumplían ninguna función: ningún flujo en runtime las busca por `isSystem` ni por nombre, y su justificación en el schema ("future flows (transactions RFC) rely on them as the re-categorization fallback") apuntaba al ledger retirado en ADR-0007. La fila `INCOME` era además **estructuralmente irreferenciable** — `Income` no tiene `categoryId` y `expense-items.service.ts` rechaza cualquier categoría que no sea `EXPENSE`. Implementado como **degradación, no borrado**: la migración de datos `20261015120000_retire_system_categories` (`UPDATE "categories" SET "isSystem" = false WHERE "isSystem" = true`, sin cambio de schema, aplicada con `pnpm db:apply`) más el retiro de las dos entradas de `initial-user-data.ts`. Las filas existentes siguen ahí como categorías normales — vacías, y ahora el usuario puede renombrarlas, archivarlas o borrarlas él mismo. **El mecanismo `isSystem` se conserva íntegro**: columna, guarda `assertNotSystem`, código de error `SYSTEM_CATEGORY`, badge "Sistema" en `CategoryCard`, ítems de menú deshabilitados y el test de frontend que lo cubre. Hoy no hay ninguna fila que lo lleve, así que la guarda queda inalcanzable hasta que se marque una categoría protegida otra vez — documentado así en los tres sitios que lo declaran (schema, `errors.ts`, `initial-user-data.ts`).
+**Categorías de sistema "Sin categorizar": retiradas** (2026-08-14, cambio propio posterior a RFC-0029). La auditoría previa concluyó que las dos filas `isSystem: true` por usuario (una `EXPENSE`, una `INCOME`, creadas en `initial-user-data.ts`) ya no cumplían ninguna función: ningún flujo en runtime las busca por `isSystem` ni por nombre, y su justificación en el schema ("future flows (transactions RFC) rely on them as the re-categorization fallback") apuntaba al ledger retirado en ADR-0007. La fila `INCOME` era además **estructuralmente irreferenciable** — `Income` no tiene `categoryId` y `expense-items.service.ts` rechaza cualquier categoría que no sea `EXPENSE`. Implementado como **degradación, no borrado**: la migración de datos `20261015120000_retire_system_categories` (`UPDATE "categories" SET "isSystem" = false WHERE "isSystem" = true`, sin cambio de schema, aplicada en local con `pnpm db:apply` y en producción por el pre-deploy de #29) más el retiro de las dos entradas de `initial-user-data.ts`. Las filas existentes siguen ahí como categorías normales — vacías, y ahora el usuario puede renombrarlas, archivarlas o borrarlas él mismo. **El mecanismo `isSystem` se conserva íntegro**: columna, guarda `assertNotSystem`, código de error `SYSTEM_CATEGORY`, badge "Sistema" en `CategoryCard`, ítems de menú deshabilitados y el test de frontend que lo cubre. Hoy no hay ninguna fila que lo lleve, así que la guarda queda inalcanzable hasta que se marque una categoría protegida otra vez — documentado así en los tres sitios que lo declaran (schema, `errors.ts`, `initial-user-data.ts`).
 
 **ADR-0005**: sin cambios. **ADR-0006**: `partially superseded` por ADR-0007 en la sección "Ledger histórico: se queda, sin cambios de alcance" — esa sección ya no aplica; el resto sigue vigente. **ADR-0007** (`accepted`): retiro del ledger de la experiencia de producto y del backend expuesto (RFC-0027).
 
 ## Qué se hizo en esta sesión
+
+**Deploy a Railway y verificación contra la plataforma real** (2026-10-15). Resultados completos en [ADR-0008](decisions/0008-single-service-deploy.md), "Verificación contra la plataforma real".
+
+- **#29 (retiro de "Sin categorizar")**: rebasado sobre `main` tras #26/#28; la migración se renombró de `20260814120000` a `20261015120000` para quedar después de `20261013120000_refresh_token_rotation_chain`, ya aplicada en prod (mismo SQL, mismo checksum). Probada antes en una DB desechable que reproducía el historial de `main`: solo cambian las filas `isSystem`, nada se borra. En prod la aplicó el pre-deploy.
+- **Dominio**: `vectra-production-fba3.up.railway.app`, generado con el CLI, fuera de IaC (Railway no los declara en `railway.ts`).
+- **Wait for CI estaba desactivado**: #29 se desplegó en paralelo a su CI de `main`. Se aplicó `railway config apply` sobre un plan fijado: el `plan` ya no muestra la deriva, pero falta observar que Railway retenga un deploy (ADR-0008, punto 5).
+- **`JWT_SECRET` rotado**: el valor original tenía un salto de línea y un fragmento quedó expuesto en un listado de variables.
+- **Verificado**: SPA y rutas profundas, caché de assets, 404 JSON, cabeceras de seguridad, `/api/health`, y auth de punta a punta (registro, login, refresh con rotación, logout, cookie revocada) con una cuenta de QA.
+- **`TRUST_PROXY_HOPS=1` devuelve la IP de un nodo de CDN77**, no la del cliente: no es explotable, pero los anónimos comparten cubo de rate limit. Se queda en `1` durante la beta cerrada (ver "Pendiente inmediato").
+- **Swagger público en `/api/docs`**: intencional (portafolio), revisado sin datos sensibles.
+- **Local**: `vectra_dev` reconciliada (la fila de `_prisma_migrations` renombrada al nombre nuevo) y `vectra_test` migrada con `prisma migrate deploy`. `prisma migrate` vuelve a funcionar en esta máquina.
+- **QA**: API 86/86, web 4/4, lint, typecheck, build y Prettier en verde; `pnpm test` desde la raíz funciona otra vez.
+
+## Qué se hizo en la sesión del retiro de "Sin categorizar"
 
 **Retiro de las categorías de sistema "Sin categorizar"** — el ítem 1 de "Pendiente inmediato" que dejó abierto RFC-0029, con la auditoría y la dirección ya aprobadas de antes. Ver "Estado" arriba para el detalle de la decisión.
 
@@ -145,37 +163,42 @@ Pedida antes de cerrar RFC-0029. Dirección aprobada (degradar, no borrar) pero 
 ### Pendiente inmediato
 
 1. **`vectra-logo.png` (973KB, 1024×1024) quedó en el repo sin ningún consumidor** tras optimizarse a `vectra-mark.png` (128px, 28,8KB) en Fase E. No se borró porque eliminar un asset de marca sin que lo pidan es el movimiento arriesgado — decisión pendiente del usuario.
-2. **Rotación de refresh token sin ventana de gracia**: descubierto durante el QA de Fase E — recargas de página muy seguidas (no algo que un usuario real produce) pueden cerrar la sesión en una carrera. Es una fragilidad real del flujo de auth, no algo visual; no se tocó en RFC-0029.
+2. **Rate limiting por IP detrás del CDN de Railway** (antes de abrir la beta): medir el `X-Forwarded-For` crudo y, previsiblemente, limitar `login`/`register` también por email. Ver ADR-0008, "IP del cliente y rate limiting".
+3. ~~**Borrar la cuenta de QA** de producción~~ — **resuelto** (2026-10-19): borrada con SQL desde el dashboard (la API no tiene endpoint para borrar cuentas).
+4. **Wait for CI**: falta verlo retener un commit con el CI en rojo. Si la deriva vuelve, branch protection en `main`.
+5. **`vectra_dev` sin `20261013120000_refresh_token_rotation_chain`**: aplicarla con `prisma migrate deploy` antes de volver a usar el servidor local.
+
+> La rotación de refresh token sin ventana de gracia que figuraba aquí quedó **resuelta** en #26 (rotación atómica con ventana de gracia, con tests).
 
 > Los dos ítems de pulido visual que quedaban abiertos desde el cierre de RFC-0028 (el tinte de _Entretenimiento_ leyendo rojizo en oscuro, y el botón "Mostrar archivadas/os" huérfano) quedaron **resueltos** por las Fases C y E de RFC-0029 respectivamente — ver "Estado" arriba.
 
 ### Funcionalidad pendiente (analizada, no construida)
 
-3. **Métricas "¿cuánto dinero me queda?" a 6 y 12 meses** — hoy `incomeCoverage.remainingMonthly` solo existe a nivel mensual.
-4. **Propios vs. heredados en la lista de productos de un escenario compuesto** — `ScenarioItemsSection` (la pantalla del propio escenario) sigue mostrando solo los items propios (`listScenarioItems` no recorre la composición), aunque el total y el sync sí la recorren.
-5. **Comparador de escenarios** con deltas contra el escenario activo (ADR-0005 §12) — introduce Recharts. **Candidato más alto en valor para la próxima sesión de producto** (a diferencia de RFC-0029, que fue puramente visual). Explícitamente fuera de alcance en RFC-0028 y RFC-0029, a pedido del usuario.
-6. **Editar la frecuencia de un producto ya incluido en un escenario** (no solo al agregarlo).
+6. **Métricas "¿cuánto dinero me queda?" a 6 y 12 meses** — hoy `incomeCoverage.remainingMonthly` solo existe a nivel mensual.
+7. **Propios vs. heredados en la lista de productos de un escenario compuesto** — `ScenarioItemsSection` (la pantalla del propio escenario) sigue mostrando solo los items propios (`listScenarioItems` no recorre la composición), aunque el total y el sync sí la recorren.
+8. **Comparador de escenarios** con deltas contra el escenario activo (ADR-0005 §12) — introduce Recharts. **Candidato más alto en valor para la próxima sesión de producto** (a diferencia de RFC-0029, que fue puramente visual). Explícitamente fuera de alcance en RFC-0028 y RFC-0029, a pedido del usuario.
+9. **Editar la frecuencia de un producto ya incluido en un escenario** (no solo al agregarlo).
 
 > Nota: el ítem "rediseño del Dashboard alrededor de escenarios" que figuraba aquí quedó resuelto (no pendiente) por RFC-0027 — Dashboard se retiró del producto en vez de rediseñarse; ver ADR-0007.
 
 ### Deuda técnica / mejoras menores
 
-7. **`framer-motion@11.15` es anterior a React 19** — causó el bug del "primer clic" de varias sesiones atrás, ya corregido. No urge migrar a `motion` v12 salvo que reaparezca algo raro con animaciones.
-8. **Playwright sigue sin estar en el repo** — van ya varias sesiones (RFC-0028 y RFC-0029, ambas partes) usándolo ad hoc desde el scratchpad (`playwright-core` + canal `msedge`). Vale la pena evaluarlo como `devDependency` real. Nota operativa: el CORS del API solo permite `http://localhost:5173` — apuntar siempre a ese puerto.
-9. **`prisma migrate` no funciona en esta máquina** (`spawn UNKNOWN` del schema-engine). El rodeo es `pnpm db:apply <carpeta>` (`apps/api/scripts/apply-migration.ts`): aplica el `.sql` por el driver adapter y lo registra en `_prisma_migrations` con el checksum de Prisma. Ya se usó para el retiro de "Sin categorizar"; sirve igual para migraciones con cambio de schema siempre que el SQL se escriba a mano.
-10. **`getScenarioSummary` llama a `detectScenarioChanges` internamente** para derivar `hasUpdates` — suma consultas por cada carga de summary. Aceptable a esta escala.
-11. **`GET /scenarios` con N consultas internas por fila** (una por escenario, para el `monthly` enriquecido) — el sidebar y `ScenarioCompositionCard` dependen de este campo.
-12. **N+1 en el cliente, mismo criterio en varios lugares**: `ScenarioCompositionCard` y `CategoryCard` (mensual + conteo de productos vía `useCategorySummary`). Aceptable con la cantidad típica de filas por página.
-13. **Suite de tests en `apps/api`**: `apps/api/tests/{categories,expense-items,incomes,scenarios}.test.ts` — 4 archivos, 59 casos. Cubren el dominio de escenarios vigente; no hay tests para `auth` ni para los endpoints de sincronización granular. El único test de frontend automatizado sigue siendo el de `CategoriesPage` (ahora también cubre, incidentalmente, que renderiza con `CategoryColorProvider`). **Los tests del API no asertan sobre mensajes de error ni sobre asignación de color, solo sobre status codes** — ninguno de los dos quedó cubierto por tests automatizados, solo por verificación manual. Candidato claro para la próxima tanda de tests.
-14. **Los endpoints `/scenarios/:id/changes(/apply)` no tienen consumidor** — conservados como capacidad futura. Van varias sesiones sin uso; evaluar eliminarlos si sigue así.
-15. **`packages/ui`'s `DataTable` quedó sin ningún consumidor en `apps/web` tras RFC-0027** — candidato a limpieza cuando se decida qué hacer con `packages/ui`.
-16. **Las tablas `accounts`, `transactions`, `budgets`, `recurring_transactions` quedan en Postgres sin ningún endpoint que las lea o escriba** — dato residual aceptado a propósito por ADR-0007. Una futura limpieza de schema es un RFC aparte, no decidido todavía.
-17. **`recharts` está en `apps/web/package.json` sin ningún consumidor** — lo necesitaría el comparador de escenarios (ítem 5) si se construye.
-18. **`StatCard`'s `TONE_BADGE_CLASSNAME` no tiene consumidor**: ningún llamado a `ProjectionStatCards`/`StatCard` pasa la prop `badge`. Se corrigió igual en Fase E (tokens semánticos en vez de Tailwind hardcodeado) porque era la corrección correcta si alguna vez se usa, pero sigue siendo código sin caller real.
+10. **`framer-motion@11.15` es anterior a React 19** — causó el bug del "primer clic" de varias sesiones atrás, ya corregido. No urge migrar a `motion` v12 salvo que reaparezca algo raro con animaciones.
+11. **Playwright sigue sin estar en el repo** — van ya varias sesiones (RFC-0028 y RFC-0029, ambas partes) usándolo ad hoc desde el scratchpad (`playwright-core` + canal `msedge`). Vale la pena evaluarlo como `devDependency` real. Nota operativa: en local, apuntar a Vite (`http://localhost:5173`), que hace proxy de `/api`.
+12. **`prisma migrate` vuelve a funcionar en esta máquina** (verificado 2026-10-15; antes fallaba con `spawn UNKNOWN` del schema-engine). `pnpm db:apply` (`apps/api/scripts/apply-migration.ts`) queda como rodeo heredado y tiene un bug: parte el SQL por `;`, así que falla con migraciones que llevan `;` en comentarios (p. ej. `20260804120000_add_scenario_item_category_icon`). Candidato a borrarse.
+13. **`getScenarioSummary` llama a `detectScenarioChanges` internamente** para derivar `hasUpdates` — suma consultas por cada carga de summary. Aceptable a esta escala.
+14. **`GET /scenarios` con N consultas internas por fila** (una por escenario, para el `monthly` enriquecido) — el sidebar y `ScenarioCompositionCard` dependen de este campo.
+15. **N+1 en el cliente, mismo criterio en varios lugares**: `ScenarioCompositionCard` y `CategoryCard` (mensual + conteo de productos vía `useCategorySummary`). Aceptable con la cantidad típica de filas por página.
+16. **Suite de tests en `apps/api`**: 7 archivos, 86 casos (`categories`, `expense-items`, `incomes`, `scenarios`, y desde #26 `auth`, `rate-limit` y `web-app`). No hay tests para los endpoints de sincronización granular. El único test de frontend automatizado sigue siendo el de `CategoriesPage` (ahora también cubre, incidentalmente, que renderiza con `CategoryColorProvider`). **Los tests del API no asertan sobre mensajes de error ni sobre asignación de color, solo sobre status codes** — ninguno de los dos quedó cubierto por tests automatizados, solo por verificación manual. Candidato claro para la próxima tanda de tests.
+17. **Los endpoints `/scenarios/:id/changes(/apply)` no tienen consumidor** — conservados como capacidad futura. Van varias sesiones sin uso; evaluar eliminarlos si sigue así.
+18. **`packages/ui`'s `DataTable` quedó sin ningún consumidor en `apps/web` tras RFC-0027** — candidato a limpieza cuando se decida qué hacer con `packages/ui`.
+19. **Las tablas `accounts`, `transactions`, `budgets`, `recurring_transactions` quedan en Postgres sin ningún endpoint que las lea o escriba** — dato residual aceptado a propósito por ADR-0007. Una futura limpieza de schema es un RFC aparte, no decidido todavía.
+20. **`recharts` está en `apps/web/package.json` sin ningún consumidor** — lo necesitaría el comparador de escenarios (ítem 8) si se construye.
+21. **`StatCard`'s `TONE_BADGE_CLASSNAME` no tiene consumidor**: ningún llamado a `ProjectionStatCards`/`StatCard` pasa la prop `badge`. Se corrigió igual en Fase E (tokens semánticos en vez de Tailwind hardcodeado) porque era la corrección correcta si alguna vez se usa, pero sigue siendo código sin caller real.
 
 ### Decisiones de producto sin resolver (a propósito, no ahora)
 
-19. Si los ingresos deberían agruparse por categoría en algún momento.
+22. Si los ingresos deberían agruparse por categoría en algún momento.
 
 > El ítem "si `Budget`/`Reports` se mantienen a largo plazo" que figuraba aquí quedó **resuelto** por RFC-0027: se retiran del producto expuesto (ver ADR-0007).
 
