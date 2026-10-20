@@ -125,6 +125,18 @@ jobs:
       - name: Build image
         run: docker build --progress=plain --tag vectra:ci . 2>&1 | tee build.log
 
+      # The nightly backup job (ops/db-backup): its image must have the real
+      # tools, and its script runs the tests inside it with them stubbed.
+      - name: Backup image builds and its script passes the tests
+        run: |
+          docker build --progress=plain --tag vectra-db-backup:ci -f ops/db-backup/Dockerfile .
+          docker run --rm --entrypoint bash vectra-db-backup:ci -c \
+            'pg_dump --version && age --version && rclone version | head -n 1 && curl --version | head -n 1'
+          docker run --rm --entrypoint bash \
+            -v "$PWD/ops/db-backup/test:/opt/db-backup-test:ro" \
+            -e BACKUP_SCRIPT=/usr/local/bin/backup.sh \
+            vectra-db-backup:ci /opt/db-backup-test/backup.test.sh
+
       # The server must never migrate (ADR-0008): booting it against an empty
       # database has to leave the schema untouched.
       - name: Server boots without migrating
