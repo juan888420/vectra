@@ -58,13 +58,15 @@ export default defineRailway((ctx) => {
     env: {
       DATABASE_URL: db.env.DATABASE_URL,
       // Sealed shared variables created in the Railway dashboard, like JWT_SECRET.
+      // The heartbeat URL is one too: anyone who has it can report a backup
+      // that never happened, and this repository is public.
       R2_ACCESS_KEY_ID: ctx.shared.R2_ACCESS_KEY_ID,
       R2_SECRET_ACCESS_KEY: ctx.shared.R2_SECRET_ACCESS_KEY,
+      HEARTBEAT_URL: ctx.shared.HEARTBEAT_URL,
       R2_ENDPOINT: "<SET_ME: https://<account_id>.r2.cloudflarestorage.com>",
       R2_BUCKET: "<SET_ME: bucket name>",
       // Public key only: the private key never enters Railway or R2.
       AGE_RECIPIENT: "<SET_ME: age1... public key>",
-      HEARTBEAT_URL: "<SET_ME: heartbeat ping URL>",
     },
   });
 

@@ -13,7 +13,9 @@ set -euo pipefail
 require() {
   local name
   for name in "$@"; do
-    # Placeholders in .railway/railway.ts look like "<SET_ME: ...>".
+    # Placeholders in .railway/railway.ts look like "<SET_ME: ...>"; a sealed
+    # shared variable that does not exist yet resolves to an empty value.
+    # Only the name is printed: some of these are secrets.
     if [[ -z "${!name:-}" || "${!name}" == *"<SET_ME"* ]]; then
       echo "error: $name is not set" >&2
       exit 64
@@ -66,5 +68,6 @@ if [[ "${stamp:8:2}" == "01" ]]; then
 fi
 rclone deletefile "$incoming" || echo "warning: promoted, but could not delete $incoming" >&2
 
+# HEARTBEAT_URL is a secret: curl's errors name the host, never the full URL.
 curl -fsS --max-time 10 --retry 3 --output /dev/null "$HEARTBEAT_URL"
 echo "backup ${name} promoted (${size} bytes)"

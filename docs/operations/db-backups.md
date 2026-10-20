@@ -24,9 +24,9 @@ Si algo falla, el script sale con error, no promueve nada, no hace ping e intent
 3. **Reglas de lifecycle**: `incoming/` borra a 1 día, `daily/` a 35 días, `monthly/` a 400 días.
 4. **Bucket lock**, si la cuenta lo permite: retención de 30 días en `daily/` y `monthly/` (siempre menor que su lifecycle), para que unas credenciales robadas no puedan borrar los backups recientes. **Nunca en `incoming/`**: el script necesita borrar ahí.
 5. **Par de claves `age`** en una máquina de confianza: `age-keygen -o vectra-backup.key`. La línea `# public key: age1...` es `AGE_RECIPIENT`. El archivo `vectra-backup.key` (clave privada) va al gestor de contraseñas y a una copia offline; nunca al repositorio ni a Railway. **Si se pierde, los backups no sirven.**
-6. **Variables compartidas selladas** en el entorno `production` de Railway (dashboard): `R2_ACCESS_KEY_ID` y `R2_SECRET_ACCESS_KEY`. Se generan en una sola línea y no se listan nunca por valor (ADR-0008, "Variables").
-7. **Monitor heartbeat** en el servicio de uptime, esperando un ping diario con un margen de unas horas. Su URL es `HEARTBEAT_URL`.
-8. **Rellenar los marcadores `<SET_ME: ...>`** de `.railway/railway.ts` (`R2_ENDPOINT`, `R2_BUCKET`, `AGE_RECIPIENT`, `HEARTBEAT_URL`). `backup.sh` se niega a correr mientras quede alguno.
+6. **Monitor heartbeat** en el servicio de uptime, esperando un ping diario con un margen de unas horas. **Su URL es un secreto**: quien la tenga puede dar por hecho un backup que no existió, y el repositorio es público.
+7. **Variables compartidas selladas** en el entorno `production` de Railway (dashboard): `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` y `HEARTBEAT_URL`. Se escriben en una sola línea y no se listan nunca por valor (ADR-0008, "Variables"). Si falta alguna, la referencia queda vacía y `backup.sh` se niega a correr.
+8. **Rellenar los marcadores `<SET_ME: ...>`** de `.railway/railway.ts` (`R2_ENDPOINT`, `R2_BUCKET`, `AGE_RECIPIENT`, todos no secretos). `backup.sh` también se niega a correr mientras quede alguno.
 9. `railway config plan`, revisarlo, y `railway config apply`.
 10. Comprobar la primera ejecución (objeto en `daily/`, ping recibido) y hacer la primera prueba de restauración en local.
 
