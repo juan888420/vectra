@@ -2,7 +2,9 @@
 
 > Se actualiza al final de cada sesión. Léelo primero para saber dónde retomar.
 
-**Última actualización**: 2026-10-15 (Vectra desplegado en Railway: beta cerrada en `https://vectra-production-fba3.up.railway.app`, verificado contra la plataforma real. Detalle en "Qué se hizo en esta sesión" abajo y en [ADR-0008](decisions/0008-single-service-deploy.md)).
+**Última actualización**: 2026-10-20 (endurecimiento antes de la beta abierta: límite de login por email, Wait for CI observado, protección de `main`. Detalle en "Qué se hizo en esta sesión" abajo y en [ADR-0008](decisions/0008-single-service-deploy.md)).
+
+**Endurecimiento, Phase 4** (2026-10-19/20, PRs #30–#33): ADR-0008 ajustado a lo demostrado; `login` limitado también por email (10 fallos cada 15 min), verificado en producción; Wait for CI observado reteniendo 3 deploys hasta el CI en verde; ruleset `main: CI required` activo; cuenta de QA eliminada de producción.
 
 **Deploy, Phase 1** (2026-10-14/15, PRs #26, #28, #29): servicio único en el mismo origen (SPA + API bajo `/api`), CI en cada PR (lint, tipos, tests, build, `pnpm audit --prod`, smoke test de la imagen con migraciones), fixes de seguridad (rate limit por cuenta y por IP real, rotación atómica de refresh tokens con ventana de gracia), configuración de Railway como IaC en `.railway/railway.ts`, y el retiro de "Sin categorizar" mergeado y migrado en producción.
 
@@ -96,6 +98,18 @@ Tres variantes por color: `soft` (badges/chips), `solid` (chip seleccionado), y 
 
 ## Qué se hizo en esta sesión
 
+**Endurecimiento antes de la beta abierta** (2026-10-19/20). Detalle en [ADR-0008](decisions/0008-single-service-deploy.md).
+
+- **ADR-0008 ajustado a lo demostrado** (#30, #32): Wait for CI se documenta como observado con el CI en verde, no como "corregido"; la cuenta de QA, eliminada y verificada por el propietario.
+- **Wait for CI observado** en los deploys de #30, #31 y #32: el deploy queda en `WAITING` mientras corre el CI de `main` y el build empieza 4-7 s después de que termine en verde. Las check suites de otras GitHub Apps en `queued` no lo retienen. **Sin observar con el CI en rojo**.
+- **Límite de login por email** (#31): 10 fallos por email cada 15 min, solo fallos, además de 10/min por IP. Un email inexistente cuenta igual (sin enumeración). Riesgo aceptado: bloqueo dirigido de 15 min. `register` sigue solo por IP. Verificado en prod con un email inexistente: intento 10 → 401, intento 11 → 429 con `Retry-After: 787` (el de email, no el de IP).
+- **Cupo por IP repartido entre nodos de CDN77** (#33): hipótesis sin verificar, por el `x-ratelimit-remaining` no monótono de esa prueba. Se comprobará con la medición del `X-Forwarded-For` crudo.
+- **Protección de `main`**: el ruleset `main: CI required` (antes "Regla1", deshabilitado y sin rama) exige los 2 jobs del CI, bloquea force push y borrado, y aplica también a administradores. Verificado con un PR desechable con un test que fallaba a propósito: merge bloqueado. Los `name:` de los jobs en `ci.yml` llevan un comentario que lo recuerda.
+- **Higiene**: el correo personal salió de la documentación y de los commits (autor `noreply`); borrada la contraseña local de QA.
+- **QA**: API 90/90 (4 tests nuevos de límite por email; los de IP usan ahora un email distinto por intento), CI en verde en todos los PRs.
+
+## Qué se hizo en la sesión del deploy
+
 **Deploy a Railway y verificación contra la plataforma real** (2026-10-15). Resultados completos en [ADR-0008](decisions/0008-single-service-deploy.md), "Verificación contra la plataforma real".
 
 - **#29 (retiro de "Sin categorizar")**: rebasado sobre `main` tras #26/#28; la migración se renombró de `20260814120000` a `20261015120000` para quedar después de `20261013120000_refresh_token_rotation_chain`, ya aplicada en prod (mismo SQL, mismo checksum). Probada antes en una DB desechable que reproducía el historial de `main`: solo cambian las filas `isSystem`, nada se borra. En prod la aplicó el pre-deploy.
@@ -163,12 +177,12 @@ Pedida antes de cerrar RFC-0029. Dirección aprobada (degradar, no borrar) pero 
 ### Pendiente inmediato
 
 1. **`vectra-logo.png` (973KB, 1024×1024) quedó en el repo sin ningún consumidor** tras optimizarse a `vectra-mark.png` (128px, 28,8KB) en Fase E. No se borró porque eliminar un asset de marca sin que lo pidan es el movimiento arriesgado — decisión pendiente del usuario.
-2. **Rate limiting por IP detrás del CDN de Railway** (antes de abrir la beta): medir el `X-Forwarded-For` crudo (diferido). El límite por email en `login` (10 fallos cada 15 min) está implementado; `register` sigue solo por IP. Ver ADR-0008, "IP del cliente y rate limiting".
-3. ~~**Borrar la cuenta de QA** de producción~~ — **resuelto** (2026-10-19): borrada con SQL desde el dashboard (la API no tiene endpoint para borrar cuentas).
-4. **Wait for CI**: observado esperando al CI en verde (merge de #30, 2026-10-20); falta verlo retener un commit con el CI en rojo. Mitigación independiente de Railway: branch protection en `main`, hoy inexistente.
+2. **Rate limiting por IP detrás del CDN de Railway** (antes de abrir la beta): medir el `X-Forwarded-For` crudo (diferido; sonda temporal en `/api/health`, 2 deploys). Decide si `TRUST_PROXY_HOPS=2` es seguro y verifica la hipótesis del cupo por nodo de CDN77. El límite por email en `login` (10 fallos cada 15 min) está implementado; `register` sigue solo por IP. Ver ADR-0008, "IP del cliente y rate limiting".
+3. **Dominio propio** (antes de anunciar la URL): declararlo en `domains` de `.railway/railway.ts` y configurar su DNS. Cambiar de dominio con usuarios dentro les cierra la sesión (la cookie de refresh es del dominio).
+4. **Wait for CI**: observado reteniendo 3 deploys hasta el CI en verde (#30–#32); con el CI en rojo, sin observar. Desde el 2026-10-20 el ruleset `main: CI required` impide mergear con el CI en rojo, así que ese caso ya no depende de Railway.
 5. **`vectra_dev` sin `20261013120000_refresh_token_rotation_chain`**: aplicarla con `prisma migrate deploy` antes de volver a usar el servidor local.
 
-> La rotación de refresh token sin ventana de gracia que figuraba aquí quedó **resuelta** en #26 (rotación atómica con ventana de gracia, con tests).
+> La rotación de refresh token sin ventana de gracia que figuraba aquí quedó **resuelta** en #26 (rotación atómica con ventana de gracia, con tests). La cuenta de QA de producción quedó **eliminada** el 2026-10-19 (SQL desde el dashboard; la API no tiene endpoint para borrar cuentas).
 
 > Los dos ítems de pulido visual que quedaban abiertos desde el cierre de RFC-0028 (el tinte de _Entretenimiento_ leyendo rojizo en oscuro, y el botón "Mostrar archivadas/os" huérfano) quedaron **resueltos** por las Fases C y E de RFC-0029 respectivamente — ver "Estado" arriba.
 
@@ -189,7 +203,7 @@ Pedida antes de cerrar RFC-0029. Dirección aprobada (degradar, no borrar) pero 
 13. **`getScenarioSummary` llama a `detectScenarioChanges` internamente** para derivar `hasUpdates` — suma consultas por cada carga de summary. Aceptable a esta escala.
 14. **`GET /scenarios` con N consultas internas por fila** (una por escenario, para el `monthly` enriquecido) — el sidebar y `ScenarioCompositionCard` dependen de este campo.
 15. **N+1 en el cliente, mismo criterio en varios lugares**: `ScenarioCompositionCard` y `CategoryCard` (mensual + conteo de productos vía `useCategorySummary`). Aceptable con la cantidad típica de filas por página.
-16. **Suite de tests en `apps/api`**: 7 archivos, 86 casos (`categories`, `expense-items`, `incomes`, `scenarios`, y desde #26 `auth`, `rate-limit` y `web-app`). No hay tests para los endpoints de sincronización granular. El único test de frontend automatizado sigue siendo el de `CategoriesPage` (ahora también cubre, incidentalmente, que renderiza con `CategoryColorProvider`). **Los tests del API no asertan sobre mensajes de error ni sobre asignación de color, solo sobre status codes** — ninguno de los dos quedó cubierto por tests automatizados, solo por verificación manual. Candidato claro para la próxima tanda de tests.
+16. **Suite de tests en `apps/api`**: 7 archivos, 90 casos (`categories`, `expense-items`, `incomes`, `scenarios`, y desde #26 `auth`, `rate-limit` y `web-app`; `rate-limit` cubre también el límite por email desde #31). No hay tests para los endpoints de sincronización granular. El único test de frontend automatizado sigue siendo el de `CategoriesPage` (ahora también cubre, incidentalmente, que renderiza con `CategoryColorProvider`). **Los tests del API no asertan sobre mensajes de error ni sobre asignación de color, solo sobre status codes** — ninguno de los dos quedó cubierto por tests automatizados, solo por verificación manual. Candidato claro para la próxima tanda de tests.
 17. **Los endpoints `/scenarios/:id/changes(/apply)` no tienen consumidor** — conservados como capacidad futura. Van varias sesiones sin uso; evaluar eliminarlos si sigue así.
 18. **`packages/ui`'s `DataTable` quedó sin ningún consumidor en `apps/web` tras RFC-0027** — candidato a limpieza cuando se decida qué hacer con `packages/ui`.
 19. **Las tablas `accounts`, `transactions`, `budgets`, `recurring_transactions` quedan en Postgres sin ningún endpoint que las lea o escriba** — dato residual aceptado a propósito por ADR-0007. Una futura limpieza de schema es un RFC aparte, no decidido todavía.

@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   verify:
+    # Required by the "main: CI required" ruleset; if renamed, update the ruleset.
     name: Lint, types, tests and production build
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -87,6 +88,7 @@ jobs:
   # Railway does: release step (migrations) first, then the server. Nothing is
   # pushed, and the database is a throwaway service container of this job.
   image:
+    # Required by the "main: CI required" ruleset; if renamed, update the ruleset.
     name: Docker image builds, migrates and serves
     runs-on: ubuntu-24.04
     timeout-minutes: 20
