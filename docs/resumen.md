@@ -2,7 +2,7 @@
 
 > Se actualiza al final de cada sesión. Léelo primero para saber dónde retomar.
 
-**Última actualización**: 2026-10-20 (endurecimiento antes de la beta abierta: límite de login por email, Wait for CI observado, protección de `main`. Detalle en "Qué se hizo en esta sesión" abajo y en [ADR-0008](decisions/0008-single-service-deploy.md)).
+**Última actualización**: 2026-10-20 (endurecimiento antes de la beta abierta: límite de login por email, Wait for CI observado, protección de `main`, medición de `X-Forwarded-For` sin sonda y `TRUST_PROXY_HOPS=1` decidido para la beta abierta. Detalle en "Qué se hizo en esta sesión" abajo y en [ADR-0008](decisions/0008-single-service-deploy.md)).
 
 **Endurecimiento, Phase 4** (2026-10-19/20, PRs #30–#33): ADR-0008 ajustado a lo demostrado; `login` limitado también por email (10 fallos cada 15 min), verificado en producción; Wait for CI observado reteniendo 3 deploys hasta el CI en verde; ruleset `main: CI required` activo; cuenta de QA eliminada de producción.
 
@@ -103,7 +103,8 @@ Tres variantes por color: `soft` (badges/chips), `solid` (chip seleccionado), y 
 - **ADR-0008 ajustado a lo demostrado** (#30, #32): Wait for CI se documenta como observado con el CI en verde, no como "corregido"; la cuenta de QA, eliminada y verificada por el propietario.
 - **Wait for CI observado** en los deploys de #30, #31 y #32: el deploy queda en `WAITING` mientras corre el CI de `main` y el build empieza 4-7 s después de que termine en verde. Las check suites de otras GitHub Apps en `queued` no lo retienen. **Sin observar con el CI en rojo**.
 - **Límite de login por email** (#31): 10 fallos por email cada 15 min, solo fallos, además de 10/min por IP. Un email inexistente cuenta igual (sin enumeración). Riesgo aceptado: bloqueo dirigido de 15 min. `register` sigue solo por IP. Verificado en prod con un email inexistente: intento 10 → 401, intento 11 → 429 con `Retry-After: 787` (el de email, no el de IP).
-- **Cupo por IP repartido entre nodos de CDN77** (#33): hipótesis sin verificar, por el `x-ratelimit-remaining` no monótono de esa prueba. Se comprobará con la medición del `X-Forwarded-For` crudo.
+- **Cupo por IP repartido entre nodos de CDN77** (#33): planteado por el `x-ratelimit-remaining` no monótono de esa prueba; mecanismo confirmado después por la medición sin sonda (siguiente punto).
+- **Medición de `X-Forwarded-For` sin sonda**: 6 `GET /api/health` desde 2 redes, cruzando el `srcIp` de los logs HTTP del edge con el `request.ip` de Fastify. El edge ve la IP real; Fastify, siempre un nodo de CDN77, que cambia entre peticiones del mismo cliente (cupo repartido en dos cubos). El `X-Forwarded-For` falsificado nunca llegó a `request.ip`. **Decisión: `TRUST_PROXY_HOPS=1` también en la beta abierta**, con el límite por email como defensa que no depende de la IP; la sonda que registraría el XFF crudo queda diferida hasta ver 429 legítimos por el cubo compartido.
 - **Protección de `main`**: el ruleset `main: CI required` (antes "Regla1", deshabilitado y sin rama) exige los 2 jobs del CI, bloquea force push y borrado, y aplica también a administradores. Verificado con un PR desechable con un test que fallaba a propósito: merge bloqueado. Los `name:` de los jobs en `ci.yml` llevan un comentario que lo recuerda.
 - **Higiene**: el correo personal salió de la documentación y de los commits (autor `noreply`); borrada la contraseña local de QA.
 - **QA**: API 90/90 (4 tests nuevos de límite por email; los de IP usan ahora un email distinto por intento), CI en verde en todos los PRs.
@@ -177,7 +178,7 @@ Pedida antes de cerrar RFC-0029. Dirección aprobada (degradar, no borrar) pero 
 ### Pendiente inmediato
 
 1. **`vectra-logo.png` (973KB, 1024×1024) quedó en el repo sin ningún consumidor** tras optimizarse a `vectra-mark.png` (128px, 28,8KB) en Fase E. No se borró porque eliminar un asset de marca sin que lo pidan es el movimiento arriesgado — decisión pendiente del usuario.
-2. **Rate limiting por IP detrás del CDN de Railway** (antes de abrir la beta): medir el `X-Forwarded-For` crudo (diferido; sonda temporal en `/api/health`, 2 deploys). Decide si `TRUST_PROXY_HOPS=2` es seguro y verifica la hipótesis del cupo por nodo de CDN77. El límite por email en `login` (10 fallos cada 15 min) está implementado; `register` sigue solo por IP. Ver ADR-0008, "IP del cliente y rate limiting".
+2. **Rate limiting por IP detrás del CDN de Railway**: decidido, `TRUST_PROXY_HOPS=1` (ADR-0008, "Medición sin sonda"). Queda abierto solo si aparecen 429 legítimos en `login` o `register` por el límite por IP: entonces, sonda temporal en `/api/health` (2 deploys) para registrar el `X-Forwarded-For` crudo y decidir si `2` es seguro. `register` sigue limitado solo por IP.
 3. **Dominio propio** (antes de anunciar la URL): declararlo en `domains` de `.railway/railway.ts` y configurar su DNS. Cambiar de dominio con usuarios dentro les cierra la sesión (la cookie de refresh es del dominio).
 4. **Wait for CI**: observado reteniendo 3 deploys hasta el CI en verde (#30–#32); con el CI en rojo, sin observar. Desde el 2026-10-20 el ruleset `main: CI required` impide mergear con el CI en rojo, así que ese caso ya no depende de Railway.
 5. **`vectra_dev` sin `20261013120000_refresh_token_rotation_chain`**: aplicarla con `prisma migrate deploy` antes de volver a usar el servidor local.
