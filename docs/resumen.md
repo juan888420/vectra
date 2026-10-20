@@ -2,7 +2,17 @@
 
 > Se actualiza al final de cada sesión. Léelo primero para saber dónde retomar.
 
-**Última actualización**: 2026-10-20 (endurecimiento antes de la beta abierta: límite de login por email, Wait for CI observado, protección de `main`, medición de `X-Forwarded-For` sin sonda y `TRUST_PROXY_HOPS=1` decidido para la beta abierta. Detalle en "Qué se hizo en esta sesión" abajo y en [ADR-0008](decisions/0008-single-service-deploy.md)).
+## Para empezar la próxima sesión
+
+- **La app está en producción y funciona**: https://vectra-production-fba3.up.railway.app (beta cerrada, dominio gratuito de Railway).
+- **La infraestructura queda cerrada por ahora**: deploy, CI, protección de `main`, rate limiting y backups nocturnos están hechos. No hace falta tocarla para seguir.
+- **Dos comprobaciones rápidas al empezar** (5 minutos):
+  1. Que el primer backup nocturno salió bien: logs del servicio `db-backup` en Railway (última línea `backup vectra-….dump.age promoted (N bytes)`) y un objeto nuevo en `daily/` del bucket `vectra-backups` en Cloudflare R2. Si falló, la causa está en esa misma línea de log (`error: ...`).
+  2. Que el propietario guardó la clave privada de los backups (`vectra-backup.key`, en su carpeta de usuario) en su gestor de contraseñas. Sin ella, los backups no se pueden descifrar.
+- **Siguiente paso recomendado: producto, no infraestructura.** El candidato de más valor es el **comparador de escenarios** (ítem 8 de "Funcionalidad pendiente"), o empezar a invitar usuarios a la beta cerrada.
+- **Forma de trabajar**: el propietario prefiere ver resultados y explicaciones en lenguaje simple; los pasos de plataforma (PRs, variables, `apply`) se resuelven sin convertirlos en tareas para él salvo que sea imprescindible.
+
+**Última actualización**: 2026-10-20 (endurecimiento antes de la beta abierta: límite de login por email, Wait for CI observado, protección de `main`, medición de `X-Forwarded-For` sin sonda y `TRUST_PROXY_HOPS=1` decidido para la beta abierta, backups nocturnos cifrados a Cloudflare R2 en marcha. Detalle en "Qué se hizo en esta sesión" abajo y en [ADR-0008](decisions/0008-single-service-deploy.md)).
 
 **Endurecimiento, Phase 4** (2026-10-19/20, PRs #30–#33): ADR-0008 ajustado a lo demostrado; `login` limitado también por email (10 fallos cada 15 min), verificado en producción; Wait for CI observado reteniendo 3 deploys hasta el CI en verde; ruleset `main: CI required` activo; cuenta de QA eliminada de producción.
 
@@ -108,6 +118,8 @@ Tres variantes por color: `soft` (badges/chips), `solid` (chip seleccionado), y 
 - **Protección de `main`**: el ruleset `main: CI required` (antes "Regla1", deshabilitado y sin rama) exige los 2 jobs del CI, bloquea force push y borrado, y aplica también a administradores. Verificado con un PR desechable con un test que fallaba a propósito: merge bloqueado. Los `name:` de los jobs en `ci.yml` llevan un comentario que lo recuerda.
 - **Higiene**: el correo personal salió de la documentación y de los commits (autor `noreply`); borrada la contraseña local de QA.
 - **QA**: API 90/90 (4 tests nuevos de límite por email; los de IP usan ahora un email distinto por intento), CI en verde en todos los PRs.
+- **Backups nocturnos a Cloudflare R2** (#37, #38, aplicado el 2026-10-20): servicio cron `db-backup` (06:00 UTC) en Railway que hace `pg_dump` por la red privada, lo cifra con `age` (solo la clave pública está en Railway) y lo sube al bucket `vectra-backups`; solo un dump completo y de más de 10 KB pasa de `incoming/` a `daily/` (y a `monthly/` el día 1). Test con stubs en el CI, dentro de la imagen real. Runbook con restauración local y de producción en [`operations/db-backups.md`](operations/db-backups.md). Credenciales R2 como variables compartidas de Railway; heartbeat opcional por ahora. `vectra` tiene `watchPatterns` para no redesplegarse por cambios en `ops/db-backup/`. Al crear el servicio, Railway volvió a no fijar Wait for CI (`checkSuites`) en el primer `apply`, igual que en ADR-0008 punto 5; un segundo `apply` del mismo plan lo corrigió.
+- **Local**: `C:\Code\vectra` enlazado con `railway link` (el `apply` exige que el `.railway/` del checkout coincida con el plan revisado).
 
 ## Qué se hizo en la sesión del deploy
 
@@ -189,7 +201,13 @@ Pedida antes de cerrar RFC-0029. Dirección aprobada (degradar, no borrar) pero 
 
 ### Antes de abrir la beta al público
 
-- **Backups del Postgres de producción**: (A) confirmar en la pestaña Backups del dashboard que el plan permite los backups nativos de Railway y activar schedule diario + semanal; (B) `pg_dump` cifrado con `age` a Cloudflare R2: servicio cron `db-backup` (`ops/db-backup/`) declarado en `.railway/railway.ts` con el bucket `vectra-backups` y la clave pública `age` ya configurados; sin aplicar. Bucket, token de R2 y claves `age` creados el 2026-10-20. Falta el resto de la puesta en marcha del runbook ([`operations/db-backups.md`](operations/db-backups.md)): lifecycle, bucket lock si la cuenta lo permite (no consta en la documentación de Cloudflare), heartbeat (hoy opcional: sin `HEARTBEAT_URL` el backup corre pero un fallo no avisa; la URL es un secreto y va como variable sellada), `apply` y primera prueba de restauración. Los nativos no salen del proyecto y se pierden si se borra el volumen.
+- **Backups del Postgres de producción**: el `pg_dump` cifrado a R2 (B) **está en marcha** desde el 2026-10-20 (ver "Qué se hizo en esta sesión"). Falta, sin urgencia:
+  - Confirmar la primera ejecución (06:00 UTC del 2026-10-21) y hacer la primera prueba de restauración en local ([runbook](operations/db-backups.md)).
+  - Sellar `R2_ACCESS_KEY_ID` y `R2_SECRET_ACCESS_KEY` en el dashboard de Railway (la API no permite sellar; hoy son variables compartidas sin sellar).
+  - Borrar en Cloudflare el token de API `cfat_…` creado junto al de R2: no se usa. Las claves S3 se compartieron en la sesión; si se rotan ("Roll"), actualizar las dos variables.
+  - Reglas de lifecycle en R2 (`incoming/` 1 día, `daily/` 35, `monthly/` 400) y bucket lock si la cuenta lo permite. Sin ellas los dumps se acumulan (pocos MB al día).
+  - Monitor heartbeat y variable sellada `HEARTBEAT_URL`: hoy el backup corre sin ping, así que un fallo no avisa.
+  - (A) Backups nativos de Railway: revisar la pestaña Backups del servicio `postgres` y activar diario + semanal si el plan lo permite. Son complementarios: no salen del proyecto y se pierden si se borra el volumen.
 - **Monitor de uptime externo** sobre `GET /api/health` (exigiendo `"database":"up"`): lo crea el propietario fuera del repo. El health check de Railway solo corre al desplegar.
 - **Endpoint de borrado de cuenta**: hoy la API no lo tiene y una cuenta solo se borra con SQL a mano.
 
