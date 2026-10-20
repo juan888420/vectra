@@ -13,7 +13,7 @@ Para restaurar, **A primero** si está disponible y tiene un punto adecuado; **B
 2. Cifrado en streaming con [`age`](https://age-encryption.org) para una **clave pública** (`AGE_RECIPIENT`). La clave privada nunca entra en Railway ni en R2: sin ella, los dumps son ilegibles aunque se filtren las credenciales del bucket.
 3. Subida a `incoming/vectra-<AAAA-MM-DDTHHMMSSZ>.dump.age`. Nombre con fecha y hora UTC hasta el segundo: dos ejecuciones nunca comparten clave.
 4. Solo si todo el pipe terminó bien y el objeto supera el mínimo (`BACKUP_MIN_BYTES`, 10 KB por defecto) se copia a `daily/` (y a `monthly/` el día 1) y se borra de `incoming/`.
-5. Solo después de esa promoción, ping al heartbeat. **Si el heartbeat no llega, el backup de ese día no existe.**
+5. Solo después de esa promoción, ping al heartbeat. **Si el heartbeat no llega, el backup de ese día no existe.** Mientras `HEARTBEAT_URL` no exista, el backup se hace igual pero sin ping: un fallo no avisa a nadie, y solo se detecta revisando los logs del servicio o el bucket.
 
 Si algo falla, el script sale con error, no promueve nada, no hace ping e intenta borrar su objeto de `incoming/`; la regla de lifecycle de `incoming/` lo limpia si ese borrado también falla. `ops/db-backup/test/backup.test.sh` lo comprueba con stubs, y el CI lo ejecuta dentro de la imagen real.
 
@@ -25,7 +25,7 @@ Si algo falla, el script sale con error, no promueve nada, no hace ping e intent
 4. **Bucket lock**, si la cuenta lo permite: retención de 30 días en `daily/` y `monthly/` (siempre menor que su lifecycle), para que unas credenciales robadas no puedan borrar los backups recientes. **Nunca en `incoming/`**: el script necesita borrar ahí.
 5. **Par de claves `age`** en una máquina de confianza: `age-keygen -o vectra-backup.key`. La línea `# public key: age1...` es `AGE_RECIPIENT`. El archivo `vectra-backup.key` (clave privada) va al gestor de contraseñas y a una copia offline; nunca al repositorio ni a Railway. **Si se pierde, los backups no sirven.**
 6. **Monitor heartbeat** en el servicio de uptime, esperando un ping diario con un margen de unas horas. **Su URL es un secreto**: quien la tenga puede dar por hecho un backup que no existió, y el repositorio es público.
-7. **Variables compartidas selladas** en el entorno `production` de Railway (dashboard): `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` y `HEARTBEAT_URL`. Se escriben en una sola línea y no se listan nunca por valor (ADR-0008, "Variables"). Si falta alguna, la referencia queda vacía y `backup.sh` se niega a correr.
+7. **Variables compartidas selladas** en el entorno `production` de Railway (dashboard): `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` y `HEARTBEAT_URL`. Se escriben en una sola línea y no se listan nunca por valor (ADR-0008, "Variables"). Si falta alguna de R2, la referencia queda vacía y `backup.sh` se niega a correr; si falta `HEARTBEAT_URL`, corre sin ping.
 8. **Valores no secretos** en `.railway/railway.ts`: `R2_ENDPOINT`, `R2_BUCKET` y `AGE_RECIPIENT`. Si se rota la clave `age`, se cambia aquí `AGE_RECIPIENT`; los backups anteriores siguen necesitando la clave privada antigua.
 9. `railway config plan`, revisarlo, y `railway config apply`.
 10. Comprobar la primera ejecución (objeto en `daily/`, ping recibido) y hacer la primera prueba de restauración en local.
