@@ -8,7 +8,7 @@ Vectra es un **personal finance tracker**: usuarios individuales registran trans
 
 ## Estado actual del proyecto
 
-**Pre-código, stack ya definido.** Solo existe documentación y estructura base; el stack técnico ya está confirmado (ver abajo). No generes componentes, endpoints, migraciones ni ningún artefacto de aplicación hasta que el usuario lo pida explícitamente, y cuando lo pida, cíñete al stack confirmado.
+**En producción en Railway, beta cerrada.** El estado detallado y los pendientes viven en [`docs/resumen.md`](../docs/resumen.md). Cualquier cambio se ciñe al stack confirmado (ver abajo).
 
 ## Stack técnico
 
@@ -17,7 +17,7 @@ Confirmado en [`docs/decisions/0001-tech-stack.md`](../docs/decisions/0001-tech-
 - **Frontend**: React 19 + TypeScript + Vite, Tailwind CSS v4 + shadcn/ui, React Router v7, TanStack Query, React Hook Form + Zod, Framer Motion, Recharts, Lucide React, Sonner.
 - **Backend**: Fastify + TypeScript, Prisma + PostgreSQL, JWT + Refresh Tokens, bcrypt, Zod.
 - **DevOps/Testing**: Docker/Docker Compose, ESLint/Prettier/Husky/lint-staged, Vitest + Testing Library + Supertest.
-- **Deploy**: Vercel (frontend), Railway (backend), Neon o Railway PostgreSQL (DB).
+- **Deploy**: un único servicio en Railway que sirve el SPA y el API desde el mismo origen, con PostgreSQL en Railway ([ADR-0008](../docs/decisions/0008-single-service-deploy.md), que supersede la sección de deploy de ADR-0001).
 - **Extras**: OpenAPI/Swagger para el contrato de la API.
 
 Ver el ADR-0001 para el detalle completo y el rol de cada tecnología. Cualquier implementación futura debe ceñirse a este stack; no introducir alternativas sin un ADR nuevo.

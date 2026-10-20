@@ -187,6 +187,12 @@ Pedida antes de cerrar RFC-0029. Dirección aprobada (degradar, no borrar) pero 
 
 > Los dos ítems de pulido visual que quedaban abiertos desde el cierre de RFC-0028 (el tinte de _Entretenimiento_ leyendo rojizo en oscuro, y el botón "Mostrar archivadas/os" huérfano) quedaron **resueltos** por las Fases C y E de RFC-0029 respectivamente — ver "Estado" arriba.
 
+### Antes de abrir la beta al público
+
+- **Backups del Postgres de producción**: (A) confirmar en la pestaña Backups del dashboard que el plan permite los backups nativos de Railway y activar schedule diario + semanal; (B) `pg_dump` programado a un destino cifrado fuera de Railway, con restauración probada en local. Los nativos no salen del proyecto y se pierden si se borra el volumen.
+- **Monitor de uptime externo** sobre `GET /api/health` (exigiendo `"database":"up"`): lo crea el propietario fuera del repo. El health check de Railway solo corre al desplegar.
+- **Endpoint de borrado de cuenta**: hoy la API no lo tiene y una cuenta solo se borra con SQL a mano.
+
 ### Funcionalidad pendiente (analizada, no construida)
 
 6. **Métricas "¿cuánto dinero me queda?" a 6 y 12 meses** — hoy `incomeCoverage.remainingMonthly` solo existe a nivel mensual.
@@ -210,6 +216,8 @@ Pedida antes de cerrar RFC-0029. Dirección aprobada (degradar, no borrar) pero 
 19. **Las tablas `accounts`, `transactions`, `budgets`, `recurring_transactions` quedan en Postgres sin ningún endpoint que las lea o escriba** — dato residual aceptado a propósito por ADR-0007. Una futura limpieza de schema es un RFC aparte, no decidido todavía.
 20. **`recharts` está en `apps/web/package.json` sin ningún consumidor** — lo necesitaría el comparador de escenarios (ítem 8) si se construye.
 21. **`StatCard`'s `TONE_BADGE_CLASSNAME` no tiene consumidor**: ningún llamado a `ProjectionStatCards`/`StatCard` pasa la prop `badge`. Se corrigió igual en Fase E (tokens semánticos en vez de Tailwind hardcodeado) porque era la corrección correcta si alguna vez se usa, pero sigue siendo código sin caller real.
+
+- **`.claude/CLAUDE.md` describe el producto como un tracker de transacciones, cuentas y presupuestos**, no de escenarios (ADR-0004, ADR-0007). El estado y el deploy ya están al día; esa sección no.
 
 ### Decisiones de producto sin resolver (a propósito, no ahora)
 
