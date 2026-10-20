@@ -39,8 +39,8 @@ export default defineRailway((ctx) => {
   });
 
   // Nightly encrypted pg_dump to Cloudflare R2, off Railway
-  // (docs/operations/db-backups.md). Values marked <SET_ME> are filled in by
-  // the owner before the first apply; backup.sh refuses to run with them.
+  // (docs/operations/db-backups.md). backup.sh refuses to run while any
+  // variable below is empty, e.g. a shared variable not created yet.
   const backup = service("db-backup", {
     source: github("juan888420/vectra", { branch: "main", checkSuites: true }),
     build: {
@@ -58,13 +58,15 @@ export default defineRailway((ctx) => {
     env: {
       DATABASE_URL: db.env.DATABASE_URL,
       // Sealed shared variables created in the Railway dashboard, like JWT_SECRET.
+      // The heartbeat URL is one too: anyone who has it can report a backup
+      // that never happened, and this repository is public.
       R2_ACCESS_KEY_ID: ctx.shared.R2_ACCESS_KEY_ID,
       R2_SECRET_ACCESS_KEY: ctx.shared.R2_SECRET_ACCESS_KEY,
-      R2_ENDPOINT: "<SET_ME: https://<account_id>.r2.cloudflarestorage.com>",
-      R2_BUCKET: "<SET_ME: bucket name>",
+      HEARTBEAT_URL: ctx.shared.HEARTBEAT_URL,
+      R2_ENDPOINT: "https://ebf46ef0a40d612ba1a64f20e1bce191.r2.cloudflarestorage.com",
+      R2_BUCKET: "vectra-backups",
       // Public key only: the private key never enters Railway or R2.
-      AGE_RECIPIENT: "<SET_ME: age1... public key>",
-      HEARTBEAT_URL: "<SET_ME: heartbeat ping URL>",
+      AGE_RECIPIENT: "age12uqmqn9axjhcmldtftrkrd8ty23qt23cpgam3swq99czlf8adfvqnm9e42",
     },
   });
 

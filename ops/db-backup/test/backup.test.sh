@@ -100,6 +100,13 @@ check "promotes one object to daily/" test "$(objects_in daily)" -eq 1
 check "leaves nothing in incoming/" test "$(objects_in incoming)" -eq 0
 check "pings the heartbeat once" test "$(grep -c '^curl .*https://heartbeat.invalid/ping' "$work/calls.log")" -eq 1
 
+echo "successful run without a heartbeat URL"
+setup
+status="$(run_backup STUB_DUMP_BYTES=20480 HEARTBEAT_URL=)"
+check "exits successfully" test "$status" -eq 0
+check "promotes one object to daily/" test "$(objects_in daily)" -eq 1
+check "does not call curl" eval '! pinged'
+
 if ((failures > 0)); then
   echo "$failures check(s) failed; output of the last run:"
   cat "$work/output.log"

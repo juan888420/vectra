@@ -5,7 +5,7 @@
 # pg_dump streams through age (encrypted to a public key; the private key never
 # reaches Railway or R2) into incoming/ on R2. Only a complete upload above the
 # minimum size is promoted to daily/ (and monthly/ on the 1st), and only a
-# promotion pings the heartbeat. A failed run leaves nothing in daily/ and
+# promotion pings the heartbeat, when HEARTBEAT_URL is set. A failed run leaves nothing in daily/ and
 # deletes its incoming/ object; a 1-day lifecycle rule on incoming/ covers the
 # case where that delete fails too.
 set -euo pipefail
@@ -13,7 +13,9 @@ set -euo pipefail
 require() {
   local name
   for name in "$@"; do
-    # Placeholders in .railway/railway.ts look like "<SET_ME: ...>".
+    # Placeholders in .railway/railway.ts look like "<SET_ME: ...>"; a sealed
+    # shared variable that does not exist yet resolves to an empty value.
+    # Only the name is printed: some of these are secrets.
     if [[ -z "${!name:-}" || "${!name}" == *"<SET_ME"* ]]; then
       echo "error: $name is not set" >&2
       exit 64
@@ -21,7 +23,9 @@ require() {
   done
 }
 
-require DATABASE_URL AGE_RECIPIENT R2_ENDPOINT R2_BUCKET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY HEARTBEAT_URL
+require DATABASE_URL AGE_RECIPIENT R2_ENDPOINT R2_BUCKET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY
+# Optional for now: without it a failed run goes unnoticed (runbook).
+heartbeat_url="${HEARTBEAT_URL:-}"
 
 min_bytes="${BACKUP_MIN_BYTES:-10240}"
 
@@ -66,5 +70,10 @@ if [[ "${stamp:8:2}" == "01" ]]; then
 fi
 rclone deletefile "$incoming" || echo "warning: promoted, but could not delete $incoming" >&2
 
-curl -fsS --max-time 10 --retry 3 --output /dev/null "$HEARTBEAT_URL"
 echo "backup ${name} promoted (${size} bytes)"
+if [[ -n "$heartbeat_url" ]]; then
+  # HEARTBEAT_URL is a secret: curl's errors name the host, never the full URL.
+  curl -fsS --max-time 10 --retry 3 --output /dev/null "$heartbeat_url"
+else
+  echo "warning: HEARTBEAT_URL is not set; no heartbeat sent" >&2
+fi
