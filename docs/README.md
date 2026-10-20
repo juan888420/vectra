@@ -24,6 +24,9 @@
   - [`0007-retire-ledger-surface.md`](decisions/0007-retire-ledger-surface.md): retiro de Cuentas/Transacciones/Presupuestos/Reports/Dashboard de la experiencia de producto (`accepted`).
   - [`0008-single-service-deploy.md`](decisions/0008-single-service-deploy.md): SPA y API en un único servicio y mismo origen; migraciones en el paso de release (`accepted`, supersede el deploy de ADR-0001).
 
+- **`operations/`** — runbooks de producción.
+  - [`db-backups.md`](operations/db-backups.md): backups de la base de datos (nativos de Railway y `pg_dump` cifrado a R2), prueba de restauración en local y restauración de producción.
+
 - **`glossary.md`** — términos de dominio financiero usados de forma consistente en todo el proyecto.
 
 ## Convenciones de esta carpeta
