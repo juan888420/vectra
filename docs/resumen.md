@@ -163,7 +163,7 @@ Pedida antes de cerrar RFC-0029. Dirección aprobada (degradar, no borrar) pero 
 ### Pendiente inmediato
 
 1. **`vectra-logo.png` (973KB, 1024×1024) quedó en el repo sin ningún consumidor** tras optimizarse a `vectra-mark.png` (128px, 28,8KB) en Fase E. No se borró porque eliminar un asset de marca sin que lo pidan es el movimiento arriesgado — decisión pendiente del usuario.
-2. **Rate limiting por IP detrás del CDN de Railway** (antes de abrir la beta): medir el `X-Forwarded-For` crudo y, previsiblemente, limitar `login`/`register` también por email. Ver ADR-0008, "IP del cliente y rate limiting".
+2. **Rate limiting por IP detrás del CDN de Railway** (antes de abrir la beta): medir el `X-Forwarded-For` crudo (diferido). El límite por email en `login` (10 fallos cada 15 min) está implementado; `register` sigue solo por IP. Ver ADR-0008, "IP del cliente y rate limiting".
 3. ~~**Borrar la cuenta de QA** de producción~~ — **resuelto** (2026-10-19): borrada con SQL desde el dashboard (la API no tiene endpoint para borrar cuentas).
 4. **Wait for CI**: falta verlo retener un commit con el CI en rojo. Si la deriva vuelve, branch protection en `main`.
 5. **`vectra_dev` sin `20261013120000_refresh_token_rotation_chain`**: aplicarla con `prisma migrate deploy` antes de volver a usar el servidor local.
